@@ -1,0 +1,2 @@
+ALTER TABLE "invites" DROP CONSTRAINT "invites_redeemed_pair_consistent";--> statement-breakpoint
+ALTER TABLE "invites" ADD CONSTRAINT "invites_redeemed_by_implies_redeemed_at" CHECK ("invites"."redeemed_by" is null or "invites"."redeemed_at" is not null);

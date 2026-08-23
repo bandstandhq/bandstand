@@ -6,10 +6,8 @@ import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import type { AuthVariables, BandVariables } from '../lib/bandAuthz';
 import { requireAuth, requireBandRole } from '../lib/bandAuthz';
-
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505';
-}
+import { isUniqueViolation } from '../lib/pgErrors';
+import { inviteManagementRoute } from './invites';
 
 export const bandsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -80,5 +78,7 @@ bandScoped.get('/members', requireBandRole('member'), async (c) => {
     .where(eq(bandMembers.bandId, bandId));
   return c.json(rows);
 });
+
+bandScoped.route('/invites', inviteManagementRoute);
 
 bandsRoute.route('/:bandId', bandScoped);
