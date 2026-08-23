@@ -6,6 +6,7 @@ import { Button, Input } from '@bandstand/ui';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
 import { useBandDoc } from '../hooks/useBandDoc';
@@ -63,6 +64,7 @@ export function Repertoire() {
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-xl font-medium">{t('repertoire.title')}</h1>
         <div className="flex gap-2">
+          {doc && <ExportRepertoire doc={doc} />}
           {doc && (
             <ImportSongs
               doc={doc}
