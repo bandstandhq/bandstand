@@ -52,11 +52,11 @@ structured data without decoding a Yjs document.
   aren't. Check this ADR (or `docs/ARCHITECTURE.md`) before reaching for
   Yjs on a new feature; it's the right tool specifically for concurrent,
   offline-capable collaborative editing, not a default.
-- Band-membership authorization on the Hocuspocus WebSocket connection is
+- Band-membership authorization on the Hocuspocus WebSocket connection was
   a known gap in Milestone 0 (checked via a valid session/JWT only, not
-  "is this user actually in this band") — tracked as
-  [bandstandhq/bandstand#1](https://github.com/bandstandhq/bandstand/issues/1),
-  not silently shipped.
+  "is this user actually in this band") — tracked and closed as
+  [bandstandhq/bandstand#1](https://github.com/bandstandhq/bandstand/issues/1)
+  in Milestone 1.
 - The snapshot being derived-not-authoritative means a bug in
   `yDocToSnapshot` can produce a stale/wrong snapshot without corrupting
   the real data — recoverable by re-deriving from the Yjs state — but also

@@ -98,9 +98,10 @@ browsers use better-auth's cookie session; the Capacitor/Tauri-wrapped
 contexts use the `jwt()`/`bearer()` plugins instead, since cross-origin
 cookies are unreliable inside `capacitor://`/`tauri://` WebViews. Hocuspocus
 authenticates each WebSocket connection via the same session/bearer lookup
-(`apps/server/src/lib/hocuspocus.ts`'s `onAuthenticate`) — currently it
-verifies the token only, not band membership; see
-[bandstandhq/bandstand#1](https://github.com/bandstandhq/bandstand/issues/1).
+(`apps/server/src/lib/hocuspocus.ts`'s `onAuthenticate`), then checks that
+the authenticated user is actually a member of the requested band
+(`documentName` is the `bandId`) via the same `getBandMembership` helper
+REST routes use — a non-member's connection is rejected outright.
 
 ## Where things live
 

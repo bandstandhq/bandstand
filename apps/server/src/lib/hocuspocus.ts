@@ -6,10 +6,10 @@
 // already provides. `documentName` is the bandId; band_docs.band_id is the
 // persistence key for the Database extension below.
 //
-// M0 scope: onAuthenticate verifies the better-auth session/JWT via the
-// bearer plugin. It does NOT yet check that the authenticated user is a
-// member of the requested band — see the `security`-labeled GitHub issue
-// filed for that gap.
+// onAuthenticate verifies the better-auth session/JWT via the bearer
+// plugin, then checks that the authenticated user is actually a member of
+// the requested band (documentName === bandId) — closes
+// https://github.com/bandstandhq/bandstand/issues/1.
 import { bandSnapshotSchema, yDocToSnapshot } from '@bandstand/core';
 import { Database } from '@hocuspocus/extension-database';
 import { Server } from '@hocuspocus/server';
@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { bandDocs } from '../db/schema/index';
 import { auth } from './auth';
+import { getBandMembership } from './bandAuthz';
 
 export const hocuspocusServer = new Server({
   port: Number(process.env.HOCUSPOCUS_PORT ?? 3002),
@@ -29,7 +30,12 @@ export const hocuspocusServer = new Server({
       throw new Error('Unauthorized');
     }
 
-    return { userId: session.user.id, bandId: documentName };
+    const membership = await getBandMembership(documentName, session.user.id);
+    if (!membership) {
+      throw new Error('Forbidden: not a member of this band');
+    }
+
+    return { userId: session.user.id, bandId: documentName, bandRole: membership.role };
   },
   extensions: [
     new Database({
