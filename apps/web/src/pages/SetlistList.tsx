@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useIsWideScreen } from '../hooks/useIsWideScreen';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -81,6 +82,8 @@ export function SetlistList() {
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const [name, setName] = useState('');
   const [viewMode, setViewMode] = useState<SetlistViewMode>('list');
+  const isWideScreen = useIsWideScreen();
+  const effectiveViewMode: SetlistViewMode = isWideScreen ? viewMode : 'list';
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => setViewMode(prefs.setlistViewMode));
@@ -110,9 +113,11 @@ export function SetlistList() {
 
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-xl font-medium">{t('setlistList.title')}</h1>
-        <Button type="button" variant="outline" className="hidden lg:inline-flex" onClick={toggleViewMode}>
-          {viewMode === 'board' ? t('setlistList.listView') : t('setlistList.boardView')}
-        </Button>
+        {isWideScreen && (
+          <Button type="button" variant="outline" onClick={toggleViewMode}>
+            {viewMode === 'board' ? t('setlistList.listView') : t('setlistList.boardView')}
+          </Button>
+        )}
       </div>
 
       <form onSubmit={handleCreate} className="mt-4 flex gap-2">
@@ -129,55 +134,34 @@ export function SetlistList() {
 
       {entries.length === 0 || !doc ? (
         <p className="mt-6 text-sm text-muted-foreground">{t('setlistList.noSetlists')}</p>
+      ) : effectiveViewMode === 'board' ? (
+        <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
+          {entries.map(([setlistId, setlist]) => (
+            <SetlistCard
+              key={setlistId}
+              doc={doc}
+              bandId={bandId}
+              setlistId={setlistId}
+              setlist={setlist}
+              songs={songs}
+              variant="board"
+            />
+          ))}
+        </div>
       ) : (
-        <>
-          {/* Always list below the board breakpoint, regardless of the stored preference. */}
-          <ul className="mt-6 space-y-2 lg:hidden">
-            {entries.map(([setlistId, setlist]) => (
-              <SetlistCard
-                key={setlistId}
-                doc={doc}
-                bandId={bandId}
-                setlistId={setlistId}
-                setlist={setlist}
-                songs={songs}
-                variant="list"
-              />
-            ))}
-          </ul>
-
-          <div className="hidden lg:block">
-            {viewMode === 'board' ? (
-              <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
-                {entries.map(([setlistId, setlist]) => (
-                  <SetlistCard
-                    key={setlistId}
-                    doc={doc}
-                    bandId={bandId}
-                    setlistId={setlistId}
-                    setlist={setlist}
-                    songs={songs}
-                    variant="board"
-                  />
-                ))}
-              </div>
-            ) : (
-              <ul className="mt-6 space-y-2">
-                {entries.map(([setlistId, setlist]) => (
-                  <SetlistCard
-                    key={setlistId}
-                    doc={doc}
-                    bandId={bandId}
-                    setlistId={setlistId}
-                    setlist={setlist}
-                    songs={songs}
-                    variant="list"
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
+        <ul className="mt-6 space-y-2">
+          {entries.map(([setlistId, setlist]) => (
+            <SetlistCard
+              key={setlistId}
+              doc={doc}
+              bandId={bandId}
+              setlistId={setlistId}
+              setlist={setlist}
+              songs={songs}
+              variant="list"
+            />
+          ))}
+        </ul>
       )}
     </main>
   );

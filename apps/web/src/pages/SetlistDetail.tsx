@@ -64,10 +64,14 @@ function PoolSongCard({ songId, song }: { songId: string; song: Song }) {
 }
 
 function SortableSetlistItem({
+  bandId,
+  setlistId,
   item,
   song,
   onRemove,
 }: {
+  bandId: string;
+  setlistId: string;
   item: SetlistItem;
   song: Song | undefined;
   onRemove: () => void;
@@ -97,6 +101,12 @@ function SortableSetlistItem({
       <span {...attributes} {...listeners} className="flex-1 cursor-grab">
         {label}
       </span>
+      <Link
+        to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
+        className="mr-3 text-xs text-primary hover:underline"
+      >
+        {t('setlistDetail.play')}
+      </Link>
       <button type="button" onClick={onRemove} className="text-xs text-muted-foreground hover:underline">
         {t('setlistDetail.remove')}
       </button>
@@ -193,6 +203,8 @@ export function SetlistDetail() {
                     {items.map((item) => (
                       <SortableSetlistItem
                         key={item.id}
+                        bandId={bandId}
+                        setlistId={setlistId}
                         item={item}
                         song={item.type === 'song' ? songs[item.songId] : undefined}
                         onRemove={() => handleRemove(item.id)}
