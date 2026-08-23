@@ -123,6 +123,9 @@ importers:
       '@bandstand/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@bandstand/chords':
+        specifier: workspace:*
+        version: link:../../packages/chords
       '@bandstand/core':
         specifier: workspace:*
         version: link:../../packages/core

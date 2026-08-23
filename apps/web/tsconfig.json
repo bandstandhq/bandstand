@@ -9,6 +9,7 @@
   "references": [
     { "path": "../../packages/ui" },
     { "path": "../../packages/core" },
-    { "path": "../../packages/api-client" }
+    { "path": "../../packages/api-client" },
+    { "path": "../../packages/chords" }
   ]
 }

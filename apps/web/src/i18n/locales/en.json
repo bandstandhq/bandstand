@@ -59,7 +59,31 @@
     "archive": "Archive",
     "restore": "Restore",
     "noSongs": "No songs match.",
-    "noSongsAtAll": "No songs yet."
+    "noSongsAtAll": "No songs yet.",
+    "newSong": "New song",
+    "edit": "Edit"
+  },
+  "songEditor": {
+    "backNew": "Back to repertoire",
+    "titleNew": "New song",
+    "titleEdit": "Edit song",
+    "title": "Title",
+    "artist": "Artist",
+    "key": "Key",
+    "keyError": "Must be a musical key like \"C\", \"F#m\", or \"Bb\"",
+    "bpm": "BPM",
+    "tapTempo": "Tap tempo",
+    "duration": "Duration (seconds)",
+    "status": "Status",
+    "statusIdea": "Idea",
+    "statusActive": "Active",
+    "statusArchived": "Archived",
+    "bandNotes": "Band notes",
+    "chordProBody": "ChordPro",
+    "preview": "Preview",
+    "previewError": "Couldn't parse this ChordPro content.",
+    "save": "Save",
+    "saveError": "Couldn't save — check the fields above."
   },
   "bandSettings": {
     "back": "Back to dashboard",
