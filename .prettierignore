@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+.turbo/
+pnpm-lock.yaml
+apps/mobile/ios/
+apps/mobile/android/
+apps/desktop/src-tauri/target/

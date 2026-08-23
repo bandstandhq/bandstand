@@ -1,0 +1,34 @@
+{
+  "name": "bandstand",
+  "private": true,
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:infra": "docker compose -f docker/compose.yml up -d --wait",
+    "dev:infra:down": "docker compose -f docker/compose.yml down",
+    "db:migrate": "pnpm --filter @bandstand/server db:migrate",
+    "dev": "pnpm dev:infra && pnpm db:migrate && turbo run dev --filter=@bandstand/web --filter=@bandstand/server",
+    "seed": "pnpm --filter @bandstand/server seed",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "license:check": "node tools/check-license-headers.mjs",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.11",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  }
+}

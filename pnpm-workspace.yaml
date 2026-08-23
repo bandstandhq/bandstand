@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10+ blocks native postinstall scripts by default. This stack pulls in
+# esbuild (via Vite/tsup/tsx) and @tailwindcss/oxide (Tailwind v4's Rust
+# engine) transitively, both of which need their native build step approved
+# or things silently break at runtime (e.g. Tailwind v4 failing to load its
+# oxide binding). `pnpm approve-builds --all` regenerated the allowBuilds
+# block below; onlyBuiltDependencies pre-approves it for a fresh clone too.
+allowBuilds:
+  esbuild: true
+
+onlyBuiltDependencies:
+  - esbuild
+  - "@tailwindcss/oxide"

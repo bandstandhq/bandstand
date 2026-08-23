@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+storybook-static/
+
+# native wrapper build outputs (config is checked in, generated projects are not)
+apps/mobile/ios/
+apps/mobile/android/
+apps/desktop/src-tauri/target/
+
+# docker volumes bind-mounted for local persistence
+docker/.data/
