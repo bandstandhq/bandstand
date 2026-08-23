@@ -10,18 +10,6 @@ import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import { getBandMembership } from './bandAuthz';
 
-// TEMP debug
-const _u = new URL(process.env.DATABASE_URL ?? 'postgres://missing');
-console.error(
-  'TEMP DEBUG DATABASE_URL as seen inside vitest process:',
-  JSON.stringify({
-    passType: typeof _u.password,
-    passLen: _u.password.length,
-    user: _u.username,
-    host: _u.hostname,
-  }),
-);
-
 async function createTestUserAndBand(role: 'owner' | 'admin' | 'member') {
   const suffix = randomUUID();
   const [user] = await db

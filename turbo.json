@@ -32,7 +32,8 @@
     "test:integration": {
       "dependsOn": ["^build"],
       "cache": false,
-      "outputs": []
+      "outputs": [],
+      "env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "WEB_ORIGIN"]
     },
     "test:e2e": {
       "dependsOn": ["build"],
