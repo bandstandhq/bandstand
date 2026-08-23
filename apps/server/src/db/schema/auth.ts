@@ -3,14 +3,16 @@
 // better-auth's own tables. Not part of the original data-model sketch —
 // additive, required by the drizzleAdapter for session/account/verification
 // storage and by the jwt() plugin for signing keys. `users.id` and every id
-// column below are real Postgres uuids, so better-auth is configured (see
-// apps/server/src/lib/auth.ts, added when auth is wired up) to generate ids
-// via crypto.randomUUID() rather than its non-uuid default.
+// column below are real Postgres uuids. apps/server/src/lib/auth.ts sets
+// `advanced.database.generateId: 'uuid'`, which for Postgres means
+// better-auth omits `id` from its insert payloads entirely and leaves it to
+// each table's `defaultRandom()` (`gen_random_uuid()`) below — every table
+// it writes to needs that default, not just `users`.
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const sessions = pgTable('sessions', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
@@ -23,12 +25,15 @@ export const sessions = pgTable('sessions', {
 });
 
 export const accounts = pgTable('accounts', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
+  // The stable provider-side key (with accountId) better-auth uses to
+  // recognize an account, e.g. "local:credential" for email/password.
+  issuer: text('issuer').notNull(),
   password: text('password'),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
@@ -41,7 +46,7 @@ export const accounts = pgTable('accounts', {
 });
 
 export const verifications = pgTable('verifications', {
-  id: uuid('id').primaryKey(),
+  id: uuid('id').defaultRandom().primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -51,9 +56,17 @@ export const verifications = pgTable('verifications', {
 
 // Signing keys for the jwt() plugin (needed so mobile/desktop wrappers can
 // authenticate without relying on cross-origin cookies — see docs/adr).
-export const jwks = pgTable('jwks', {
-  id: uuid('id').primaryKey(),
+// better-auth's internal model name for this table is itself "jwks", and
+// the drizzleAdapter's `usePlural: true` naively appends "s" to whatever
+// model name it looks up — so it looks for a schema export named "jwkss".
+// The exported binding is named to match that; the actual SQL table name
+// (first arg to pgTable) stays the sane "jwks".
+export const jwkss = pgTable('jwks', {
+  id: uuid('id').defaultRandom().primaryKey(),
   publicKey: text('public_key').notNull(),
   privateKey: text('private_key').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  alg: text('alg'),
+  crv: text('crv'),
 });

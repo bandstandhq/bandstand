@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN "issuer" text NOT NULL;

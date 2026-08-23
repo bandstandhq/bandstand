@@ -8,6 +8,34 @@
       "when": 1787498278702,
       "tag": "0000_slippery_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787499467740,
+      "tag": "0001_wild_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787499696734,
+      "tag": "0002_wild_nightcrawler",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787499779025,
+      "tag": "0003_old_black_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787499936964,
+      "tag": "0004_soft_photon",
+      "breakpoints": true
     }
   ]
 }
