@@ -83,7 +83,12 @@
     "preview": "Preview",
     "previewError": "Couldn't parse this ChordPro content.",
     "save": "Save",
-    "saveError": "Couldn't save — check the fields above."
+    "saveError": "Couldn't save — check the fields above.",
+    "transposeSong": "Transpose song",
+    "transposeSongHint": "Moves the key and every chord together, for everyone in the band.",
+    "personalTranspose": "My view only",
+    "personalTransposeHint": "Shifts the preview for you only — never saved to the song.",
+    "transposeSemitones": "{{semitones}} semitones"
   },
   "bandSettings": {
     "back": "Back to dashboard",

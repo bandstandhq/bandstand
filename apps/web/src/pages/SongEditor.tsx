@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { addSong, getDefaultVoiceId, setSongStatus, updateSong, updateVoiceBody } from '@bandstand/core';
 import type { Song, SongStatus, Voice } from '@bandstand/core';
-import { buildRenderModel, parseChordPro } from '@bandstand/chords';
+import { buildRenderModel, formatChordPro, parseChordPro, transposeChordPro } from '@bandstand/chords';
 import type { RenderModel } from '@bandstand/chords';
 import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
+import { apiClient } from '../lib/api-client';
 
 function TapTempo({ onBpm }: { onBpm: (bpm: number) => void }) {
   const { t } = useTranslation();
@@ -38,15 +39,26 @@ function TapTempo({ onBpm }: { onBpm: (bpm: number) => void }) {
   );
 }
 
-function ChordProPreview({ body }: { body: string }) {
+function ChordProPreview({
+  body,
+  baseKey,
+  personalTranspose,
+}: {
+  body: string;
+  baseKey: string;
+  personalTranspose: number;
+}) {
   const { t } = useTranslation();
   const model: RenderModel | null = useMemo(() => {
     try {
-      return buildRenderModel(parseChordPro(body));
+      const parsed = parseChordPro(body);
+      // View-only — the actual song/voice being edited never sees this.
+      const displayed = personalTranspose !== 0 ? transposeChordPro(parsed, personalTranspose, { key: baseKey }) : parsed;
+      return buildRenderModel(displayed);
     } catch {
       return null;
     }
-  }, [body]);
+  }, [body, baseKey, personalTranspose]);
 
   if (!model) {
     return <p className="text-sm text-destructive">{t('songEditor.previewError')}</p>;
@@ -102,6 +114,30 @@ export function SongEditor() {
   const [bandNotes, setBandNotes] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [personalTranspose, setPersonalTranspose] = useState(0);
+
+  useEffect(() => {
+    apiClient.getMyPrefs().then((prefs) => setPersonalTranspose(prefs.personalTranspose));
+  }, []);
+
+  function handlePersonalTransposeChange(delta: number) {
+    const next = personalTranspose + delta;
+    setPersonalTranspose(next);
+    apiClient.updateMyPrefs({ personalTranspose: next }).catch(() => {
+      // Best-effort — the view already reflects `next`; a failed save just
+      // means it won't persist for next time, not worth blocking on.
+    });
+  }
+
+  function handleTransposeSong(delta: number) {
+    try {
+      const transposed = transposeChordPro(parseChordPro(body), delta, { key });
+      setKey(transposed.key ?? key);
+      setBody(formatChordPro(transposed));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   // One-time load of the existing song/voice into editable local state —
   // deliberately NOT re-synced on every remote Yjs change afterward, so a
@@ -174,7 +210,16 @@ export function SongEditor() {
               <label htmlFor="song-key" className="text-sm text-muted-foreground">
                 {t('songEditor.key')}
               </label>
-              <Input id="song-key" required value={key} onChange={(e) => setKey(e.target.value)} />
+              <div className="flex gap-2">
+                <Input id="song-key" required value={key} onChange={(e) => setKey(e.target.value)} />
+                <Button type="button" variant="outline" size="sm" onClick={() => handleTransposeSong(-1)}>
+                  −1
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => handleTransposeSong(1)}>
+                  +1
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">{t('songEditor.transposeSongHint')}</p>
             </div>
             <div className="space-y-1">
               <label htmlFor="song-bpm" className="text-sm text-muted-foreground">
@@ -248,9 +293,22 @@ export function SongEditor() {
         </div>
 
         <div>
-          <p className="mb-2 text-sm text-muted-foreground">{t('songEditor.preview')}</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{t('songEditor.preview')}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{t('songEditor.personalTranspose')}</span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => handlePersonalTransposeChange(-1)}>
+                −1
+              </Button>
+              <span className="text-xs tabular-nums">{t('songEditor.transposeSemitones', { semitones: personalTranspose })}</span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => handlePersonalTransposeChange(1)}>
+                +1
+              </Button>
+            </div>
+          </div>
+          <p className="mb-2 text-xs text-muted-foreground">{t('songEditor.personalTransposeHint')}</p>
           <div className="rounded-md border border-border p-4">
-            <ChordProPreview body={body} />
+            <ChordProPreview body={body} baseKey={key} personalTranspose={personalTranspose} />
           </div>
         </div>
       </form>
