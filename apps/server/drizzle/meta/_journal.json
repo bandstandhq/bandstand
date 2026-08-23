@@ -57,6 +57,13 @@
       "when": 1787512374611,
       "tag": "0007_absent_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787516535320,
+      "tag": "0008_regular_gunslinger",
+      "breakpoints": true
     }
   ]
 }

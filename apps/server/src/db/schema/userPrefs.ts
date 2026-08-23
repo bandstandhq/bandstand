@@ -15,4 +15,7 @@ export const userPrefs = pgTable('user_prefs', {
   textSize: text('text_size').notNull().default('medium'),
   boldText: boolean('bold_text').notNull().default(false),
   chordColor: text('chord_color').notNull().default('#3b82f6'),
+  // 'board' | 'list' — always list below the board breakpoint regardless
+  // of this, per the brief; validated in packages/core's userPrefsSchema.
+  setlistViewMode: text('setlist_view_mode').notNull().default('list'),
 });

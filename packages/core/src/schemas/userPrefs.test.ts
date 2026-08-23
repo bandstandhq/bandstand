@@ -18,6 +18,14 @@ describe('userPrefsSchema', () => {
   it('accepts a negative personalTranspose (down-transposition)', () => {
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, personalTranspose: -3 })).not.toThrow();
   });
+
+  it('rejects an unknown setlistViewMode', () => {
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, setlistViewMode: 'grid' })).toThrow();
+  });
+
+  it('accepts board as a setlistViewMode', () => {
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, setlistViewMode: 'board' })).not.toThrow();
+  });
 });
 
 describe('updateUserPrefsInputSchema', () => {

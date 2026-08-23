@@ -8,6 +8,11 @@ export type Theme = z.infer<typeof themeSchema>;
 export const textSizeSchema = z.enum(['small', 'medium', 'large', 'xlarge']);
 export type TextSize = z.infer<typeof textSizeSchema>;
 
+// Always list below the board breakpoint regardless of this — see the
+// brief's "Listenansicht ... auf Mobilgeräten immer".
+export const setlistViewModeSchema = z.enum(['board', 'list']);
+export type SetlistViewMode = z.infer<typeof setlistViewModeSchema>;
+
 export const userPrefsSchema = z.object({
   // Applies to every song for this user; view-only, never written back to
   // the song's stored key (see docs/ARCHITECTURE.md).
@@ -16,6 +21,7 @@ export const userPrefsSchema = z.object({
   textSize: textSizeSchema,
   boldText: z.boolean(),
   chordColor: z.string().min(1),
+  setlistViewMode: setlistViewModeSchema,
 });
 export type UserPrefs = z.infer<typeof userPrefsSchema>;
 
@@ -28,4 +34,5 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
   textSize: 'medium',
   boldText: false,
   chordColor: '#3b82f6',
+  setlistViewMode: 'list',
 };
