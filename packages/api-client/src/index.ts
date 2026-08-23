@@ -8,6 +8,8 @@ import type {
   Invite,
   RedeemInviteInput,
   RenameBandInput,
+  UpdateUserPrefsInput,
+  UserPrefs,
 } from '@bandstand/core';
 
 interface ApiError {
@@ -62,6 +64,11 @@ export function createApiClient(baseUrl: string) {
         method: 'POST',
         body: JSON.stringify(input),
       }),
+
+    getMyPrefs: () => request<UserPrefs>(baseUrl, '/me/prefs'),
+
+    updateMyPrefs: (input: UpdateUserPrefsInput) =>
+      request<UserPrefs>(baseUrl, '/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
   };
 }
 
