@@ -13,6 +13,13 @@
     "offline": "Offline",
     "songCount": "{{count}} song in the band doc",
     "songCount_other": "{{count}} songs in the band doc",
-    "logout": "Log out"
+    "logout": "Log out",
+    "noBandSelected": "Select or create a band to get started."
+  },
+  "bandSwitcher": {
+    "label": "Active band",
+    "newBandPlaceholder": "Band name",
+    "createBand": "Create band",
+    "creating": "Creating…"
   }
 }

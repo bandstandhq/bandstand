@@ -14,6 +14,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bandstand/api-client": "workspace:*",
+    "@bandstand/core": "workspace:*",
     "@bandstand/ui": "workspace:*",
     "@hocuspocus/provider": "^4.6.0",
     "better-auth": "^1.7.1",
@@ -24,7 +26,8 @@
     "react-i18next": "^17.0.12",
     "react-router": "^8.3.0",
     "y-indexeddb": "^9.0.12",
-    "yjs": "^13.6.32"
+    "yjs": "^13.6.32",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
