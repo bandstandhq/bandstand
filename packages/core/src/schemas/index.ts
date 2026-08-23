@@ -2,3 +2,5 @@
 export * from './song';
 export * from './setlist';
 export * from './setlistItem';
+export * from './band';
+export * from './invite';
