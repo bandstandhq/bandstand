@@ -27,14 +27,19 @@ Zod-validated version of this):
 
 ```
 Y.Map "songs"                → songId → { title, artist, key, bpm,
-                                           durationSec, status, body
-                                           (ChordPro), bandNotes, links,
-                                           votes }
+                                           durationSec, status, bandNotes,
+                                           links, votes }
+Y.Map "voices"                → voiceId → { songId, name, body (ChordPro) }
 Y.Map "setlists"              → setlistId → { name, eventDate?, updatedAt }
 Y.Array "items:<setlistId>"   → ordered list of { id, type, songId?,
                                                    breakMinutes?,
                                                    overrideKey? }
 ```
+
+A song's ChordPro content lives on a voice, not the song itself — see
+[ADR-0004](adr/0004-parts-and-anchors.md). Milestone 1 always creates
+exactly one voice per song (at `getDefaultVoiceId(songId)`), but the
+model doesn't assume that stays true.
 
 Order within a setlist is carried entirely by the `Y.Array`'s own
 ordering — never by a position/index field on the item — so concurrent

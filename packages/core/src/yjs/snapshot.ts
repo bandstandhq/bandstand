@@ -2,6 +2,7 @@
 import * as Y from 'yjs';
 import { z } from 'zod';
 import { songSchema } from '../schemas/song';
+import { voiceSchema } from '../schemas/voice';
 import { setlistSchema } from '../schemas/setlist';
 import { setlistItemSchema } from '../schemas/setlistItem';
 
@@ -11,6 +12,7 @@ import { setlistItemSchema } from '../schemas/setlistItem';
 // read from — never the source of truth (the Yjs doc is).
 export const bandSnapshotSchema = z.object({
   songs: z.record(z.string(), songSchema),
+  voices: z.record(z.string(), voiceSchema),
   setlists: z.record(z.string(), setlistSchema.extend({ items: z.array(setlistItemSchema) })),
 });
 
@@ -26,6 +28,7 @@ const itemsKey = (setlistId: string) => `items:${setlistId}`;
  */
 export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
   const songs = doc.getMap('songs').toJSON();
+  const voices = doc.getMap('voices').toJSON();
   const rawSetlists = doc.getMap('setlists').toJSON() as Record<string, unknown>;
 
   const setlists: Record<string, unknown> = {};
@@ -36,7 +39,7 @@ export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
     };
   }
 
-  return bandSnapshotSchema.parse({ songs, setlists });
+  return bandSnapshotSchema.parse({ songs, voices, setlists });
 }
 
 /**
@@ -51,6 +54,11 @@ export function snapshotToYDoc(snapshot: BandSnapshot): Y.Doc {
   const songsMap = doc.getMap('songs');
   for (const [songId, song] of Object.entries(parsed.songs)) {
     songsMap.set(songId, song);
+  }
+
+  const voicesMap = doc.getMap('voices');
+  for (const [voiceId, voice] of Object.entries(parsed.voices)) {
+    voicesMap.set(voiceId, voice);
   }
 
   const setlistsMap = doc.getMap('setlists');

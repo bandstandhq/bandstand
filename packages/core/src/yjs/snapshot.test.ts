@@ -13,7 +13,6 @@ const sampleSnapshot: BandSnapshot = {
       bpm: 87,
       durationSec: 258,
       status: 'active',
-      body: '{title: Wonderwall}',
       bandNotes: '',
       links: [],
       votes: { u1: 'up' },
@@ -25,11 +24,14 @@ const sampleSnapshot: BandSnapshot = {
       bpm: 92,
       durationSec: 238,
       status: 'idea',
-      body: '{title: Creep}',
       bandNotes: 'maybe for the encore',
       links: ['https://example.com/creep'],
       votes: {},
     },
+  },
+  voices: {
+    'voice:s1': { songId: 's1', name: 'Default', body: '{title: Wonderwall}' },
+    'voice:s2': { songId: 's2', name: 'Default', body: '{title: Creep}' },
   },
   setlists: {
     'sl1': {

@@ -10,6 +10,8 @@ export const songStatusSchema = z.enum(['idea', 'active', 'archived']);
 
 export const voteSchema = z.enum(['up', 'down']);
 
+// No `body` field — a song's ChordPro content lives on a voice (see
+// schemas/voice.ts and docs/adr/0004-parts-and-anchors.md), not here.
 export const songSchema = z.object({
   title: z.string().min(1),
   artist: z.string(),
@@ -17,7 +19,6 @@ export const songSchema = z.object({
   bpm: z.number().int().positive(),
   durationSec: z.number().int().nonnegative(),
   status: songStatusSchema,
-  body: z.string(), // ChordPro
   bandNotes: z.string(),
   links: z.array(z.string()),
   votes: z.record(z.string(), voteSchema),
