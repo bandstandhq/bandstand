@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Band, BandMember, BandRole, CreateBandInput, RenameBandInput } from '@bandstand/core';
+import type {
+  Band,
+  BandMember,
+  BandRole,
+  CreateBandInput,
+  CreateInviteInput,
+  Invite,
+  RedeemInviteInput,
+  RenameBandInput,
+} from '@bandstand/core';
 
 interface ApiError {
   error: string;
@@ -36,6 +45,23 @@ export function createApiClient(baseUrl: string) {
 
     listBandMembers: (bandId: string) =>
       request<BandMember[]>(baseUrl, `/bands/${bandId}/members`),
+
+    createInvite: (bandId: string, input: CreateInviteInput) =>
+      request<Invite>(baseUrl, `/bands/${bandId}/invites`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+
+    listInvites: (bandId: string) => request<Invite[]>(baseUrl, `/bands/${bandId}/invites`),
+
+    revokeInvite: (bandId: string, inviteId: string) =>
+      request<Invite>(baseUrl, `/bands/${bandId}/invites/${inviteId}/revoke`, { method: 'POST' }),
+
+    redeemInvite: (input: RedeemInviteInput) =>
+      request<{ band: Band; role: BandRole }>(baseUrl, '/invites/redeem', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
   };
 }
 
