@@ -9,6 +9,7 @@ import { SetlistDetail } from './pages/SetlistDetail';
 import { SetlistList } from './pages/SetlistList';
 import { Signup } from './pages/Signup';
 import { SongEditor } from './pages/SongEditor';
+import { StageMode } from './pages/StageMode';
 
 export function AppRouter() {
   return (
@@ -24,6 +25,7 @@ export function AppRouter() {
         <Route path="/bands/:bandId/songs/:songId/edit" element={<SongEditor />} />
         <Route path="/bands/:bandId/setlists" element={<SetlistList />} />
         <Route path="/bands/:bandId/setlists/:setlistId" element={<SetlistDetail />} />
+        <Route path="/bands/:bandId/setlists/:setlistId/stage/:itemId" element={<StageMode />} />
         <Route path="/join/:code" element={<JoinBand />} />
       </Routes>
     </BrowserRouter>

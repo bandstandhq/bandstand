@@ -62,7 +62,16 @@
     "breakMinutes": "Break ({{minutes}} min)",
     "addFinale": "Add finale",
     "finale": "Finale",
-    "remove": "Remove"
+    "remove": "Remove",
+    "play": "Play"
+  },
+  "stageMode": {
+    "exit": "Exit",
+    "previous": "Previous",
+    "next": "Next",
+    "breakMinutes": "Break — {{minutes}} min",
+    "finale": "Finale",
+    "positionCount": "{{current}} / {{total}}"
   },
   "bandSwitcher": {
     "label": "Active band",

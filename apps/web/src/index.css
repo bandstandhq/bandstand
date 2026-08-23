@@ -10,3 +10,25 @@
  * forgiving and can mask the gap).
  */
 @source '../../../packages/ui/src';
+
+/* Stage Mode's item-to-item transition — a plain media query, not
+   Tailwind's motion-safe: variant, so it's unambiguous that reduced
+   motion genuinely disables the animation rather than just not adding it. */
+@keyframes stage-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.stage-item-transition {
+  animation: stage-fade-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-item-transition {
+    animation: none;
+  }
+}
