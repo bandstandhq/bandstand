@@ -6,10 +6,5 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
-  "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/chords" },
-    { "path": "../../packages/ui" },
-    { "path": "../../packages/api-client" }
-  ]
+  "references": [{ "path": "../../packages/ui" }]
 }
