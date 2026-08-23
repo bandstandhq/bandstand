@@ -47,6 +47,27 @@ is Apache-2.0. `apps/server` is AGPL-3.0-or-later. See the README's
 `fix:`, `chore:`, `docs:`, etc. Small, self-contained commits are preferred
 over one big one.
 
+## Git workflow
+
+`main` is protected: no direct pushes, PRs required, required status checks
+must pass, no force-push. For every change:
+
+```bash
+git switch main && git pull
+git switch -c <prefix>/<short-name>   # feat/, fix/, chore/, docs/, refactor/, test/
+# small Conventional Commits
+git push -u origin <prefix>/<short-name>
+gh pr create --fill                    # fill in the PR template's test plan
+gh pr checks --watch
+gh pr merge --squash --delete-branch
+git switch main && git pull
+```
+
+One PR per logical change, not a batch PR bundling several unrelated
+things — this keeps review and revert scoped to one change at a time.
+Merges are always squash (repo setting; the other merge methods are
+disabled), and the source branch is deleted automatically on merge.
+
 ## Definition of Done
 
 A change is done when:
@@ -61,6 +82,8 @@ A change is done when:
   (context, options considered, decision, consequences — see existing ones
   for the format).
 - UI changes were actually looked at in a browser, not just typechecked.
+- It's on its own branch and PR per the "Git workflow" section above, and
+  all required status checks are green before merging.
 
 ## Adding a feature end-to-end (example shape)
 
