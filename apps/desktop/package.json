@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "node -e \"if (!require('node:fs').existsSync('../web/dist')) { console.error('apps/web must be built first'); process.exit(1); }\"",
+    "build:native": "tauri build",
+    "dev:native": "tauri dev",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
   }
 }
