@@ -7,6 +7,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { IdeaVoting } from '../components/IdeaVoting';
+import { ImportSongs } from '../components/ImportSongs';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -22,6 +23,7 @@ export function Repertoire() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [members, setMembers] = useState<BandMember[]>([]);
+  const [importedMessage, setImportedMessage] = useState<string | null>(null);
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user.id;
 
@@ -60,10 +62,22 @@ export function Repertoire() {
 
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-xl font-medium">{t('repertoire.title')}</h1>
-        <Link to={`/bands/${bandId}/songs/new`}>
-          <Button>{t('repertoire.newSong')}</Button>
-        </Link>
+        <div className="flex gap-2">
+          {doc && (
+            <ImportSongs
+              doc={doc}
+              onImported={(count) => {
+                setImportedMessage(t('chordProImport.imported', { count }));
+                setTimeout(() => setImportedMessage(null), 4000);
+              }}
+            />
+          )}
+          <Link to={`/bands/${bandId}/songs/new`}>
+            <Button>{t('repertoire.newSong')}</Button>
+          </Link>
+        </div>
       </div>
+      {importedMessage && <p className="mt-2 text-sm text-primary">{importedMessage}</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input

@@ -63,6 +63,19 @@
     "newSong": "New song",
     "edit": "Edit"
   },
+  "chordProImport": {
+    "openButton": "Import ChordPro",
+    "dropHint": "Drag ChordPro files here, or",
+    "browse": "browse",
+    "parseError": "Couldn't parse this file — skipped.",
+    "previewTitle": "Review before importing",
+    "remove": "Remove",
+    "import": "Import {{count}} song",
+    "import_other": "Import {{count}} songs",
+    "cancel": "Cancel",
+    "imported": "Imported {{count}} song.",
+    "imported_other": "Imported {{count}} songs."
+  },
   "ideaVoting": {
     "up": "Up",
     "down": "Down",
