@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bandstand
+      POSTGRES_PASSWORD: bandstand
+      POSTGRES_DB: bandstand
+    ports:
+      - "5432:5432"
+    volumes:
+      - bandstand-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bandstand -d bandstand"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI
+
+volumes:
+  bandstand-postgres:
