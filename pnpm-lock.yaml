@@ -89,7 +89,11 @@ importers:
 
   packages/api-client: {}
 
-  packages/chords: {}
+  packages/chords:
+    dependencies:
+      chordsheetjs:
+        specifier: ^15.6.2
+        version: 15.6.2
 
   packages/core:
     dependencies:
@@ -1331,6 +1335,15 @@ packages:
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
+
+  chordsheetjs@15.6.2:
+    resolution: {integrity: sha512-12pzwpsesDvpHX+UuNjCfVp7p91NL/7osY43Ix8HlytUq4s8YOgZqWlLGL1EjvfcB0sp2Dgj2jEs/4c4swF6xA==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      jspdf: ^4.0.0
+    peerDependenciesMeta:
+      jspdf:
+        optional: true
 
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
@@ -3080,6 +3093,8 @@ snapshots:
   chokidar@4.0.3:
     dependencies:
       readdirp: 4.1.2
+
+  chordsheetjs@15.6.2: {}
 
   commander@4.1.1: {}
 
