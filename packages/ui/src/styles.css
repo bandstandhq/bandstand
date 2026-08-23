@@ -1,2 +1,53 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Shared theme tokens land here once the neutral dark design system is built (Milestone 0, step 8). */
+
+/*
+ * Neutral, dark-first theme. Dark is the default (`:root`) because the
+ * Stage Mode screen — the app's most important surface — needs high
+ * contrast in a dim rehearsal-room/venue setting; light is an explicit
+ * opt-in via `.light` on the root element, not the other way around.
+ */
+:root {
+  --background: oklch(0.16 0.01 260);
+  --foreground: oklch(0.96 0.01 260);
+  --card: oklch(0.2 0.01 260);
+  --card-foreground: oklch(0.96 0.01 260);
+  --primary: oklch(0.72 0.15 250);
+  --primary-foreground: oklch(0.16 0.01 260);
+  --muted-foreground: oklch(0.65 0.02 260);
+  --accent: oklch(0.27 0.01 260);
+  --border: oklch(0.3 0.01 260);
+  --ring: oklch(0.72 0.15 250);
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.96 0.01 260);
+}
+
+.light {
+  --background: oklch(0.99 0.002 260);
+  --foreground: oklch(0.18 0.01 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.01 260);
+  --primary: oklch(0.5 0.15 250);
+  --primary-foreground: oklch(0.99 0.002 260);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --accent: oklch(0.94 0.005 260);
+  --border: oklch(0.88 0.005 260);
+  --ring: oklch(0.5 0.15 250);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0.002 260);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}

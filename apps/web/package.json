@@ -14,17 +14,26 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bandstand/ui": "workspace:*",
     "@hocuspocus/provider": "^4.6.0",
+    "better-auth": "^1.7.1",
+    "i18next": "^26.4.0",
+    "i18next-browser-languagedetector": "^8.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.12",
+    "react-router": "^8.3.0",
     "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.32"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.1.0",
+    "tailwindcss": "^4.3.3",
     "vite": "^8.2.2",
     "ws": "^8.21.3"
   }

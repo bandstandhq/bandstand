@@ -1,0 +1,18 @@
+{
+  "login": {
+    "title": "Log in to Bandstand",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Log in",
+    "error": "Couldn't log in with those credentials."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "offline": "Offline",
+    "songCount": "{{count}} song in the band doc",
+    "songCount_other": "{{count}} songs in the band doc",
+    "logout": "Log out"
+  }
+}
