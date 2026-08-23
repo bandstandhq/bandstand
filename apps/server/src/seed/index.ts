@@ -4,7 +4,7 @@
 // two demo users, one band, 12 songs with real ChordPro content, two
 // setlists. Idempotent: re-running it after the demo band already exists
 // just reports that and exits, rather than erroring on unique constraints.
-import { yDocToSnapshot } from '@bandstand/core';
+import { getDefaultVoiceId, yDocToSnapshot } from '@bandstand/core';
 import * as Y from 'yjs';
 import { eq } from 'drizzle-orm';
 import { auth } from '../lib/auth';
@@ -55,12 +55,18 @@ async function main() {
 
   const doc = new Y.Doc();
   const songsMap = doc.getMap('songs');
-  for (const [songId, songData] of Object.entries(seedSongs)) {
-    songsMap.set(songId, songData);
+  const voicesMap = doc.getMap('voices');
+  for (const [songId, seedSong] of Object.entries(seedSongs)) {
+    songsMap.set(songId, seedSong.song);
+    voicesMap.set(getDefaultVoiceId(songId), {
+      songId,
+      name: 'Default',
+      body: seedSong.body,
+    });
   }
 
   const activeSongIds = Object.entries(seedSongs)
-    .filter(([, s]) => s.status === 'active')
+    .filter(([, s]) => s.song.status === 'active')
     .map(([id]) => id);
 
   const setlistsMap = doc.getMap('setlists');

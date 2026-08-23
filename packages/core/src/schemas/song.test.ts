@@ -9,7 +9,6 @@ const validSong = {
   bpm: 87,
   durationSec: 258,
   status: 'active' as const,
-  body: '{title: Wonderwall}\n[Em7]Today is [G]gonna be the day',
   bandNotes: '',
   links: [],
   votes: {},

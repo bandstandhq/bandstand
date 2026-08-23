@@ -5,11 +5,19 @@
 // has something real to render against from the first `pnpm seed`.
 import type { Song } from '@bandstand/core';
 
-function song(partial: Omit<Song, 'bandNotes' | 'links' | 'votes'>): Song {
-  return { ...partial, bandNotes: '', links: [], votes: {} };
+export interface SeedSong {
+  song: Song;
+  // ChordPro content for the song's one implicit voice — see
+  // docs/adr/0004-parts-and-anchors.md for why this isn't on Song itself.
+  body: string;
 }
 
-export const seedSongs: Record<string, Song> = {
+function song(partial: Omit<Song, 'bandNotes' | 'links' | 'votes'> & { body: string }): SeedSong {
+  const { body, ...meta } = partial;
+  return { song: { ...meta, bandNotes: '', links: [], votes: {} }, body };
+}
+
+export const seedSongs: Record<string, SeedSong> = {
   'song-amazing-grace': song({
     title: 'Amazing Grace',
     artist: 'Traditional',
