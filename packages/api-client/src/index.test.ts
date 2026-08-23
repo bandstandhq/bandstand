@@ -48,6 +48,17 @@ describe('createApiClient', () => {
     await expect(client.listBandMembers('band-1')).rejects.toThrow('Forbidden');
   });
 
+  it('requests the right URL/method/body for updateMyPrefs', async () => {
+    mockFetchOnce({ ok: true, body: { personalTranspose: 2 } });
+    const client = createApiClient('http://api.example');
+    await client.updateMyPrefs({ personalTranspose: 2 });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/me/prefs',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ personalTranspose: 2 }) }),
+    );
+  });
+
   it('falls back to a generic message when the error body is unparseable', async () => {
     vi.stubGlobal(
       'fetch',

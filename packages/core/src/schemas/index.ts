@@ -5,3 +5,4 @@ export * from './setlist';
 export * from './setlistItem';
 export * from './band';
 export * from './invite';
+export * from './userPrefs';
