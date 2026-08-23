@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// Minimal proof of the sync path described in docs/ARCHITECTURE.md: a
-// Y.Doc backed by IndexedDB locally (works offline once loaded) and synced
-// to the server over Hocuspocus when a connection is available. No actual
-// feature (songs/setlists) reads from this doc yet — the Dashboard just
-// shows connection status and a live count, to prove the wiring works.
+// The sync path described in docs/ARCHITECTURE.md: a Y.Doc backed by
+// IndexedDB locally (works offline once loaded) and synced to the server
+// over Hocuspocus when a connection is available. See hooks/useBandDoc.ts
+// for the React-facing wrapper feature pages actually use.
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import * as Y from 'yjs';

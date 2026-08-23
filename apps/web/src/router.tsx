@@ -4,6 +4,7 @@ import { BandSettings } from './pages/BandSettings';
 import { Dashboard } from './pages/Dashboard';
 import { JoinBand } from './pages/JoinBand';
 import { Login } from './pages/Login';
+import { Repertoire } from './pages/Repertoire';
 import { Signup } from './pages/Signup';
 
 export function AppRouter() {
@@ -15,6 +16,7 @@ export function AppRouter() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/bands/:bandId/settings" element={<BandSettings />} />
+        <Route path="/bands/:bandId/repertoire" element={<Repertoire />} />
         <Route path="/join/:code" element={<JoinBand />} />
       </Routes>
     </BrowserRouter>

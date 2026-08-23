@@ -1,40 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Button } from '@bandstand/ui';
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router';
 import { BandSwitcher } from '../components/BandSwitcher';
+import { useBandDoc } from '../hooks/useBandDoc';
+import { useYMap } from '../hooks/useYMap';
 import { authClient } from '../lib/auth-client';
-import { connectBandDoc } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
 
 export function Dashboard() {
   const { t } = useTranslation();
   const { data: session, isPending } = authClient.useSession();
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
-  const [songCount, setSongCount] = useState(0);
-
-  useEffect(() => {
-    if (!session?.session.token || !activeBandId) return undefined;
-
-    const connection = connectBandDoc(activeBandId, session.session.token);
-    const { doc, provider } = connection;
-    const songs = doc.getMap('songs');
-
-    const updateCount = () => setSongCount(songs.size);
-    songs.observe(updateCount);
-    updateCount();
-
-    provider.on('synced', () => setStatus('connected'));
-    provider.on('close', () => setStatus('offline'));
-
-    return () => {
-      songs.unobserve(updateCount);
-      connection.provider.destroy();
-      connection.indexeddb.destroy();
-    };
-  }, [session?.session.token, activeBandId]);
+  const { doc, status } = useBandDoc(activeBandId);
+  const songs = useYMap(doc?.getMap('songs'));
 
   if (!isPending && !session) {
     return <Navigate to="/login" replace />;
@@ -47,9 +26,14 @@ export function Dashboard() {
         <div className="flex items-center gap-3">
           <BandSwitcher />
           {activeBandId && (
-            <Link to={`/bands/${activeBandId}/settings`}>
-              <Button variant="ghost">{t('dashboard.bandSettings')}</Button>
-            </Link>
+            <>
+              <Link to={`/bands/${activeBandId}/repertoire`}>
+                <Button variant="ghost">{t('dashboard.repertoire')}</Button>
+              </Link>
+              <Link to={`/bands/${activeBandId}/settings`}>
+                <Button variant="ghost">{t('dashboard.bandSettings')}</Button>
+              </Link>
+            </>
           )}
           <Button variant="outline" onClick={() => authClient.signOut()}>
             {t('dashboard.logout')}
@@ -65,7 +49,9 @@ export function Dashboard() {
                 ? t('dashboard.offline')
                 : t('dashboard.connecting')}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.songCount', { count: songCount })}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('dashboard.songCount', { count: Object.keys(songs).length })}
+          </p>
         </>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>

@@ -34,13 +34,32 @@
     "songCount_other": "{{count}} songs in the band doc",
     "logout": "Log out",
     "noBandSelected": "Select or create a band to get started.",
-    "bandSettings": "Band settings"
+    "bandSettings": "Band settings",
+    "repertoire": "Repertoire"
   },
   "bandSwitcher": {
     "label": "Active band",
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
     "creating": "Creating…"
+  },
+  "repertoire": {
+    "back": "Back to dashboard",
+    "title": "Repertoire",
+    "searchPlaceholder": "Search title, artist, or key",
+    "statusFilter": "Status",
+    "statusAll": "All",
+    "statusIdea": "Idea",
+    "statusActive": "Active",
+    "statusArchived": "Archived",
+    "columnTitle": "Title",
+    "columnArtist": "Artist",
+    "columnKey": "Key",
+    "columnStatus": "Status",
+    "archive": "Archive",
+    "restore": "Restore",
+    "noSongs": "No songs match.",
+    "noSongsAtAll": "No songs yet."
   },
   "bandSettings": {
     "back": "Back to dashboard",
