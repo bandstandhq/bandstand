@@ -245,7 +245,7 @@ function InviteRow({
 
   useEffect(() => {
     if (status !== 'open') return;
-    const redeemUrl = `${window.location.origin}/redeem?code=${invite.code}`;
+    const redeemUrl = `${window.location.origin}/join/${invite.code}`;
     QRCode.toDataURL(redeemUrl, { margin: 1, width: 96 }).then(setQrDataUrl);
   }, [status, invite.code]);
 
