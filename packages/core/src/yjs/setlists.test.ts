@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: Apache-2.0
+import * as Y from 'yjs';
+import { describe, expect, it } from 'vitest';
+import type { Song } from '../schemas/song';
+import type { SetlistItem } from '../schemas/setlistItem';
+import { itemsKey } from './snapshot';
+import {
+  addSetlistItem,
+  buildBreakItem,
+  buildFinaleItem,
+  buildSongItem,
+  createSetlist,
+  deleteSetlist,
+  duplicateSetlist,
+  getSetlistStats,
+  moveSetlistItem,
+  removeSetlistItem,
+  renameSetlist,
+} from './setlists';
+
+describe('createSetlist / renameSetlist', () => {
+  it('creates a setlist with the given name', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Open Mic Night', '2026-09-12');
+
+    const setlist = doc.getMap('setlists').get(setlistId) as Record<string, unknown>;
+    expect(setlist.name).toBe('Open Mic Night');
+    expect(setlist.eventDate).toBe('2026-09-12');
+  });
+
+  it('renames and bumps updatedAt', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Draft');
+    const before = (doc.getMap('setlists').get(setlistId) as { updatedAt: number }).updatedAt;
+
+    renameSetlist(doc, setlistId, 'Final Set');
+
+    const after = doc.getMap('setlists').get(setlistId) as { name: string; updatedAt: number };
+    expect(after.name).toBe('Final Set');
+    expect(after.updatedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('throws renaming a nonexistent setlist', () => {
+    const doc = new Y.Doc();
+    expect(() => renameSetlist(doc, 'missing', 'x')).toThrow('Setlist not found');
+  });
+});
+
+describe('item builders + addSetlistItem', () => {
+  it('appends song/break/finale items in order', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+
+    addSetlistItem(doc, setlistId, buildSongItem('song-1'));
+    addSetlistItem(doc, setlistId, buildBreakItem(15));
+    addSetlistItem(doc, setlistId, buildSongItem('song-2', 'D'));
+    addSetlistItem(doc, setlistId, buildFinaleItem());
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => i.type)).toEqual(['song', 'break', 'song', 'finale']);
+    expect(items[2]).toMatchObject({ songId: 'song-2', overrideKey: 'D' });
+  });
+});
+
+describe('removeSetlistItem', () => {
+  it('removes exactly the matching item by id', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    const a = buildSongItem('song-a');
+    const b = buildSongItem('song-b');
+    addSetlistItem(doc, setlistId, a);
+    addSetlistItem(doc, setlistId, b);
+
+    removeSetlistItem(doc, setlistId, a.id);
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => i.id)).toEqual([b.id]);
+  });
+
+  it('is a no-op for an unknown item id', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    addSetlistItem(doc, setlistId, buildSongItem('song-a'));
+
+    expect(() => removeSetlistItem(doc, setlistId, 'nonexistent')).not.toThrow();
+    expect(doc.getArray(itemsKey(setlistId)).length).toBe(1);
+  });
+});
+
+describe('moveSetlistItem', () => {
+  it('reorders items via the Y.Array, not a position field', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    const a = buildSongItem('a');
+    const b = buildSongItem('b');
+    const c = buildSongItem('c');
+    addSetlistItem(doc, setlistId, a);
+    addSetlistItem(doc, setlistId, b);
+    addSetlistItem(doc, setlistId, c);
+
+    moveSetlistItem(doc, setlistId, c.id, 0);
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => i.id)).toEqual([c.id, a.id, b.id]);
+  });
+
+  it('is a no-op moving to the same index', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    const a = buildSongItem('a');
+    addSetlistItem(doc, setlistId, a);
+
+    moveSetlistItem(doc, setlistId, a.id, 0);
+    expect(doc.getArray(itemsKey(setlistId)).length).toBe(1);
+  });
+});
+
+describe('duplicateSetlist', () => {
+  it('copies name and item order, drops eventDate, assigns fresh item ids', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Original', '2026-01-01');
+    const original = buildSongItem('song-1');
+    addSetlistItem(doc, setlistId, original);
+
+    const copyId = duplicateSetlist(doc, setlistId);
+
+    const copy = doc.getMap('setlists').get(copyId) as { name: string; eventDate?: string };
+    expect(copy.name).toBe('Original');
+    expect(copy.eventDate).toBeUndefined();
+
+    const copiedItems = doc.getArray(itemsKey(copyId)).toJSON() as SetlistItem[];
+    expect(copiedItems).toHaveLength(1);
+    expect(copiedItems[0]).toMatchObject({ type: 'song', songId: 'song-1' });
+    expect(copiedItems[0]!.id).not.toBe(original.id);
+  });
+});
+
+describe('deleteSetlist', () => {
+  it('removes the setlist entry and clears its items array', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Temp');
+    addSetlistItem(doc, setlistId, buildSongItem('song-1'));
+
+    deleteSetlist(doc, setlistId);
+
+    expect(doc.getMap('setlists').has(setlistId)).toBe(false);
+    expect(doc.getArray(itemsKey(setlistId)).length).toBe(0);
+  });
+});
+
+describe('getSetlistStats', () => {
+  const songs: Record<string, Song> = {
+    's1': { title: 'A', artist: '', key: 'C', bpm: 120, durationSec: 200, status: 'active', bandNotes: '', links: [], votes: {} },
+    's2': { title: 'B', artist: '', key: 'C', bpm: 120, durationSec: 250, status: 'active', bandNotes: '', links: [], votes: {} },
+  };
+
+  it('sums song durations and break minutes, counts only songs', () => {
+    const items: SetlistItem[] = [
+      buildSongItem('s1'),
+      buildBreakItem(15),
+      buildSongItem('s2'),
+      buildFinaleItem(),
+    ];
+
+    const stats = getSetlistStats(items, songs);
+    expect(stats.songCount).toBe(2);
+    expect(stats.totalDurationSec).toBe(200 + 15 * 60 + 250);
+  });
+
+  it('treats a missing song lookup as zero duration rather than throwing', () => {
+    const stats = getSetlistStats([buildSongItem('unknown-song')], songs);
+    expect(stats.songCount).toBe(1);
+    expect(stats.totalDurationSec).toBe(0);
+  });
+});
