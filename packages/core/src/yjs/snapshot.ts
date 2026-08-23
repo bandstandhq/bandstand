@@ -18,7 +18,8 @@ export const bandSnapshotSchema = z.object({
 
 export type BandSnapshot = z.infer<typeof bandSnapshotSchema>;
 
-const itemsKey = (setlistId: string) => `items:${setlistId}`;
+/** The `items:<setlistId>` Y.Array naming convention — shared with yjs/setlists.ts. */
+export const itemsKey = (setlistId: string) => `items:${setlistId}`;
 
 /**
  * Reads the documented per-band Yjs shape (`songs` Y.Map, `setlists` Y.Map,
