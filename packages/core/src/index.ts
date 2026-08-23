@@ -2,3 +2,4 @@
 export * from './schemas';
 export * from './yjs';
 export * from './invites/code';
+export * from './bands/slug';

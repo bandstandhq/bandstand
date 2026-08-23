@@ -15,5 +15,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint ."
+  },
+  "dependencies": {
+    "@bandstand/core": "workspace:*"
   }
 }
