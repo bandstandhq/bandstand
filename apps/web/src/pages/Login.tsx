@@ -2,12 +2,13 @@
 import { Button, Input } from '@bandstand/ui';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { authClient } from '../lib/auth-client';
 
 export function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
@@ -20,7 +21,7 @@ export function Login() {
       setError(true);
       return;
     }
-    navigate('/dashboard');
+    navigate(searchParams.get('next') ?? '/dashboard');
   }
 
   return (
@@ -58,6 +59,12 @@ export function Login() {
         <Button type="submit" className="w-full">
           {t('login.submit')}
         </Button>
+        <p className="text-sm text-muted-foreground">
+          {t('login.noAccount')}{' '}
+          <Link to="/signup" className="underline">
+            {t('login.signUp')}
+          </Link>
+        </p>
       </form>
     </main>
   );

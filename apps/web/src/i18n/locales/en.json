@@ -4,7 +4,26 @@
     "email": "Email",
     "password": "Password",
     "submit": "Log in",
-    "error": "Couldn't log in with those credentials."
+    "error": "Couldn't log in with those credentials.",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up"
+  },
+  "signup": {
+    "title": "Create your Bandstand account",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign up",
+    "error": "Couldn't create an account with those details.",
+    "haveAccount": "Already have an account?"
+  },
+  "joinBand": {
+    "title": "Join a band",
+    "codeLabel": "Joining with invite code {{code}}",
+    "signUpAndJoin": "Sign up and join",
+    "redeeming": "Joining the band…",
+    "error": "Couldn't redeem this invite code.",
+    "logInInstead": "Log in instead"
   },
   "dashboard": {
     "title": "Dashboard",
