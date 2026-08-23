@@ -173,7 +173,11 @@ importers:
         specifier: ^8.21.3
         version: 8.21.3
 
-  packages/api-client: {}
+  packages/api-client:
+    dependencies:
+      '@bandstand/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/chords:
     dependencies:

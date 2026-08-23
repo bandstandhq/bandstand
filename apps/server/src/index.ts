@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from './lib/auth';
 import { hocuspocusServer } from './lib/hocuspocus';
+import { bandsRoute } from './routes/bands';
 import { health } from './routes/health';
 
 const app = new Hono();
@@ -17,6 +18,7 @@ app.use(
 );
 
 app.route('/health', health);
+app.route('/bands', bandsRoute);
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
 const port = Number(process.env.PORT ?? 3001);
