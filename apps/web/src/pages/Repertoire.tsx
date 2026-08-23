@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { archiveSong, restoreSong } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
-import { Input } from '@bandstand/ui';
+import { Button, Input } from '@bandstand/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
@@ -44,7 +44,12 @@ export function Repertoire() {
         &larr; {t('repertoire.back')}
       </Link>
 
-      <h1 className="mt-4 text-xl font-medium">{t('repertoire.title')}</h1>
+      <div className="mt-4 flex items-center justify-between">
+        <h1 className="text-xl font-medium">{t('repertoire.title')}</h1>
+        <Link to={`/bands/${bandId}/songs/new`}>
+          <Button>{t('repertoire.newSong')}</Button>
+        </Link>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Input
@@ -88,7 +93,10 @@ export function Repertoire() {
                 <td className="py-1 pr-4">{song.artist}</td>
                 <td className="py-1 pr-4">{song.key}</td>
                 <td className="py-1 pr-4">{song.status}</td>
-                <td className="py-1 text-right">
+                <td className="space-x-3 py-1 text-right">
+                  <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
+                    {t('repertoire.edit')}
+                  </Link>
                   {song.status === 'archived' ? (
                     <button
                       type="button"

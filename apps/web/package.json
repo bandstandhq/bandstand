@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@bandstand/api-client": "workspace:*",
+    "@bandstand/chords": "workspace:*",
     "@bandstand/core": "workspace:*",
     "@bandstand/ui": "workspace:*",
     "@hocuspocus/provider": "^4.6.0",
