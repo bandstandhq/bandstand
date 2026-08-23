@@ -2,3 +2,4 @@
 export * from './parse';
 export * from './transpose';
 export * from './render';
+export * from './format';
