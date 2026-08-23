@@ -20,3 +20,5 @@ apps/desktop/src-tauri/target/
 
 # docker volumes bind-mounted for local persistence
 docker/.data/
+
+*storybook.log

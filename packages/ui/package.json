@@ -9,7 +9,8 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./theme.css": "./src/theme.css"
   },
   "scripts": {
     "build": "tsc -b",
@@ -29,7 +30,13 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "^10.5.10",
+    "@storybook/addon-docs": "^10.5.10",
+    "@storybook/react-vite": "^10.5.10",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
-    "react": "^19.2.8"
+    "react": "^19.2.8",
+    "storybook": "^10.5.10",
+    "tailwindcss": "^4.3.3"
   }
 }

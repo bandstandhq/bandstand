@@ -1,0 +1,22 @@
+{
+  "name": "Bandstand",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [5173, 3001, 3002, 8025, 5432],
+  "portsAttributes": {
+    "5173": { "label": "Web (Vite)" },
+    "3001": { "label": "API (Hono)" },
+    "3002": { "label": "Hocuspocus (WebSocket)" },
+    "8025": { "label": "Mailpit UI" },
+    "5432": { "label": "Postgres" }
+  },
+  "postCreateCommand": "corepack enable && cp -n .env.example .env && pnpm install",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "bradlc.vscode-tailwindcss"]
+    }
+  },
+  "remoteUser": "node"
+}
