@@ -70,4 +70,6 @@ jobs:
       # already overrides every value that matters for these tests.
       - run: pnpm ensure-env
       - run: pnpm --filter @bandstand/server db:migrate
+      - name: TEMP debug - inspect DATABASE_URL as seen by a plain node process
+        run: node -e "const u = new URL(process.env.DATABASE_URL); console.log(JSON.stringify({protocol: u.protocol, user: u.username, passType: typeof u.password, passLen: u.password.length, host: u.hostname, port: u.port, db: u.pathname}))"
       - run: pnpm turbo run test:integration --filter=@bandstand/server
