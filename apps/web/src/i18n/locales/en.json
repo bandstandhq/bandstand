@@ -76,6 +76,10 @@
     "imported": "Imported {{count}} song.",
     "imported_other": "Imported {{count}} songs."
   },
+  "repertoireExport": {
+    "chordProButton": "Export ChordPro",
+    "jsonButton": "Export JSON"
+  },
   "ideaVoting": {
     "up": "Up",
     "down": "Down",
