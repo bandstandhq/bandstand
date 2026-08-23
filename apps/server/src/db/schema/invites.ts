@@ -19,9 +19,9 @@ import { users } from './users';
 //     AND expires_at > now()
 //   RETURNING *;
 // Postgres's row-level MVCC guarantees only one concurrent transaction can
-// win this race — no SELECT ... FOR UPDATE needed. (Endpoint implementing
-// this is out of scope for Milestone 0; this comment documents the intended
-// query shape so it isn't lost.)
+// win this race — no SELECT ... FOR UPDATE needed. See
+// apps/server/src/routes/invites.ts for the actual endpoint, and its
+// integration test for a real concurrent-redemption race.
 export const invites = pgTable(
   'invites',
   {
@@ -36,9 +36,9 @@ export const invites = pgTable(
     label: text('label').notNull(),
     instrument: text('instrument'),
     role: bandRoleEnum('role').notNull(),
-    createdBy: uuid('created_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'set null' }),
+    // Nullable, not notNull() — onDelete: 'set null' would otherwise violate
+    // a not-null constraint the moment the creating user is deleted.
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     redeemedBy: uuid('redeemed_by').references(() => users.id, { onDelete: 'set null' }),
@@ -48,9 +48,14 @@ export const invites = pgTable(
   (table) => [
     // Case-insensitive uniqueness — redeeming is case-insensitive by spec.
     uniqueIndex('invites_code_upper_idx').on(sql`upper(${table.code})`),
+    // One-directional on purpose: redeemedBy set without redeemedAt would be
+    // a genuinely invalid state, but redeemedAt surviving after redeemedBy
+    // goes NULL (the redeeming user's account was later deleted — see its
+    // onDelete: 'set null' above) is a legitimate "was redeemed, by someone
+    // no longer known" audit state, not a bug.
     check(
-      'invites_redeemed_pair_consistent',
-      sql`(${table.redeemedAt} is null) = (${table.redeemedBy} is null)`,
+      'invites_redeemed_by_implies_redeemed_at',
+      sql`${table.redeemedBy} is null or ${table.redeemedAt} is not null`,
     ),
   ],
 );
