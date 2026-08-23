@@ -36,3 +36,38 @@ jobs:
       - run: pnpm --filter @bandstand/web exec playwright install --with-deps chromium
       - run: pnpm turbo run build --filter=@bandstand/web
       - run: pnpm turbo run test:e2e --filter=@bandstand/web
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bandstand
+          POSTGRES_PASSWORD: bandstand
+          POSTGRES_DB: bandstand
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://bandstand:bandstand@localhost:5432/bandstand
+      BETTER_AUTH_SECRET: ci-integration-test-secret-do-not-use-in-production
+      BETTER_AUTH_URL: http://localhost:3001
+      WEB_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Only needed so tsx's --env-file doesn't ENOENT — the job env above
+      # already overrides every value that matters for these tests.
+      - run: pnpm ensure-env
+      - run: pnpm --filter @bandstand/server db:migrate
+      - run: pnpm turbo run test:integration --filter=@bandstand/server

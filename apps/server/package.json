@@ -9,6 +9,7 @@
     "build": "tsup src/index.ts --format esm --platform node --target node22",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:integration": "vitest run --passWithNoTests -c vitest.integration.config.ts",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
