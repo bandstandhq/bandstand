@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: Apache-2.0
+import { archiveSong, restoreSong } from '@bandstand/core';
+import type { Song, SongStatus } from '@bandstand/core';
+import { Input } from '@bandstand/ui';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link, useParams } from 'react-router';
+import { useBandDoc } from '../hooks/useBandDoc';
+import { useYMap } from '../hooks/useYMap';
+
+type StatusFilter = 'all' | SongStatus;
+
+export function Repertoire() {
+  const { t } = useTranslation();
+  const { bandId } = useParams<{ bandId: string }>();
+  const { doc } = useBandDoc(bandId ?? null);
+  const songs = useYMap<Song>(doc?.getMap('songs'));
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  const songEntries = Object.entries(songs);
+  const query = search.trim().toLowerCase();
+  const filtered = songEntries.filter(([, song]) => {
+    if (statusFilter !== 'all' && song.status !== statusFilter) return false;
+    if (!query) return true;
+    return (
+      song.title.toLowerCase().includes(query) ||
+      song.artist.toLowerCase().includes(query) ||
+      song.key.toLowerCase().includes(query)
+    );
+  });
+
+  function handleArchive(songId: string) {
+    if (doc) archiveSong(doc, songId);
+  }
+
+  function handleRestore(songId: string) {
+    if (doc) restoreSong(doc, songId);
+  }
+
+  return (
+    <main className="min-h-screen bg-background p-6 text-foreground">
+      <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
+        &larr; {t('repertoire.back')}
+      </Link>
+
+      <h1 className="mt-4 text-xl font-medium">{t('repertoire.title')}</h1>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('repertoire.searchPlaceholder')}
+          className="w-72"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          aria-label={t('repertoire.statusFilter')}
+          className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+        >
+          <option value="all">{t('repertoire.statusAll')}</option>
+          <option value="idea">{t('repertoire.statusIdea')}</option>
+          <option value="active">{t('repertoire.statusActive')}</option>
+          <option value="archived">{t('repertoire.statusArchived')}</option>
+        </select>
+      </div>
+
+      {songEntries.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">{t('repertoire.noSongsAtAll')}</p>
+      ) : filtered.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">{t('repertoire.noSongs')}</p>
+      ) : (
+        <table className="mt-6 w-full text-sm">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="py-1 pr-4">{t('repertoire.columnTitle')}</th>
+              <th className="py-1 pr-4">{t('repertoire.columnArtist')}</th>
+              <th className="py-1 pr-4">{t('repertoire.columnKey')}</th>
+              <th className="py-1 pr-4">{t('repertoire.columnStatus')}</th>
+              <th className="py-1" />
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(([songId, song]) => (
+              <tr key={songId} className="border-t border-border">
+                <td className="py-1 pr-4">{song.title}</td>
+                <td className="py-1 pr-4">{song.artist}</td>
+                <td className="py-1 pr-4">{song.key}</td>
+                <td className="py-1 pr-4">{song.status}</td>
+                <td className="py-1 text-right">
+                  {song.status === 'archived' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(songId)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {t('repertoire.restore')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(songId)}
+                      className="text-sm text-muted-foreground hover:underline"
+                    >
+                      {t('repertoire.archive')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </main>
+  );
+}
