@@ -63,6 +63,14 @@
     "newSong": "New song",
     "edit": "Edit"
   },
+  "ideaVoting": {
+    "up": "Up",
+    "down": "Down",
+    "votesCount": "{{votes}}/{{total}} voted",
+    "promote": "Add to repertoire",
+    "archiveVote": "Archive idea",
+    "tieAdminOnly": "Tied — an admin decides"
+  },
   "songEditor": {
     "backNew": "Back to repertoire",
     "titleNew": "New song",

@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
+import type { BandMember } from '@bandstand/core';
 import { archiveSong, restoreSong } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { IdeaVoting } from '../components/IdeaVoting';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
+import { apiClient } from '../lib/api-client';
+import { authClient } from '../lib/auth-client';
 
 type StatusFilter = 'all' | SongStatus;
 
@@ -17,6 +21,16 @@ export function Repertoire() {
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [members, setMembers] = useState<BandMember[]>([]);
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user.id;
+
+  useEffect(() => {
+    if (!bandId) return;
+    apiClient.listBandMembers(bandId).then(setMembers);
+  }, [bandId]);
+
+  const isAdmin = members.some((m) => m.userId === currentUserId && (m.role === 'owner' || m.role === 'admin'));
 
   const songEntries = Object.entries(songs);
   const query = search.trim().toLowerCase();
@@ -88,34 +102,50 @@ export function Repertoire() {
           </thead>
           <tbody>
             {filtered.map(([songId, song]) => (
-              <tr key={songId} className="border-t border-border">
-                <td className="py-1 pr-4">{song.title}</td>
-                <td className="py-1 pr-4">{song.artist}</td>
-                <td className="py-1 pr-4">{song.key}</td>
-                <td className="py-1 pr-4">{song.status}</td>
-                <td className="space-x-3 py-1 text-right">
-                  <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
-                    {t('repertoire.edit')}
-                  </Link>
-                  {song.status === 'archived' ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRestore(songId)}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      {t('repertoire.restore')}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleArchive(songId)}
-                      className="text-sm text-muted-foreground hover:underline"
-                    >
-                      {t('repertoire.archive')}
-                    </button>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={songId}>
+                <tr className="border-t border-border">
+                  <td className="py-1 pr-4">{song.title}</td>
+                  <td className="py-1 pr-4">{song.artist}</td>
+                  <td className="py-1 pr-4">{song.key}</td>
+                  <td className="py-1 pr-4">{song.status}</td>
+                  <td className="space-x-3 py-1 text-right">
+                    <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
+                      {t('repertoire.edit')}
+                    </Link>
+                    {song.status === 'archived' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRestore(songId)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {t('repertoire.restore')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(songId)}
+                        className="text-sm text-muted-foreground hover:underline"
+                      >
+                        {t('repertoire.archive')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {song.status === 'idea' && doc && currentUserId && (
+                  <tr>
+                    <td colSpan={5} className="pb-2">
+                      <IdeaVoting
+                        doc={doc}
+                        songId={songId}
+                        song={song}
+                        currentUserId={currentUserId}
+                        totalMembers={members.length}
+                        isAdmin={isAdmin}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
