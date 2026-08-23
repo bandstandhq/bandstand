@@ -6,10 +6,11 @@
     "node": ">=22"
   },
   "scripts": {
+    "ensure-env": "node tools/ensure-env.mjs",
     "dev:infra": "docker compose -f docker/compose.yml up -d --wait",
     "dev:infra:down": "docker compose -f docker/compose.yml down",
     "db:migrate": "pnpm --filter @bandstand/server db:migrate",
-    "dev": "pnpm dev:infra && pnpm db:migrate && turbo run dev --filter=@bandstand/web --filter=@bandstand/server",
+    "dev": "pnpm ensure-env && pnpm dev:infra && pnpm db:migrate && turbo run dev --filter=@bandstand/web --filter=@bandstand/server",
     "seed": "pnpm --filter @bandstand/server seed",
     "build": "turbo run build",
     "lint": "turbo run lint",

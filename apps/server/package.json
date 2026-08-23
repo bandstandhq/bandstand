@@ -5,14 +5,14 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
     "build": "tsup src/index.ts --format esm --platform node --target node22",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "seed": "tsx src/seed/index.ts"
+    "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
+    "seed": "tsx --env-file=../../.env src/seed/index.ts"
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.1",

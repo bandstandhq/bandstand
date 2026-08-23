@@ -43,9 +43,11 @@ for the full picture.
 ```bash
 git clone https://github.com/bandstandhq/bandstand.git
 cd bandstand
-cp .env.example .env
 pnpm install && pnpm dev
 ```
+
+(`pnpm dev` creates `.env` from `.env.example` on first run if it doesn't
+exist yet — no manual setup needed.)
 
 That brings up Postgres and Mailpit in Docker, applies migrations, and
 starts the web app and server. See [CONTRIBUTING.md](CONTRIBUTING.md) for

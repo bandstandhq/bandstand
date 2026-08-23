@@ -8,8 +8,10 @@ import { connectBandDoc } from '../lib/yjs';
 
 // No band-selection UI exists yet (that's Phase 1 Repertoire/Setlist work) —
 // this placeholder document just proves the Y.Doc <-> Hocuspocus <-> Postgres
-// path from docs/ARCHITECTURE.md actually works end-to-end.
-const PLACEHOLDER_BAND_ID = 'demo';
+// path from docs/ARCHITECTURE.md actually works end-to-end. Must be a real
+// uuid shape: band_docs.band_id is a uuid column, and a non-uuid document
+// name makes every Hocuspocus load/store query fail outright.
+const PLACEHOLDER_BAND_ID = '00000000-0000-0000-0000-000000000000';
 
 export function Dashboard() {
   const { t } = useTranslation();

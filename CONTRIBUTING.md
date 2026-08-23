@@ -4,19 +4,19 @@ Thanks for considering a contribution. This project runs on a CLA (see
 [docs/CLA.md](docs/CLA.md)) — signing happens automatically via a bot
 comment the first time you open a pull request.
 
-## Setup, in five lines
+## Setup, in four lines
 
 ```bash
 git clone https://github.com/bandstandhq/bandstand.git
 cd bandstand
-cp .env.example .env
 pnpm install
 pnpm dev
 ```
 
-That's it — `pnpm dev` brings up Postgres and Mailpit in Docker, applies
-migrations, and starts the web app (http://localhost:5173) and server
-(http://localhost:3001). Run `pnpm seed` afterwards for demo data (two
+That's it — `pnpm dev` creates `.env` from `.env.example` on first run,
+brings up Postgres and Mailpit in Docker, applies migrations, and starts
+the web app (http://localhost:5173) and server (http://localhost:3001).
+Run `pnpm seed` afterwards for demo data (two
 users, a band, ten-plus songs with real ChordPro content, two setlists) —
 useful for anything Stage Mode or setlist related.
 
