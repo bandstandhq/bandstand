@@ -16,11 +16,14 @@
     "seed": "tsx --env-file=../../.env src/seed/index.ts"
   },
   "devDependencies": {
+    "@hocuspocus/provider": "^4.6.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "ws": "^8.21.3"
   },
   "dependencies": {
     "@bandstand/core": "workspace:*",
