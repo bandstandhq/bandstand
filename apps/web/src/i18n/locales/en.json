@@ -35,7 +35,29 @@
     "logout": "Log out",
     "noBandSelected": "Select or create a band to get started.",
     "bandSettings": "Band settings",
-    "repertoire": "Repertoire"
+    "repertoire": "Repertoire",
+    "setlists": "Setlists"
+  },
+  "setlistList": {
+    "back": "Back to dashboard",
+    "title": "Setlists",
+    "newPlaceholder": "Setlist name",
+    "create": "Create setlist",
+    "noSetlists": "No setlists yet.",
+    "open": "Open"
+  },
+  "setlistDetail": {
+    "back": "Back to setlists",
+    "pool": "Repertoire",
+    "poolHint": "Drag a song onto the setlist to add it.",
+    "poolEmpty": "No active songs yet — add some in Repertoire first.",
+    "items": "Setlist",
+    "itemsEmpty": "Drag songs here to build the set.",
+    "addBreak": "Add break",
+    "breakMinutes": "Break ({{minutes}} min)",
+    "addFinale": "Add finale",
+    "finale": "Finale",
+    "remove": "Remove"
   },
   "bandSwitcher": {
     "label": "Active band",

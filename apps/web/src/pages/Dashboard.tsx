@@ -30,6 +30,9 @@ export function Dashboard() {
               <Link to={`/bands/${activeBandId}/repertoire`}>
                 <Button variant="ghost">{t('dashboard.repertoire')}</Button>
               </Link>
+              <Link to={`/bands/${activeBandId}/setlists`}>
+                <Button variant="ghost">{t('dashboard.setlists')}</Button>
+              </Link>
               <Link to={`/bands/${activeBandId}/settings`}>
                 <Button variant="ghost">{t('dashboard.bandSettings')}</Button>
               </Link>
