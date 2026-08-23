@@ -2,7 +2,7 @@
 import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { BandSwitcher } from '../components/BandSwitcher';
 import { authClient } from '../lib/auth-client';
 import { connectBandDoc } from '../lib/yjs';
@@ -46,6 +46,11 @@ export function Dashboard() {
         <h1 className="text-xl font-medium">{t('dashboard.title')}</h1>
         <div className="flex items-center gap-3">
           <BandSwitcher />
+          {activeBandId && (
+            <Link to={`/bands/${activeBandId}/settings`}>
+              <Button variant="ghost">{t('dashboard.bandSettings')}</Button>
+            </Link>
+          )}
           <Button variant="outline" onClick={() => authClient.signOut()}>
             {t('dashboard.logout')}
           </Button>

@@ -14,12 +14,52 @@
     "songCount": "{{count}} song in the band doc",
     "songCount_other": "{{count}} songs in the band doc",
     "logout": "Log out",
-    "noBandSelected": "Select or create a band to get started."
+    "noBandSelected": "Select or create a band to get started.",
+    "bandSettings": "Band settings"
   },
   "bandSwitcher": {
     "label": "Active band",
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
     "creating": "Creating…"
+  },
+  "bandSettings": {
+    "back": "Back to dashboard",
+    "bandNameLabel": "Band name",
+    "rename": {
+      "save": "Save",
+      "saved": "Saved"
+    },
+    "members": {
+      "title": "Members",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "instruments": "Instruments"
+    },
+    "invites": {
+      "title": "Invites",
+      "createTitle": "Invite someone",
+      "labelPlaceholder": "Name (e.g. \"Jamie\")",
+      "instrumentPlaceholder": "Instrument (optional)",
+      "role": "Role",
+      "roleMember": "Member",
+      "roleAdmin": "Admin",
+      "expiresInDays": "Expires in (days)",
+      "create": "Create invite",
+      "creating": "Creating…",
+      "code": "Code",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "expires": "Expires {{date}}",
+      "expiredOn": "Expired {{date}}",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "redeemedBy": "Redeemed by {{name}}",
+      "redeemedByUnknown": "Redeemed",
+      "open": "Open",
+      "status": "Status",
+      "noInvites": "No invites yet."
+    }
   }
 }
