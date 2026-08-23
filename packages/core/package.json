@@ -15,5 +15,9 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint ."
+  },
+  "dependencies": {
+    "yjs": "^13.6.32",
+    "zod": "^4.4.3"
   }
 }
