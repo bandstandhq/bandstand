@@ -10,7 +10,17 @@ import {
   removeSetlistItem,
   stageAwarenessSchema,
 } from '@bandstand/core';
-import type { ContentVisibility, SetlistItem, Song, StageAwarenessState, TextSize, Theme, Voice } from '@bandstand/core';
+import type {
+  ContentVisibility,
+  SetlistItem,
+  Song,
+  SongChecklistItem,
+  SongNote,
+  StageAwarenessState,
+  TextSize,
+  Theme,
+  Voice,
+} from '@bandstand/core';
 import { buildRenderModel, parseChordPro, transposeChordPro } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
@@ -417,6 +427,98 @@ function EditSetlistPanel({
   );
 }
 
+const EMPTY_SONG_NOTE: SongNote = { notes: '', checklist: [] };
+
+/**
+ * Private to this user, for this song only — never synced to bandmates
+ * (see the note on `user_prefs.songNotes` in the DB schema).
+ */
+function NotesPanel({
+  isDark,
+  songTitle,
+  note,
+  onChange,
+  onClose,
+}: {
+  isDark: boolean;
+  songTitle: string;
+  note: SongNote;
+  onChange: (note: SongNote) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [newItemText, setNewItemText] = useState('');
+  const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
+  const fieldClass = isDark ? 'border-white/20 bg-transparent' : 'border-black/20 bg-transparent';
+  const buttonBase = 'rounded-md px-2 py-1 text-xs';
+  const hoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
+
+  function toggleItem(id: string) {
+    onChange({
+      ...note,
+      checklist: note.checklist.map((item) => (item.id === id ? { ...item, done: !item.done } : item)),
+    });
+  }
+
+  function removeItem(id: string) {
+    onChange({ ...note, checklist: note.checklist.filter((item) => item.id !== id) });
+  }
+
+  function addItem() {
+    if (!newItemText.trim()) return;
+    const item: SongChecklistItem = { id: crypto.randomUUID(), text: newItemText.trim(), done: false };
+    onChange({ ...note, checklist: [...note.checklist, item] });
+    setNewItemText('');
+  }
+
+  return (
+    <div className={`absolute right-4 top-16 z-10 w-72 space-y-3 rounded-md border p-4 ${panelClass}`}>
+      <div className="flex items-center justify-between">
+        <p className="truncate text-sm font-medium">{t('stageMode.notesFor', { title: songTitle })}</p>
+        <button type="button" onClick={onClose} className="shrink-0 text-xs opacity-70 hover:opacity-100">
+          {t('stageMode.close')}
+        </button>
+      </div>
+
+      <textarea
+        value={note.notes}
+        onChange={(e) => onChange({ ...note, notes: e.target.value })}
+        placeholder={t('stageMode.notesPlaceholder')}
+        rows={4}
+        className={`w-full rounded-md border p-2 text-xs ${fieldClass}`}
+      />
+
+      <ul className="max-h-40 space-y-1 overflow-y-auto">
+        {note.checklist.map((item) => (
+          <li key={item.id} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={item.done} onChange={() => toggleItem(item.id)} />
+            <span className={`flex-1 truncate ${item.done ? 'opacity-50 line-through' : ''}`}>{item.text}</span>
+            <button type="button" onClick={() => removeItem(item.id)} aria-label={t('stageMode.removeItem')} className={`${buttonBase} ${hoverClass}`}>
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={newItemText}
+          onChange={(e) => setNewItemText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') addItem();
+          }}
+          placeholder={t('stageMode.checklistPlaceholder')}
+          className={`h-8 flex-1 rounded-md border px-2 text-xs ${fieldClass}`}
+        />
+        <button type="button" onClick={addItem} className={`${buttonBase} ${hoverClass}`}>
+          {t('stageMode.add')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Full-screen, no navigation chrome — the brief is explicit that this is
  * the actual reason the app exists, "no compromises." Renders the current
@@ -464,6 +566,10 @@ export function StageMode() {
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
   const [showEditSetlist, setShowEditSetlist] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [songNotesMap, setSongNotesMap] = useState<Record<string, SongNote>>({});
+  const songNotesMapRef = useRef(songNotesMap);
+  const saveNotesTimeoutRef = useRef<number | undefined>(undefined);
 
   // The user's standing preference, applied read-only here (edited from the
   // song editor). Live transpose is layered on top of it, ephemeral to this
@@ -480,8 +586,27 @@ export function StageMode() {
       setChordColor(prefs.chordColor);
       setContentVisibility(prefs.contentVisibility);
       setPersonalTranspose(prefs.personalTranspose);
+      setSongNotesMap(prefs.songNotes);
     });
   }, []);
+
+  useEffect(() => {
+    songNotesMapRef.current = songNotesMap;
+  }, [songNotesMap]);
+
+  // Debounced so typing in the notes textarea doesn't fire a request per
+  // keystroke — the panel closing or Stage Mode exiting doesn't flush this
+  // early, so a save can be lost if either happens within the debounce
+  // window; acceptable for private scratch notes, not worth the extra
+  // complexity of a flush-on-unmount path here.
+  function updateSongNote(songId: string, note: SongNote) {
+    const next = { ...songNotesMapRef.current, [songId]: note };
+    setSongNotesMap(next);
+    window.clearTimeout(saveNotesTimeoutRef.current);
+    saveNotesTimeoutRef.current = window.setTimeout(() => {
+      apiClient.updateMyPrefs({ songNotes: songNotesMapRef.current }).catch(() => {});
+    }, 600);
+  }
 
   // Ephemeral — never persisted, and explicitly reset when leaving Stage
   // Mode rather than carried back out into the rest of the app.
@@ -510,8 +635,10 @@ export function StageMode() {
   let label = '';
   let voice: Voice | undefined;
   let currentSong: Song | undefined;
+  let currentSongId: string | undefined;
   if (currentItem?.type === 'song') {
     currentSong = songs[currentItem.songId];
+    currentSongId = currentItem.songId;
     label = currentSong ? currentSong.title : currentItem.songId;
     voice = voices[getDefaultVoiceId(currentItem.songId)];
   } else if (currentItem?.type === 'break') {
@@ -837,6 +964,16 @@ export function StageMode() {
               {t('stageMode.editSetlist')}
             </Button>
           )}
+          {currentSong && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowNotes((v) => !v)}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {t('stageMode.notes')}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -877,6 +1014,16 @@ export function StageMode() {
           items={items}
           songs={songs}
           onClose={() => setShowEditSetlist(false)}
+        />
+      )}
+
+      {showNotes && currentSong && currentSongId && (
+        <NotesPanel
+          isDark={isDark}
+          songTitle={currentSong.title}
+          note={songNotesMap[currentSongId] ?? EMPTY_SONG_NOTE}
+          onChange={(note) => updateSongNote(currentSongId, note)}
+          onClose={() => setShowNotes(false)}
         />
       )}
 

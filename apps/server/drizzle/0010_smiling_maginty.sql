@@ -1,0 +1,1 @@
+ALTER TABLE "user_prefs" ADD COLUMN "song_notes" jsonb DEFAULT '{}'::jsonb NOT NULL;

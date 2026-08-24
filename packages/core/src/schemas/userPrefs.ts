@@ -17,6 +17,22 @@ export type SetlistViewMode = z.infer<typeof setlistViewModeSchema>;
 export const contentVisibilitySchema = z.enum(['text', 'chords', 'both']);
 export type ContentVisibility = z.infer<typeof contentVisibilitySchema>;
 
+export const songChecklistItemSchema = z.object({
+  id: z.string(),
+  text: z.string().min(1),
+  done: z.boolean(),
+});
+export type SongChecklistItem = z.infer<typeof songChecklistItemSchema>;
+
+// Personal to this user for one song — private setup notes and a setup
+// checklist (e.g. "capo 2", "tune down half step"). Lives in user_prefs,
+// never in the band's Yjs doc, so it's never visible to bandmates.
+export const songNoteSchema = z.object({
+  notes: z.string(),
+  checklist: z.array(songChecklistItemSchema),
+});
+export type SongNote = z.infer<typeof songNoteSchema>;
+
 export const userPrefsSchema = z.object({
   // Applies to every song for this user; view-only, never written back to
   // the song's stored key (see docs/ARCHITECTURE.md).
@@ -27,6 +43,8 @@ export const userPrefsSchema = z.object({
   chordColor: z.string().min(1),
   setlistViewMode: setlistViewModeSchema,
   contentVisibility: contentVisibilitySchema,
+  // Keyed by songId.
+  songNotes: z.record(z.string(), songNoteSchema),
 });
 export type UserPrefs = z.infer<typeof userPrefsSchema>;
 
@@ -41,4 +59,5 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
   chordColor: '#3b82f6',
   setlistViewMode: 'list',
   contentVisibility: 'both',
+  songNotes: {},
 };

@@ -36,6 +36,24 @@ describe('userPrefsSchema', () => {
       expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, contentVisibility: value })).not.toThrow();
     }
   });
+
+  it('accepts songNotes keyed by songId with a checklist', () => {
+    const withNotes = {
+      ...DEFAULT_USER_PREFS,
+      songNotes: {
+        'song-1': { notes: 'Capo 2', checklist: [{ id: 'c1', text: 'Tune down', done: false }] },
+      },
+    };
+    expect(() => userPrefsSchema.parse(withNotes)).not.toThrow();
+  });
+
+  it('rejects a checklist item missing text', () => {
+    const invalid = {
+      ...DEFAULT_USER_PREFS,
+      songNotes: { 'song-1': { notes: '', checklist: [{ id: 'c1', text: '', done: false }] } },
+    };
+    expect(() => userPrefsSchema.parse(invalid)).toThrow();
+  });
 });
 
 describe('updateUserPrefsInputSchema', () => {
