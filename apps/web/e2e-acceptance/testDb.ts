@@ -42,3 +42,13 @@ export async function addBandMember(client: Client, bandId: string, userId: stri
 export async function removeBandMember(client: Client, bandId: string, userId: string): Promise<void> {
   await client.query('delete from band_members where band_id = $1 and user_id = $2', [bandId, userId]);
 }
+
+/** Reads a setlist's id out of the band doc's stored snapshot (see packages/core/src/yjs/snapshot.ts). */
+export async function getSetlistIdByName(client: Client, bandId: string, setlistName: string): Promise<string> {
+  const { rows } = await client.query('select snapshot from band_docs where band_id = $1', [bandId]);
+  if (!rows[0]) throw new Error(`No band_docs row for band ${bandId}`);
+  const snapshot = rows[0].snapshot as { setlists: Record<string, { name: string }> };
+  const entry = Object.entries(snapshot.setlists).find(([, s]) => s.name === setlistName);
+  if (!entry) throw new Error(`No setlist named "${setlistName}" in band ${bandId}`);
+  return entry[0];
+}
