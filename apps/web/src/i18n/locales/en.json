@@ -98,7 +98,10 @@
     "bpm": "{{bpm}} BPM",
     "follow": "Follow",
     "following": "Following {{name}}",
-    "backTo": "Back to {{name}}"
+    "backTo": "Back to {{name}}",
+    "key": "Key {{key}}",
+    "transposeDown": "Transpose down",
+    "transposeUp": "Transpose up"
   },
   "bandSwitcher": {
     "label": "Active band",

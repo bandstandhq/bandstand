@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getDefaultVoiceId, itemsKey, stageAwarenessSchema } from '@bandstand/core';
 import type { ContentVisibility, SetlistItem, Song, StageAwarenessState, TextSize, Theme, Voice } from '@bandstand/core';
-import { buildRenderModel, parseChordPro } from '@bandstand/chords';
+import { buildRenderModel, parseChordPro, transposeChordPro } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,13 +35,19 @@ const POSITION_BROADCAST_THROTTLE_MS = 250;
  * see stagePosition.ts's own note that its internal shape is free to
  * change later behind the same type.
  */
-function buildStagePayload(userId: string, setlistId: string, itemId: string, fraction: number): StageAwarenessState {
+function buildStagePayload(
+  userId: string,
+  setlistId: string,
+  itemId: string,
+  fraction: number,
+  liveTranspose: number,
+): StageAwarenessState {
   return stageAwarenessSchema.parse({
     userId,
     setlistId,
     itemId,
     position: { sectionIndex: 0, fraction: Math.max(0, Math.min(1, fraction)) },
-    liveTranspose: 0,
+    liveTranspose,
     isLeaderCandidate: true,
   });
 }
@@ -82,19 +88,25 @@ function SongContent({
   voice,
   visibility,
   chordColor,
+  transposeSemitones,
+  baseKey,
 }: {
   voice: Voice;
   visibility: ContentVisibility;
   chordColor: string;
+  transposeSemitones: number;
+  baseKey: string;
 }) {
   const { t } = useTranslation();
   const model: RenderModel | null = useMemo(() => {
     try {
-      return buildRenderModel(parseChordPro(voice.body));
+      const parsed = parseChordPro(voice.body);
+      const displayed = transposeSemitones !== 0 ? transposeChordPro(parsed, transposeSemitones, { key: baseKey }) : parsed;
+      return buildRenderModel(displayed);
     } catch {
       return null;
     }
-  }, [voice.body]);
+  }, [voice.body, transposeSemitones, baseKey]);
 
   if (!model) {
     return <p className="text-center text-base opacity-70">{t('stageMode.contentError')}</p>;
@@ -308,12 +320,20 @@ export function StageMode() {
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const scrollSpeedRef = useRef(scrollSpeed);
   const virtualElapsedMsRef = useRef(0);
+  const liveTransposeRef = useRef(0);
 
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [peerStates, setPeerStates] = useState<StageAwarenessState[]>([]);
   const [following, setFollowing] = useState<string | null>(null);
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
+
+  // The user's standing preference, applied read-only here (edited from the
+  // song editor). Live transpose is layered on top of it, ephemeral to this
+  // Stage Mode session only — see the reset-on-exit effect below.
+  const [personalTranspose, setPersonalTranspose] = useState(0);
+  const [liveTranspose, setLiveTranspose] = useState(0);
+  const effectiveTranspose = personalTranspose + liveTranspose;
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => {
@@ -322,7 +342,14 @@ export function StageMode() {
       setBoldText(prefs.boldText);
       setChordColor(prefs.chordColor);
       setContentVisibility(prefs.contentVisibility);
+      setPersonalTranspose(prefs.personalTranspose);
     });
+  }, []);
+
+  // Ephemeral — never persisted, and explicitly reset when leaving Stage
+  // Mode rather than carried back out into the rest of the app.
+  useEffect(() => {
+    return () => setLiveTranspose(0);
   }, []);
 
   useEffect(() => {
@@ -357,9 +384,34 @@ export function StageMode() {
   }
   const canAutoScroll = Boolean(voice) && Boolean(currentSong?.durationSec) && !following;
 
+  const displayedKey = useMemo(() => {
+    if (!currentSong) return null;
+    if (effectiveTranspose === 0) return currentSong.key;
+    try {
+      return transposeChordPro(parseChordPro(voice?.body ?? ''), effectiveTranspose, { key: currentSong.key }).key ?? currentSong.key;
+    } catch {
+      return currentSong.key;
+    }
+  }, [currentSong, voice, effectiveTranspose]);
+
   useEffect(() => {
     scrollSpeedRef.current = scrollSpeed;
   }, [scrollSpeed]);
+
+  useEffect(() => {
+    liveTransposeRef.current = liveTranspose;
+  }, [liveTranspose]);
+
+  // Re-broadcasts just the transpose field on change, merged into whatever
+  // position was last sent — changing key mid-song shouldn't snap the
+  // scroll fraction back to 0.
+  useEffect(() => {
+    const awareness = provider?.awareness;
+    if (!awareness) return;
+    const current = awareness.getLocalState() as { stage?: StageAwarenessState } | null;
+    if (!current?.stage) return;
+    awareness.setLocalStateField('stage', { ...current.stage, liveTranspose });
+  }, [provider, liveTranspose]);
 
   // A fresh item always starts scrolled to the top, at zero elapsed time —
   // whether auto-scroll itself stays on or off carries over across items,
@@ -419,7 +471,10 @@ export function StageMode() {
   useEffect(() => {
     const awareness = provider?.awareness;
     if (!awareness || !localUserId || !setlistId || !currentItemId) return;
-    awareness.setLocalStateField('stage', buildStagePayload(localUserId, setlistId, currentItemId, 0));
+    awareness.setLocalStateField(
+      'stage',
+      buildStagePayload(localUserId, setlistId, currentItemId, 0, liveTransposeRef.current),
+    );
   }, [provider, localUserId, setlistId, currentItemId]);
 
   useEffect(() => {
@@ -438,7 +493,7 @@ export function StageMode() {
         if (!el || !awareness) return;
         const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
         const fraction = maxScroll > 0 ? el.scrollTop / maxScroll : 0;
-        awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, fraction));
+        awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, fraction, liveTransposeRef.current));
       }, POSITION_BROADCAST_THROTTLE_MS);
     }
     el.addEventListener('scroll', handleScroll, { passive: true });
@@ -526,6 +581,10 @@ export function StageMode() {
     setScrollSpeed((speed) => Math.round(Math.min(MAX_SCROLL_SPEED, Math.max(MIN_SCROLL_SPEED, speed + delta)) * 10) / 10);
   }
 
+  function adjustLiveTranspose(delta: number) {
+    setLiveTranspose((current) => current + delta);
+  }
+
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-black text-white' : 'bg-white text-black';
   const chromeHoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
@@ -544,6 +603,30 @@ export function StageMode() {
             </span>
           )}
           {currentSong && <Metronome bpm={currentSong.bpm} isDark={isDark} />}
+          {currentSong && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => adjustLiveTranspose(-1)}
+                aria-label={t('stageMode.transposeDown')}
+                className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+              >
+                −
+              </button>
+              <span className={`text-xs tabular-nums ${mutedClass}`}>
+                {t('stageMode.key', { key: displayedKey ?? '—' })}
+                {liveTranspose !== 0 && ` (${liveTranspose > 0 ? '+' : ''}${liveTranspose})`}
+              </span>
+              <button
+                type="button"
+                onClick={() => adjustLiveTranspose(1)}
+                aria-label={t('stageMode.transposeUp')}
+                className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+              >
+                +
+              </button>
+            </div>
+          )}
           {canAutoScroll && (
             <div className="flex items-center gap-1">
               {autoScroll && (
@@ -647,7 +730,13 @@ export function StageMode() {
         <h1 className="text-center text-3xl font-semibold">{label}</h1>
         {voice && (
           <div className={`mt-6 ${TEXT_SIZE_CLASSES[textSize]} ${boldText ? 'font-bold' : 'font-normal'}`}>
-            <SongContent voice={voice} visibility={contentVisibility} chordColor={chordColor} />
+            <SongContent
+              voice={voice}
+              visibility={contentVisibility}
+              chordColor={chordColor}
+              transposeSemitones={effectiveTranspose}
+              baseKey={currentSong?.key ?? 'C'}
+            />
           </div>
         )}
       </div>
