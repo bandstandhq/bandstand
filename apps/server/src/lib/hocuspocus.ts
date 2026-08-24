@@ -10,7 +10,7 @@
 // plugin, then checks that the authenticated user is actually a member of
 // the requested band (documentName === bandId) — closes
 // https://github.com/bandstandhq/bandstand/issues/1.
-import { bandSnapshotSchema, yDocToSnapshot } from '@bandstand/core';
+import { bandSnapshotSchema, HOCUSPOCUS_AUTH_FAILURE_REASON, yDocToSnapshot } from '@bandstand/core';
 import { Database } from '@hocuspocus/extension-database';
 import { Server } from '@hocuspocus/server';
 import { eq } from 'drizzle-orm';
@@ -18,6 +18,19 @@ import { db } from '../db/client';
 import { bandDocs } from '../db/schema/index';
 import { auth } from './auth';
 import { getBandMembership } from './bandAuthz';
+
+// @hocuspocus/server reads a thrown error's `.reason` and sends it to the
+// client as an explicit, application-level "permission-denied" message
+// (not a WebSocket close code) — see the client-side handler in
+// apps/web/src/lib/yjs.ts for why that distinction matters.
+class HocuspocusAuthError extends Error {
+  constructor(
+    public reason: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 export const hocuspocusServer = new Server({
   port: Number(process.env.HOCUSPOCUS_PORT ?? 3002),
@@ -27,12 +40,15 @@ export const hocuspocusServer = new Server({
     });
 
     if (!session) {
-      throw new Error('Unauthorized');
+      throw new HocuspocusAuthError(HOCUSPOCUS_AUTH_FAILURE_REASON.unauthorized, 'Unauthorized');
     }
 
     const membership = await getBandMembership(documentName, session.user.id);
     if (!membership) {
-      throw new Error('Forbidden: not a member of this band');
+      throw new HocuspocusAuthError(
+        HOCUSPOCUS_AUTH_FAILURE_REASON.notAMember,
+        'Forbidden: not a member of this band',
+      );
     }
 
     return { userId: session.user.id, bandId: documentName, bandRole: membership.role };

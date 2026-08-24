@@ -1,0 +1,61 @@
+name: Acceptance tests
+
+# Manual, non-blocking: exercises real multi-user sync (Postgres +
+# Hocuspocus + a production web build) end to end, which is slower and
+# heavier than what's reasonable to require on every PR. checks/e2e/
+# integration in ci.yml stay the required gate for merging. Named generally
+# rather than "stage-mode" — it also covers band-access/membership
+# scenarios (see docs/adr/0006-offline-cache-scoping.md), not just Stage
+# Mode's own acceptance scenarios from the Milestone 1 plan's Step 6.1.
+on:
+  workflow_dispatch:
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bandstand
+          POSTGRES_PASSWORD: bandstand
+          POSTGRES_DB: bandstand
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://bandstand:bandstand@localhost:5432/bandstand
+      BETTER_AUTH_SECRET: ci-acceptance-test-secret-do-not-use-in-production
+      BETTER_AUTH_URL: http://localhost:3001
+      # The web app is served from vite preview's default port, not the dev
+      # server's 5173 — the API server's CORS/trustedOrigins check has to
+      # match wherever the browser actually loads pages from.
+      WEB_ORIGIN: http://localhost:4173
+      VITE_DEFAULT_SERVER_URL: http://localhost:3001
+      VITE_DEFAULT_HOCUSPOCUS_URL: ws://localhost:3002
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Only needed so tsx's --env-file doesn't ENOENT — the job env above
+      # already overrides every value that matters for these tests.
+      - run: pnpm ensure-env
+      - run: pnpm --filter @bandstand/server db:migrate
+      - run: pnpm seed
+      - run: pnpm --filter @bandstand/web exec playwright install --with-deps chromium
+      - run: pnpm turbo run build --filter=@bandstand/web
+      - run: pnpm --filter @bandstand/web test:e2e:acceptance
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: acceptance-test-report
+          path: apps/web/test-results/
+          retention-days: 7

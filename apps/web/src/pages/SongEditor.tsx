@@ -7,6 +7,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -96,7 +97,7 @@ export function SongEditor() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { bandId, songId } = useParams<{ bandId: string; songId?: string }>();
-  const { doc } = useBandDoc(bandId ?? null);
+  const { doc, status: docStatus } = useBandDoc(bandId ?? null);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const voices = useYMap<Voice>(doc?.getMap('voices'));
 
@@ -160,6 +161,7 @@ export function SongEditor() {
   }, [isNew, existingSong, existingVoice]);
 
   if (!bandId) return null;
+  if (docStatus === 'forbidden') return <BandAccessDenied />;
   if (!isNew && !songId) return <Navigate to={`/bands/${bandId}/repertoire`} replace />;
 
   function handleSubmit(event: FormEvent) {

@@ -27,6 +27,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
@@ -530,7 +531,7 @@ export function StageMode() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { bandId, setlistId, itemId } = useParams<{ bandId: string; setlistId: string; itemId: string }>();
-  const { doc, provider } = useBandDoc(bandId ?? null);
+  const { doc, provider, status: docStatus } = useBandDoc(bandId ?? null);
   const { data: session } = authClient.useSession();
   const localUserId = session?.user.id;
   useWakeLock(true);
@@ -822,6 +823,7 @@ export function StageMode() {
   }, [following, peerStates, currentItem?.id, items]);
 
   if (!bandId || !setlistId) return null;
+  if (docStatus === 'forbidden') return <BandAccessDenied />;
 
   function startFollowing(userId: string) {
     setFollowing(userId);

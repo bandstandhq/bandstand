@@ -6,6 +6,7 @@ import { Button, Input } from '@bandstand/ui';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
@@ -19,7 +20,7 @@ type StatusFilter = 'all' | SongStatus;
 export function Repertoire() {
   const { t } = useTranslation();
   const { bandId } = useParams<{ bandId: string }>();
-  const { doc } = useBandDoc(bandId ?? null);
+  const { doc, status } = useBandDoc(bandId ?? null);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -32,6 +33,10 @@ export function Repertoire() {
     if (!bandId) return;
     apiClient.listBandMembers(bandId).then(setMembers);
   }, [bandId]);
+
+  if (status === 'forbidden') {
+    return <BandAccessDenied />;
+  }
 
   const isAdmin = members.some((m) => m.userId === currentUserId && (m.role === 'owner' || m.role === 'admin'));
 

@@ -25,6 +25,7 @@ import { Button } from '@bandstand/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -117,7 +118,7 @@ function SortableSetlistItem({
 export function SetlistDetail() {
   const { t } = useTranslation();
   const { bandId, setlistId } = useParams<{ bandId: string; setlistId: string }>();
-  const { doc } = useBandDoc(bandId ?? null);
+  const { doc, status } = useBandDoc(bandId ?? null);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
   const items = useYArray<SetlistItem>(setlistId ? doc?.getArray(itemsKey(setlistId)) : undefined);
@@ -125,6 +126,7 @@ export function SetlistDetail() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   if (!bandId || !setlistId) return null;
+  if (status === 'forbidden') return <BandAccessDenied />;
   const setlist = setlists[setlistId];
   const poolSongs = Object.entries(songs).filter(([, song]) => song.status === 'active');
 

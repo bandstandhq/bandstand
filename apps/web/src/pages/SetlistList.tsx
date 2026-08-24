@@ -5,6 +5,7 @@ import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useIsWideScreen } from '../hooks/useIsWideScreen';
 import { useYArray } from '../hooks/useYArray';
@@ -77,7 +78,7 @@ function SetlistCard({
 export function SetlistList() {
   const { t } = useTranslation();
   const { bandId } = useParams<{ bandId: string }>();
-  const { doc } = useBandDoc(bandId ?? null);
+  const { doc, status } = useBandDoc(bandId ?? null);
   const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const [name, setName] = useState('');
@@ -103,6 +104,7 @@ export function SetlistList() {
   }
 
   if (!bandId) return null;
+  if (status === 'forbidden') return <BandAccessDenied />;
   const entries = Object.entries(setlists);
 
   return (
