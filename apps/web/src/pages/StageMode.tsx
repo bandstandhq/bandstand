@@ -93,6 +93,20 @@ function SongContent({
   );
 }
 
+function Metronome({ bpm, isDark }: { bpm: number; isDark: boolean }) {
+  const { t } = useTranslation();
+  const beatSeconds = 60 / bpm;
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`metronome-dot h-2.5 w-2.5 rounded-full ${isDark ? 'bg-white' : 'bg-black'}`}
+        style={{ animationDuration: `${beatSeconds}s` }}
+      />
+      <span className={`text-xs tabular-nums ${isDark ? 'text-white/60' : 'text-black/60'}`}>{t('stageMode.bpm', { bpm })}</span>
+    </div>
+  );
+}
+
 function SettingsPanel({
   theme,
   textSize,
@@ -346,6 +360,7 @@ export function StageMode() {
               {t('stageMode.positionCount', { current: currentIndex + 1, total: items.length })}
             </span>
           )}
+          {currentSong && <Metronome bpm={currentSong.bpm} isDark={isDark} />}
           {canAutoScroll && (
             <div className="flex items-center gap-1">
               {autoScroll && (
