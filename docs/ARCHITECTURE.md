@@ -14,7 +14,13 @@ per band (see [ADR-0002](adr/0002-crdt-over-rest.md) for why this is CRDT
 and not a REST resource, and why it's scoped to only this data). Locally,
 the document is persisted to IndexedDB via `y-indexeddb`, so a client that
 has loaded a band's data once keeps working fully offline — reads and
-writes both. When a connection is available, `HocuspocusProvider` syncs the
+writes both. This local cache is scoped per user, not just per band
+(`bandstand:<userId>:<bandId>`), and is only ever exposed to the UI once
+this device's current user is confirmed — or, offline, was last confirmed
+— to still be a band member; see [ADR-0006](adr/0006-offline-cache-scoping.md)
+for the full membership-gating design and its one unavoidable remaining
+limit (a device kept offline on purpose keeps whatever it last synced).
+When a connection is available, `HocuspocusProvider` syncs the
 document to `apps/server`'s Hocuspocus instance over WebSocket, which
 persists it to Postgres (`band_docs.yjs_state`, raw bytes; `band_docs.snapshot`,
 a derived and Zod-validated JSON projection — see `apps/server/src/lib/hocuspocus.ts`).
@@ -106,7 +112,11 @@ authenticates each WebSocket connection via the same session/bearer lookup
 (`apps/server/src/lib/hocuspocus.ts`'s `onAuthenticate`), then checks that
 the authenticated user is actually a member of the requested band
 (`documentName` is the `bandId`) via the same `getBandMembership` helper
-REST routes use — a non-member's connection is rejected outright.
+REST routes use — a non-member's connection is rejected outright, with an
+explicit `'not-a-member'` reason (`HOCUSPOCUS_AUTH_FAILURE_REASON`) the
+client uses to distinguish "genuinely not a member" from "server/network
+unreachable" and react accordingly — see
+[ADR-0006](adr/0006-offline-cache-scoping.md).
 
 ## Where things live
 
