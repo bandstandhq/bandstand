@@ -5,6 +5,7 @@
 // Hocuspocus server, not just that getBandMembership() returns null in
 // isolation. Closes https://github.com/bandstandhq/bandstand/issues/1.
 import { randomUUID } from 'node:crypto';
+import { HOCUSPOCUS_AUTH_FAILURE_REASON } from '@bandstand/core';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { eq } from 'drizzle-orm';
 import WebSocket from 'ws';
@@ -24,20 +25,22 @@ async function signUpTestUser() {
   return { userId: result.user.id, token: result.token };
 }
 
-function attemptConnect(port: number, bandId: string, token: string): Promise<'connected' | 'rejected'> {
+type ConnectResult = { status: 'connected' } | { status: 'rejected'; reason: string };
+
+function attemptConnect(port: number, bandId: string, token: string): Promise<ConnectResult> {
   return new Promise((resolve) => {
     const config: ConstructorParameters<typeof HocuspocusProvider>[0] & { WebSocketPolyfill?: unknown } = {
       url: `ws://localhost:${port}`,
       name: bandId,
       document: new Y.Doc(),
       token,
-      onAuthenticationFailed: () => {
+      onAuthenticationFailed: ({ reason }) => {
         provider.destroy();
-        resolve('rejected');
+        resolve({ status: 'rejected', reason });
       },
       onSynced: () => {
         provider.destroy();
-        resolve('connected');
+        resolve({ status: 'connected' });
       },
     };
     // `HocuspocusProvider`'s type doesn't declare `WebSocketPolyfill` for the
@@ -89,7 +92,10 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
       attemptConnect(port, band.id, outsider.token),
     ]);
 
-    expect(memberResult).toBe('connected');
-    expect(outsiderResult).toBe('rejected');
+    expect(memberResult).toEqual({ status: 'connected' });
+    expect(outsiderResult).toEqual({
+      status: 'rejected',
+      reason: HOCUSPOCUS_AUTH_FAILURE_REASON.notAMember,
+    });
   }, 15000);
 });
