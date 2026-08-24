@@ -64,6 +64,13 @@
       "when": 1787516535320,
       "tag": "0008_regular_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787589920966,
+      "tag": "0009_massive_captain_flint",
+      "breakpoints": true
     }
   ]
 }

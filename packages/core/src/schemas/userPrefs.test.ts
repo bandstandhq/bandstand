@@ -26,6 +26,16 @@ describe('userPrefsSchema', () => {
   it('accepts board as a setlistViewMode', () => {
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, setlistViewMode: 'board' })).not.toThrow();
   });
+
+  it('rejects an unknown contentVisibility', () => {
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, contentVisibility: 'notation' })).toThrow();
+  });
+
+  it('accepts each documented contentVisibility value', () => {
+    for (const value of ['text', 'chords', 'both']) {
+      expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, contentVisibility: value })).not.toThrow();
+    }
+  });
 });
 
 describe('updateUserPrefsInputSchema', () => {
