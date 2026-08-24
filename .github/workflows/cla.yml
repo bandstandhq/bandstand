@@ -27,4 +27,4 @@ jobs:
           path-to-signatures: "signatures/version1/cla.json"
           path-to-document: "https://github.com/bandstandhq/bandstand/blob/main/docs/CLA.md"
           branch: "cla-signatures"
-          allowlist: FelixFrasch,bot*,dependabot[bot]
+          allowlist: FelixFrasch,claude,bot*,dependabot[bot]
