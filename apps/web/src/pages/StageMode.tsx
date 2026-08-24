@@ -4,7 +4,7 @@ import type { ContentVisibility, SetlistItem, Song, TextSize, Theme, Voice } fro
 import { buildRenderModel, parseChordPro } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useBandDoc } from '../hooks/useBandDoc';
@@ -21,6 +21,10 @@ const TEXT_SIZE_CLASSES: Record<TextSize, string> = {
 
 const TEXT_SIZES: TextSize[] = ['small', 'medium', 'large', 'xlarge'];
 const CONTENT_VISIBILITIES: ContentVisibility[] = ['text', 'chords', 'both'];
+
+const MIN_SCROLL_SPEED = 0.5;
+const MAX_SCROLL_SPEED = 2.5;
+const SCROLL_SPEED_STEP = 0.1;
 
 function ContentLine({ line, visibility, chordColor }: { line: RenderLine; visibility: ContentVisibility; chordColor: string }) {
   if (visibility === 'chords') {
@@ -223,6 +227,12 @@ export function StageMode() {
   const [contentVisibility, setContentVisibility] = useState<ContentVisibility>('both');
   const [showSettings, setShowSettings] = useState(false);
 
+  const [autoScroll, setAutoScroll] = useState(false);
+  const [scrollSpeed, setScrollSpeed] = useState(1);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const scrollSpeedRef = useRef(scrollSpeed);
+  const virtualElapsedMsRef = useRef(0);
+
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => {
       setTheme(prefs.theme);
@@ -244,28 +254,85 @@ export function StageMode() {
     });
   }
 
-  if (!bandId || !setlistId) return null;
-
-  function handleExit() {
-    navigate(`/bands/${bandId}/setlists/${setlistId}`);
-  }
-
-  const isDark = theme === 'dark';
-  const bgClass = isDark ? 'bg-black text-white' : 'bg-white text-black';
-  const chromeHoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
-  const mutedClass = isDark ? 'text-white/60' : 'text-black/60';
-
   let label = '';
   let voice: Voice | undefined;
+  let currentSong: Song | undefined;
   if (currentItem?.type === 'song') {
-    const song = songs[currentItem.songId];
-    label = song ? song.title : currentItem.songId;
+    currentSong = songs[currentItem.songId];
+    label = currentSong ? currentSong.title : currentItem.songId;
     voice = voices[getDefaultVoiceId(currentItem.songId)];
   } else if (currentItem?.type === 'break') {
     label = t('stageMode.breakMinutes', { minutes: currentItem.breakMinutes });
   } else if (currentItem?.type === 'finale') {
     label = t('stageMode.finale');
   }
+  const canAutoScroll = Boolean(voice) && Boolean(currentSong?.durationSec);
+
+  useEffect(() => {
+    scrollSpeedRef.current = scrollSpeed;
+  }, [scrollSpeed]);
+
+  // A fresh item always starts scrolled to the top, at zero elapsed time —
+  // whether auto-scroll itself stays on or off carries over across items,
+  // matching a band playing straight through a set.
+  useEffect(() => {
+    virtualElapsedMsRef.current = 0;
+  }, [currentItem?.id]);
+
+  const currentSongDurationSec = currentSong?.durationSec;
+  useEffect(() => {
+    if (!autoScroll || !canAutoScroll || !currentSongDurationSec) return undefined;
+    const durationMs = currentSongDurationSec * 1000;
+    let lastFrameMs = performance.now();
+    let rafId = requestAnimationFrame(step);
+
+    function step(nowMs: number) {
+      virtualElapsedMsRef.current += (nowMs - lastFrameMs) * scrollSpeedRef.current;
+      lastFrameMs = nowMs;
+      const el = contentAreaRef.current;
+      if (el) {
+        const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+        const fraction = Math.min(1, virtualElapsedMsRef.current / durationMs);
+        el.scrollTop = fraction * maxScroll;
+      }
+      if (virtualElapsedMsRef.current < durationMs) {
+        rafId = requestAnimationFrame(step);
+      }
+    }
+
+    return () => cancelAnimationFrame(rafId);
+  }, [autoScroll, canAutoScroll, currentSongDurationSec, currentItem?.id]);
+
+  // Any direct manual scroll gesture pauses auto-scroll rather than
+  // fighting it — resuming is an explicit re-tap, not automatic.
+  useEffect(() => {
+    const el = contentAreaRef.current;
+    if (!el) return undefined;
+    function pauseAutoScroll() {
+      setAutoScroll(false);
+    }
+    el.addEventListener('wheel', pauseAutoScroll, { passive: true });
+    el.addEventListener('touchmove', pauseAutoScroll, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', pauseAutoScroll);
+      el.removeEventListener('touchmove', pauseAutoScroll);
+    };
+  }, [currentItem?.id]);
+
+  if (!bandId || !setlistId) return null;
+
+  function handleExit() {
+    navigate(`/bands/${bandId}/setlists/${setlistId}`);
+  }
+
+  function adjustScrollSpeed(delta: number) {
+    setScrollSpeed((speed) => Math.round(Math.min(MAX_SCROLL_SPEED, Math.max(MIN_SCROLL_SPEED, speed + delta)) * 10) / 10);
+  }
+
+  const isDark = theme === 'dark';
+  const bgClass = isDark ? 'bg-black text-white' : 'bg-white text-black';
+  const chromeHoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
+  const mutedClass = isDark ? 'text-white/60' : 'text-black/60';
 
   return (
     <main className={`fixed inset-0 flex flex-col ${bgClass}`}>
@@ -278,6 +345,39 @@ export function StageMode() {
             <span className={`text-sm ${mutedClass}`}>
               {t('stageMode.positionCount', { current: currentIndex + 1, total: items.length })}
             </span>
+          )}
+          {canAutoScroll && (
+            <div className="flex items-center gap-1">
+              {autoScroll && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => adjustScrollSpeed(-SCROLL_SPEED_STEP)}
+                    aria-label={t('stageMode.scrollSlower')}
+                    className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                  >
+                    −
+                  </button>
+                  <span className={`text-xs tabular-nums ${mutedClass}`}>{scrollSpeed.toFixed(1)}×</span>
+                  <button
+                    type="button"
+                    onClick={() => adjustScrollSpeed(SCROLL_SPEED_STEP)}
+                    aria-label={t('stageMode.scrollFaster')}
+                    className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                  >
+                    +
+                  </button>
+                </>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setAutoScroll((v) => !v)}
+                className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+              >
+                {autoScroll ? t('stageMode.autoScrollPause') : t('stageMode.autoScrollStart')}
+              </Button>
+            </div>
           )}
           <Button
             type="button"
@@ -304,6 +404,7 @@ export function StageMode() {
 
       <div
         key={currentItem?.id}
+        ref={contentAreaRef}
         className={`stage-item-transition flex flex-1 flex-col ${voice ? 'overflow-y-auto' : 'items-center justify-center'} p-8`}
       >
         <h1 className="text-center text-3xl font-semibold">{label}</h1>

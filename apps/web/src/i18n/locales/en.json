@@ -90,7 +90,11 @@
     "theme": "Background",
     "themeDark": "Dark",
     "themeLight": "Light",
-    "chordColor": "Chord color"
+    "chordColor": "Chord color",
+    "autoScrollStart": "Auto-scroll",
+    "autoScrollPause": "Pause scroll",
+    "scrollSlower": "Slower",
+    "scrollFaster": "Faster"
   },
   "bandSwitcher": {
     "label": "Active band",
