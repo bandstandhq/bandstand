@@ -21,7 +21,7 @@ import type {
   Theme,
   Voice,
 } from '@bandstand/core';
-import { buildRenderModel, parseChordPro, transposeChordPro } from '@bandstand/chords';
+import { buildRenderModel, normalizeKey, parseChordPro, shiftKeyBySemitones, transposeChordProToKey } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -124,7 +124,11 @@ function SongContent({
   const model: RenderModel | null = useMemo(() => {
     try {
       const parsed = parseChordPro(voice.body);
-      const displayed = transposeSemitones !== 0 ? transposeChordPro(parsed, transposeSemitones, { key: baseKey }) : parsed;
+      const normalizedBaseKey = normalizeKey(baseKey);
+      const displayed =
+        transposeSemitones !== 0
+          ? transposeChordProToKey(parsed, normalizedBaseKey, shiftKeyBySemitones(normalizedBaseKey, transposeSemitones))
+          : parsed;
       return buildRenderModel(displayed);
     } catch {
       return null;
@@ -651,13 +655,9 @@ export function StageMode() {
 
   const displayedKey = useMemo(() => {
     if (!currentSong) return null;
-    if (effectiveTranspose === 0) return currentSong.key;
-    try {
-      return transposeChordPro(parseChordPro(voice?.body ?? ''), effectiveTranspose, { key: currentSong.key }).key ?? currentSong.key;
-    } catch {
-      return currentSong.key;
-    }
-  }, [currentSong, voice, effectiveTranspose]);
+    const baseKey = normalizeKey(currentSong.key);
+    return effectiveTranspose === 0 ? baseKey : shiftKeyBySemitones(baseKey, effectiveTranspose);
+  }, [currentSong, effectiveTranspose]);
 
   useEffect(() => {
     scrollSpeedRef.current = scrollSpeed;
