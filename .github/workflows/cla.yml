@@ -12,14 +12,14 @@ permissions:
   statuses: write
 
 jobs:
-  cla-check:
+  cla:
     runs-on: ubuntu-latest
-    if: |
-      (github.event.comment.body && contains(github.event.comment.body, 'recheck')) ||
-      (github.event.comment.body && contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')) ||
-      github.event_name == 'pull_request_target'
     steps:
       - name: CLA Assistant
+        if: |
+          (github.event.comment.body && contains(github.event.comment.body, 'recheck')) ||
+          (github.event.comment.body && contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')) ||
+          github.event_name == 'pull_request_target'
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -27,6 +27,4 @@ jobs:
           path-to-signatures: "signatures/version1/cla.json"
           path-to-document: "https://github.com/bandstandhq/bandstand/blob/main/docs/CLA.md"
           branch: "cla-signatures"
-          allowlist: bot*
-          remote-organization-name: bandstandhq
-          remote-repository-name: bandstand
+          allowlist: FelixFrasch,bot*,dependabot[bot]
