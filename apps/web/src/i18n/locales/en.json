@@ -108,7 +108,11 @@
     "removeItem": "Remove",
     "addSong": "Add a song…",
     "add": "Add",
-    "setlistEmpty": "No items yet — add one below."
+    "setlistEmpty": "No items yet — add one below.",
+    "notes": "Notes",
+    "notesFor": "Notes — {{title}}",
+    "notesPlaceholder": "Private notes for this song (only you see these)",
+    "checklistPlaceholder": "Add a checklist item…"
   },
   "bandSwitcher": {
     "label": "Active band",

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { boolean, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const userPrefs = pgTable('user_prefs', {
@@ -21,4 +21,8 @@ export const userPrefs = pgTable('user_prefs', {
   // 'text' | 'chords' | 'both' — Stage Mode's content visibility toggle;
   // validated in packages/core's userPrefsSchema.
   contentVisibility: text('content_visibility').notNull().default('both'),
+  // Keyed by songId: { notes: string; checklist: {id,text,done}[] } — never
+  // synced to bandmates (that's the whole reason this lives here and not
+  // in the band's Yjs doc); validated in packages/core's userPrefsSchema.
+  songNotes: jsonb('song_notes').notNull().default({}),
 });
