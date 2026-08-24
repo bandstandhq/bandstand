@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { addSong, getDefaultVoiceId, setSongStatus, updateSong, updateVoiceBody } from '@bandstand/core';
 import type { Song, SongStatus, Voice } from '@bandstand/core';
-import { buildRenderModel, formatChordPro, parseChordPro, transposeChordPro } from '@bandstand/chords';
+import {
+  buildRenderModel,
+  formatChordPro,
+  isMinorKeyName,
+  normalizeKey,
+  parseChordPro,
+  shiftKeyBySemitones,
+  STANDARD_KEYS,
+  transposeChordProToKey,
+} from '@bandstand/chords';
 import type { RenderModel } from '@bandstand/chords';
 import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -40,6 +49,15 @@ function TapTempo({ onBpm }: { onBpm: (bpm: number) => void }) {
   );
 }
 
+// The 15 standard key letters (packages/chords' STANDARD_KEYS, major
+// names only — minor keys share the same 15 letters, just with an 'm'
+// suffix), chromatic order, with an enharmonic pair's alternate spelling
+// immediately after its standard one (F# then Gb, C# then Db).
+const KEY_LETTER_OPTIONS: string[] = STANDARD_KEYS.filter((k) => k.mode === 'major')
+  .slice()
+  .sort((a, b) => a.semitone - b.semitone || Number(b.standard) - Number(a.standard))
+  .map((k) => k.name);
+
 function ChordProPreview({
   body,
   baseKey,
@@ -54,7 +72,13 @@ function ChordProPreview({
     try {
       const parsed = parseChordPro(body);
       // View-only — the actual song/voice being edited never sees this.
-      const displayed = personalTranspose !== 0 ? transposeChordPro(parsed, personalTranspose, { key: baseKey }) : parsed;
+      // personalTranspose is an interval, not a target key — it still
+      // resolves to one (a single semitone offset from baseKey) so the
+      // spelling follows *that* key, not baseKey's.
+      const displayed =
+        personalTranspose !== 0
+          ? transposeChordProToKey(parsed, baseKey, shiftKeyBySemitones(baseKey, personalTranspose))
+          : parsed;
       return buildRenderModel(displayed);
     } catch {
       return null;
@@ -130,10 +154,18 @@ export function SongEditor() {
     });
   }
 
-  function handleTransposeSong(delta: number) {
+  // The key/body this editing session started from — every transpose
+  // action (the letter/mode selects, the ±1 buttons) re-transposes from
+  // here in one step, never from whatever the previous transpose left in
+  // `key`/`body`. That's what makes every target key reachable regardless
+  // of how many transpose actions came before it in this session.
+  const originalKeyRef = useRef('C');
+  const originalBodyRef = useRef('');
+
+  function applyTargetKey(newKey: string) {
     try {
-      const transposed = transposeChordPro(parseChordPro(body), delta, { key });
-      setKey(transposed.key ?? key);
+      const transposed = transposeChordProToKey(parseChordPro(originalBodyRef.current), originalKeyRef.current, newKey);
+      setKey(newKey);
       setBody(formatChordPro(transposed));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -143,26 +175,43 @@ export function SongEditor() {
   // One-time load of the existing song/voice into editable local state —
   // deliberately NOT re-synced on every remote Yjs change afterward, so a
   // concurrent edit from another band member doesn't fight this form's
-  // cursor while someone is actively typing here.
+  // cursor while someone is actively typing here. The stored key is
+  // normalized here (and so written back correctly on the next save) in
+  // case it predates this app version ever offering only the standard 15
+  // keys as transpose targets.
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current || isNew) return;
     if (!existingSong || !existingVoice) return;
+    const normalizedKey = normalizeKey(existingSong.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded one-time init from external (Yjs) state, not a per-render sync
     setTitle(existingSong.title);
     setArtist(existingSong.artist);
-    setKey(existingSong.key);
+    setKey(normalizedKey);
     setBpm(existingSong.bpm);
     setDurationSec(existingSong.durationSec);
     setStatus(existingSong.status);
     setBandNotes(existingSong.bandNotes);
     setBody(existingVoice.body);
+    originalKeyRef.current = normalizedKey;
+    originalBodyRef.current = existingVoice.body;
     initializedRef.current = true;
   }, [isNew, existingSong, existingVoice]);
 
   if (!bandId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
   if (!isNew && !songId) return <Navigate to={`/bands/${bandId}/repertoire`} replace />;
+
+  const keyIsMinor = isMinorKeyName(key);
+  const keyLetter = keyIsMinor ? key.slice(0, -1) : key;
+
+  function handleKeyLetterChange(letter: string) {
+    applyTargetKey(keyIsMinor ? `${letter}m` : letter);
+  }
+
+  function handleKeyModeChange(minor: boolean) {
+    applyTargetKey(minor ? `${keyLetter}m` : keyLetter);
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -207,22 +256,55 @@ export function SongEditor() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <label htmlFor="song-key" className="text-sm text-muted-foreground">
-                {t('songEditor.key')}
-              </label>
+          <div className="space-y-1">
+            <label htmlFor="song-key" className="text-sm text-muted-foreground">
+              {t('songEditor.key')}
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                id="song-key"
+                value={keyLetter}
+                onChange={(e) => handleKeyLetterChange(e.target.value)}
+                className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+              >
+                {KEY_LETTER_OPTIONS.map((letter) => (
+                  <option key={letter} value={letter}>
+                    {letter}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label={t('songEditor.keyMode')}
+                value={keyIsMinor ? 'minor' : 'major'}
+                onChange={(e) => handleKeyModeChange(e.target.value === 'minor')}
+                className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+              >
+                <option value="major">{t('songEditor.keyModeMajor')}</option>
+                <option value="minor">{t('songEditor.keyModeMinor')}</option>
+              </select>
               <div className="flex gap-2">
-                <Input id="song-key" required value={key} onChange={(e) => setKey(e.target.value)} />
-                <Button type="button" variant="outline" size="sm" onClick={() => handleTransposeSong(-1)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyTargetKey(shiftKeyBySemitones(key, -1))}
+                >
                   −1
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => handleTransposeSong(1)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyTargetKey(shiftKeyBySemitones(key, 1))}
+                >
                   +1
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">{t('songEditor.transposeSongHint')}</p>
             </div>
+            <p className="text-xs text-muted-foreground">{t('songEditor.transposeSongHint')}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label htmlFor="song-bpm" className="text-sm text-muted-foreground">
                 {t('songEditor.bpm')}

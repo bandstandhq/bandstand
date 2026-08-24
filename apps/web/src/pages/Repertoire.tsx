@@ -2,6 +2,7 @@
 import type { BandMember } from '@bandstand/core';
 import { archiveSong, restoreSong } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
+import { normalizeKey } from '@bandstand/chords';
 import { Button, Input } from '@bandstand/ui';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -127,7 +128,7 @@ export function Repertoire() {
                 <tr className="border-t border-border">
                   <td className="py-1 pr-4">{song.title}</td>
                   <td className="py-1 pr-4">{song.artist}</td>
-                  <td className="py-1 pr-4">{song.key}</td>
+                  <td className="py-1 pr-4">{normalizeKey(song.key)}</td>
                   <td className="py-1 pr-4">{song.status}</td>
                   <td className="space-x-3 py-1 text-right">
                     <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
