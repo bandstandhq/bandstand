@@ -57,21 +57,32 @@ During a live performance, band members' devices need to know what song,
 section, and scroll position everyone else is on — but none of that is
 data worth keeping after the show. This uses Yjs's **Awareness** protocol
 (not the document itself): each connected client broadcasts a small
-payload —
+payload under the `'stage'` awareness field —
 
 ```
-{ userId, setlistId, itemId, scrollPct, liveTranspose, isLeaderCandidate }
+{ userId, setlistId, itemId, position: { sectionIndex, fraction },
+  liveTranspose, isLeaderCandidate }
 ```
 
-— to every other client in the same session, with a target latency under
-150ms. Nothing here touches Postgres. A live transposition set during Stage
-Mode affects everyone's view for the duration of the show and is
-deliberately never written back to the song's stored key.
+(`StageAwarenessState`, `packages/core/src/schemas/stageAwareness.ts`) — to
+every other client in the same band doc's connection, over the same
+WebSocket the document itself syncs over. Nothing here touches Postgres. A
+live transposition set during Stage Mode affects everyone's view for the
+duration of the show and is deliberately never written back to the song's
+stored key. `position` is a logical anchor, not a scroll coordinate — see
+[ADR-0004](adr/0004-parts-and-anchors.md) for why, and why `sectionIndex`
+is currently always `0` (Milestone 1 has one voice per song, so `fraction`
+alone — how far through the whole item — is enough; a real per-section
+anchor arrives with multiple voices per song, behind the same type).
 
-**Status: not yet implemented.** Milestone 0 builds the plumbing this rides
-on (the same Hocuspocus connection carries Awareness updates), but no
-Stage Mode UI or Awareness payload exists yet — that's Phase 1 feature
-work, tracked separately from this scaffolding milestone.
+**Status: implemented (Milestone 1).** `apps/web/src/pages/StageMode.tsx`
+broadcasts and subscribes to this payload for Follow Mode (any member can
+follow any other; a manual scroll pauses it, with a "Back to `<name>`"
+control to resume) and the live-transpose display. See
+[ADR-0006](adr/0006-offline-cache-scoping.md) for the related — but
+separate — concern of gating the underlying band doc's *local cache* on
+membership; that ADR isn't about this Awareness layer, which was never
+persisted or cached to begin with.
 
 ### 3. Files — content-addressed, S3-compatible
 
