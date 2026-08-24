@@ -4,13 +4,14 @@ A free, open-source workspace for amateur and semi-pro bands — repertoire,
 setlists, and the show itself, in one place instead of scattered across
 paper, PDFs, and group chats.
 
-> **Status:** early scaffolding (Milestone 0). No features yet — see
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [ADRs](docs/adr/)
-> for where this is headed.
+> **Status:** Milestone 1 underway — bands/invites, repertoire, setlists,
+> and Stage Mode are functional (not yet released as a versioned build).
+> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the
+> [ADRs](docs/adr/) for the reasoning behind how it's built.
 
-<!-- screenshot: dashboard -->
-<!-- screenshot: stage mode -->
-<!-- screenshot: setlist editor -->
+![Building a setlist by dragging songs from the repertoire](docs/screenshots/setlist-editor.png)
+
+![Stage Mode: full-screen lyrics and chords, live transpose, auto-scroll](docs/screenshots/stage-mode.png)
 
 ## Why Bandstand
 
