@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { getDefaultVoiceId, itemsKey } from '@bandstand/core';
-import type { ContentVisibility, SetlistItem, Song, TextSize, Theme, Voice } from '@bandstand/core';
+import { getDefaultVoiceId, itemsKey, stageAwarenessSchema } from '@bandstand/core';
+import type { ContentVisibility, SetlistItem, Song, StageAwarenessState, TextSize, Theme, Voice } from '@bandstand/core';
 import { buildRenderModel, parseChordPro } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
@@ -11,6 +11,7 @@ import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
+import { authClient } from '../lib/auth-client';
 
 const TEXT_SIZE_CLASSES: Record<TextSize, string> = {
   small: 'text-xl',
@@ -25,6 +26,25 @@ const CONTENT_VISIBILITIES: ContentVisibility[] = ['text', 'chords', 'both'];
 const MIN_SCROLL_SPEED = 0.5;
 const MAX_SCROLL_SPEED = 2.5;
 const SCROLL_SPEED_STEP = 0.1;
+const POSITION_BROADCAST_THROTTLE_MS = 250;
+
+/**
+ * This milestone doesn't yet track which content section is under the
+ * viewport, so `sectionIndex` is always 0 and `fraction` stands in for
+ * "how far through the whole item" rather than "through one section" —
+ * see stagePosition.ts's own note that its internal shape is free to
+ * change later behind the same type.
+ */
+function buildStagePayload(userId: string, setlistId: string, itemId: string, fraction: number): StageAwarenessState {
+  return stageAwarenessSchema.parse({
+    userId,
+    setlistId,
+    itemId,
+    position: { sectionIndex: 0, fraction: Math.max(0, Math.min(1, fraction)) },
+    liveTranspose: 0,
+    isLeaderCandidate: true,
+  });
+}
 
 function ContentLine({ line, visibility, chordColor }: { line: RenderLine; visibility: ContentVisibility; chordColor: string }) {
   if (visibility === 'chords') {
@@ -210,6 +230,46 @@ function SettingsPanel({
   );
 }
 
+function FollowPanel({
+  isDark,
+  peers,
+  onFollow,
+  onClose,
+}: {
+  isDark: boolean;
+  peers: { userId: string; name: string }[];
+  onFollow: (userId: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
+  const rowHoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
+
+  return (
+    <div className={`absolute right-4 top-16 z-10 w-56 space-y-2 rounded-md border p-4 ${panelClass}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{t('stageMode.follow')}</p>
+        <button type="button" onClick={onClose} className="text-xs opacity-70 hover:opacity-100">
+          {t('stageMode.close')}
+        </button>
+      </div>
+      <ul className="space-y-1">
+        {peers.map((peer) => (
+          <li key={peer.userId}>
+            <button
+              type="button"
+              onClick={() => onFollow(peer.userId)}
+              className={`w-full rounded-md px-2 py-1 text-left text-sm ${rowHoverClass}`}
+            >
+              {peer.name}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
  * Full-screen, no navigation chrome — the brief is explicit that this is
  * the actual reason the app exists, "no compromises." Renders the current
@@ -221,7 +281,9 @@ export function StageMode() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { bandId, setlistId, itemId } = useParams<{ bandId: string; setlistId: string; itemId: string }>();
-  const { doc } = useBandDoc(bandId ?? null);
+  const { doc, provider } = useBandDoc(bandId ?? null);
+  const { data: session } = authClient.useSession();
+  const localUserId = session?.user.id;
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const voices = useYMap<Voice>(doc?.getMap('voices'));
   const items = useYArray<SetlistItem>(setlistId ? doc?.getArray(itemsKey(setlistId)) : undefined);
@@ -247,6 +309,12 @@ export function StageMode() {
   const scrollSpeedRef = useRef(scrollSpeed);
   const virtualElapsedMsRef = useRef(0);
 
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [peerStates, setPeerStates] = useState<StageAwarenessState[]>([]);
+  const [following, setFollowing] = useState<string | null>(null);
+  const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
+  const [showFollowPanel, setShowFollowPanel] = useState(false);
+
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => {
       setTheme(prefs.theme);
@@ -256,6 +324,13 @@ export function StageMode() {
       setContentVisibility(prefs.contentVisibility);
     });
   }, []);
+
+  useEffect(() => {
+    if (!bandId) return;
+    apiClient.listBandMembers(bandId).then((members) => {
+      setMemberNames(Object.fromEntries(members.map((member) => [member.userId, member.name])));
+    });
+  }, [bandId]);
 
   function handleSettingsChange(patch: Partial<{ theme: Theme; textSize: TextSize; boldText: boolean; chordColor: string; contentVisibility: ContentVisibility }>) {
     if (patch.theme !== undefined) setTheme(patch.theme);
@@ -280,7 +355,7 @@ export function StageMode() {
   } else if (currentItem?.type === 'finale') {
     label = t('stageMode.finale');
   }
-  const canAutoScroll = Boolean(voice) && Boolean(currentSong?.durationSec);
+  const canAutoScroll = Boolean(voice) && Boolean(currentSong?.durationSec) && !following;
 
   useEffect(() => {
     scrollSpeedRef.current = scrollSpeed;
@@ -294,6 +369,7 @@ export function StageMode() {
   }, [currentItem?.id]);
 
   const currentSongDurationSec = currentSong?.durationSec;
+  const currentItemId = currentItem?.id;
   useEffect(() => {
     if (!autoScroll || !canAutoScroll || !currentSongDurationSec) return undefined;
     const durationMs = currentSongDurationSec * 1000;
@@ -317,23 +393,130 @@ export function StageMode() {
     return () => cancelAnimationFrame(rafId);
   }, [autoScroll, canAutoScroll, currentSongDurationSec, currentItem?.id]);
 
-  // Any direct manual scroll gesture pauses auto-scroll rather than
-  // fighting it — resuming is an explicit re-tap, not automatic.
+  // Any direct manual scroll gesture pauses auto-scroll and Follow Mode
+  // rather than fighting them — resuming either is an explicit re-tap.
   useEffect(() => {
     const el = contentAreaRef.current;
     if (!el) return undefined;
-    function pauseAutoScroll() {
+    function pauseAutoScrollAndFollow() {
       setAutoScroll(false);
+      setFollowing((current) => {
+        if (current) setPausedFollowUserId(current);
+        return null;
+      });
     }
-    el.addEventListener('wheel', pauseAutoScroll, { passive: true });
-    el.addEventListener('touchmove', pauseAutoScroll, { passive: true });
+    el.addEventListener('wheel', pauseAutoScrollAndFollow, { passive: true });
+    el.addEventListener('touchmove', pauseAutoScrollAndFollow, { passive: true });
     return () => {
-      el.removeEventListener('wheel', pauseAutoScroll);
-      el.removeEventListener('touchmove', pauseAutoScroll);
+      el.removeEventListener('wheel', pauseAutoScrollAndFollow);
+      el.removeEventListener('touchmove', pauseAutoScrollAndFollow);
     };
   }, [currentItem?.id]);
 
+  // Broadcast our own position — once whenever the item changes (starting
+  // fresh at the top), and throttled while the content area scrolls, so
+  // band members can follow this session in Follow Mode.
+  useEffect(() => {
+    const awareness = provider?.awareness;
+    if (!awareness || !localUserId || !setlistId || !currentItemId) return;
+    awareness.setLocalStateField('stage', buildStagePayload(localUserId, setlistId, currentItemId, 0));
+  }, [provider, localUserId, setlistId, currentItemId]);
+
+  useEffect(() => {
+    const el = contentAreaRef.current;
+    const awareness = provider?.awareness;
+    if (!el || !awareness || !localUserId || !setlistId || !currentItemId) return undefined;
+    const uid = localUserId;
+    const sid = setlistId;
+    const iid = currentItemId;
+    let throttled = false;
+    function handleScroll() {
+      if (throttled) return;
+      throttled = true;
+      window.setTimeout(() => {
+        throttled = false;
+        if (!el || !awareness) return;
+        const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+        const fraction = maxScroll > 0 ? el.scrollTop / maxScroll : 0;
+        awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, fraction));
+      }, POSITION_BROADCAST_THROTTLE_MS);
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [provider, localUserId, setlistId, currentItemId]);
+
+  // Disappear from other members' followable list as soon as we leave.
+  useEffect(() => {
+    return () => {
+      provider?.awareness?.setLocalStateField('stage', null);
+    };
+  }, [provider]);
+
+  // Subscribe to every other connected session's broadcast position.
+  useEffect(() => {
+    const awareness = provider?.awareness;
+    if (!awareness) return undefined;
+    function handleChange() {
+      const states = awareness!.getStates() as Map<number, { stage?: unknown }>;
+      const next: StageAwarenessState[] = [];
+      for (const [clientId, state] of states) {
+        if (clientId === awareness!.clientID) continue;
+        const parsed = stageAwarenessSchema.safeParse(state.stage);
+        if (parsed.success) next.push(parsed.data);
+      }
+      setPeerStates(next);
+    }
+    awareness.on('change', handleChange);
+    handleChange();
+    return () => awareness.off('change', handleChange);
+  }, [provider]);
+
+  const followablePeers = useMemo(() => {
+    const byUserId = new Map<string, { userId: string; name: string }>();
+    for (const state of peerStates) {
+      if (state.setlistId === setlistId && state.userId !== localUserId) {
+        byUserId.set(state.userId, { userId: state.userId, name: memberNames[state.userId] ?? state.userId });
+      }
+    }
+    return Array.from(byUserId.values());
+  }, [peerStates, setlistId, localUserId, memberNames]);
+
+  // Mirror the followed peer's item and scroll position; if they've moved
+  // to a different item, jump there first and mirror scroll once we land.
+  useEffect(() => {
+    if (!following) return;
+    const peer = peerStates.find((state) => state.userId === following);
+    if (!peer) return;
+    if (peer.itemId !== currentItem?.id) {
+      const index = items.findIndex((item) => item.id === peer.itemId);
+      // Syncing local navigation to the followed peer's broadcast position
+      // (an external system), not a redundant re-derivation of local state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (index !== -1) setRequestedIndex(index);
+      return;
+    }
+    const el = contentAreaRef.current;
+    if (el) {
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      el.scrollTop = peer.position.fraction * maxScroll;
+    }
+  }, [following, peerStates, currentItem?.id, items]);
+
   if (!bandId || !setlistId) return null;
+
+  function startFollowing(userId: string) {
+    setFollowing(userId);
+    setPausedFollowUserId(null);
+    setAutoScroll(false);
+    setShowFollowPanel(false);
+  }
+
+  function stopFollowing() {
+    setFollowing((current) => {
+      if (current) setPausedFollowUserId(current);
+      return null;
+    });
+  }
 
   function handleExit() {
     navigate(`/bands/${bandId}/setlists/${setlistId}`);
@@ -394,6 +577,36 @@ export function StageMode() {
               </Button>
             </div>
           )}
+          {following ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={stopFollowing}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {t('stageMode.following', { name: memberNames[following] ?? following })}
+            </Button>
+          ) : pausedFollowUserId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => startFollowing(pausedFollowUserId)}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {t('stageMode.backTo', { name: memberNames[pausedFollowUserId] ?? pausedFollowUserId })}
+            </Button>
+          ) : (
+            followablePeers.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowFollowPanel((v) => !v)}
+                className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+              >
+                {t('stageMode.follow')}
+              </Button>
+            )
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -417,6 +630,15 @@ export function StageMode() {
         />
       )}
 
+      {showFollowPanel && (
+        <FollowPanel
+          isDark={isDark}
+          peers={followablePeers}
+          onFollow={startFollowing}
+          onClose={() => setShowFollowPanel(false)}
+        />
+      )}
+
       <div
         key={currentItem?.id}
         ref={contentAreaRef}
@@ -435,7 +657,10 @@ export function StageMode() {
           type="button"
           variant="ghost"
           disabled={currentIndex <= 0}
-          onClick={() => setRequestedIndex((i) => Math.max(0, i - 1))}
+          onClick={() => {
+            stopFollowing();
+            setRequestedIndex((i) => Math.max(0, i - 1));
+          }}
           className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
         >
           {t('stageMode.previous')}
@@ -444,7 +669,10 @@ export function StageMode() {
           type="button"
           variant="ghost"
           disabled={currentIndex >= items.length - 1}
-          onClick={() => setRequestedIndex((i) => Math.min(items.length - 1, i + 1))}
+          onClick={() => {
+            stopFollowing();
+            setRequestedIndex((i) => Math.min(items.length - 1, i + 1));
+          }}
           className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
         >
           {t('stageMode.next')}
