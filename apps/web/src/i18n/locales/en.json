@@ -36,7 +36,13 @@
     "noBandSelected": "Select or create a band to get started.",
     "bandSettings": "Band settings",
     "repertoire": "Repertoire",
-    "setlists": "Setlists"
+    "setlists": "Setlists",
+    "deleteLocalData": "Delete local data",
+    "deleteLocalDataConfirm": "This removes every band's offline cache from this device (your account and bands are unaffected). Continue?",
+    "deleteLocalDataDone": "Local data deleted."
+  },
+  "bandAccess": {
+    "denied": "You're not a member of this band, so its content isn't available here."
   },
   "setlistList": {
     "back": "Back to dashboard",

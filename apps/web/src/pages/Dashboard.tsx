@@ -2,10 +2,12 @@
 import { Button } from '@bandstand/ui';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BandSwitcher } from '../components/BandSwitcher';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { authClient } from '../lib/auth-client';
+import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
 
 export function Dashboard() {
@@ -17,6 +19,17 @@ export function Dashboard() {
 
   if (!isPending && !session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (status === 'forbidden') {
+    return <BandAccessDenied />;
+  }
+
+  async function handleDeleteLocalData() {
+    if (!session) return;
+    if (!window.confirm(t('dashboard.deleteLocalDataConfirm'))) return;
+    await deleteAllLocalBandData(session.user.id);
+    window.alert(t('dashboard.deleteLocalDataDone'));
   }
 
   return (
@@ -38,6 +51,9 @@ export function Dashboard() {
               </Link>
             </>
           )}
+          <Button variant="ghost" onClick={handleDeleteLocalData}>
+            {t('dashboard.deleteLocalData')}
+          </Button>
           <Button variant="outline" onClick={() => authClient.signOut()}>
             {t('dashboard.logout')}
           </Button>
