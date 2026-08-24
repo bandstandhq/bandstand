@@ -18,4 +18,7 @@ export const userPrefs = pgTable('user_prefs', {
   // 'board' | 'list' — always list below the board breakpoint regardless
   // of this, per the brief; validated in packages/core's userPrefsSchema.
   setlistViewMode: text('setlist_view_mode').notNull().default('list'),
+  // 'text' | 'chords' | 'both' — Stage Mode's content visibility toggle;
+  // validated in packages/core's userPrefsSchema.
+  contentVisibility: text('content_visibility').notNull().default('both'),
 });
