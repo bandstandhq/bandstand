@@ -95,7 +95,10 @@
     "autoScrollPause": "Pause scroll",
     "scrollSlower": "Slower",
     "scrollFaster": "Faster",
-    "bpm": "{{bpm}} BPM"
+    "bpm": "{{bpm}} BPM",
+    "follow": "Follow",
+    "following": "Following {{name}}",
+    "backTo": "Back to {{name}}"
   },
   "bandSwitcher": {
     "label": "Active band",

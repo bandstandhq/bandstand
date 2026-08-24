@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import { authClient } from '../lib/auth-client';
@@ -8,6 +9,7 @@ export type BandDocStatus = 'connecting' | 'connected' | 'offline';
 
 export interface UseBandDocResult {
   doc: Y.Doc | null;
+  provider: HocuspocusProvider | null;
   status: BandDocStatus;
 }
 
@@ -15,6 +17,7 @@ export interface UseBandDocResult {
 export function useBandDoc(bandId: string | null): UseBandDocResult {
   const { data: session } = authClient.useSession();
   const [doc, setDoc] = useState<Y.Doc | null>(null);
+  const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const [status, setStatus] = useState<BandDocStatus>('connecting');
 
   useEffect(() => {
@@ -27,6 +30,7 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
     // derive it, so exposing it to callers has to happen here.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDoc(connection.doc);
+    setProvider(connection.provider);
     connection.provider.on('synced', () => setStatus('connected'));
     connection.provider.on('close', () => setStatus('offline'));
 
@@ -34,8 +38,9 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
       connection.provider.destroy();
       connection.indexeddb.destroy();
       setDoc(null);
+      setProvider(null);
     };
   }, [bandId, session?.session.token]);
 
-  return { doc, status };
+  return { doc, provider, status };
 }
