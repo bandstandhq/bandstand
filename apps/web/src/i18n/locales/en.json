@@ -101,7 +101,14 @@
     "backTo": "Back to {{name}}",
     "key": "Key {{key}}",
     "transposeDown": "Transpose down",
-    "transposeUp": "Transpose up"
+    "transposeUp": "Transpose up",
+    "editSetlist": "Edit setlist",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeItem": "Remove",
+    "addSong": "Add a song…",
+    "add": "Add",
+    "setlistEmpty": "No items yet — add one below."
   },
   "bandSwitcher": {
     "label": "Active band",

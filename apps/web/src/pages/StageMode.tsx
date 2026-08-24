@@ -1,5 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { getDefaultVoiceId, itemsKey, stageAwarenessSchema } from '@bandstand/core';
+import {
+  addSetlistItem,
+  buildBreakItem,
+  buildFinaleItem,
+  buildSongItem,
+  getDefaultVoiceId,
+  itemsKey,
+  moveSetlistItem,
+  removeSetlistItem,
+  stageAwarenessSchema,
+} from '@bandstand/core';
 import type { ContentVisibility, SetlistItem, Song, StageAwarenessState, TextSize, Theme, Voice } from '@bandstand/core';
 import { buildRenderModel, parseChordPro, transposeChordPro } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
@@ -13,6 +23,7 @@ import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import type * as Y from 'yjs';
 
 const TEXT_SIZE_CLASSES: Record<TextSize, string> = {
   small: 'text-xl',
@@ -283,6 +294,129 @@ function FollowPanel({
   );
 }
 
+function itemLabel(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  item: SetlistItem,
+  songs: Record<string, Song>,
+): string {
+  if (item.type === 'song') return songs[item.songId]?.title ?? item.songId;
+  if (item.type === 'break') return t('stageMode.breakMinutes', { minutes: item.breakMinutes });
+  return t('stageMode.finale');
+}
+
+function EditSetlistPanel({
+  isDark,
+  doc,
+  setlistId,
+  items,
+  songs,
+  onClose,
+}: {
+  isDark: boolean;
+  doc: Y.Doc;
+  setlistId: string;
+  items: SetlistItem[];
+  songs: Record<string, Song>;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [pickedSongId, setPickedSongId] = useState('');
+  const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
+  const rowClass = isDark ? 'border-white/10' : 'border-black/10';
+  const buttonBase = 'rounded-md px-2 py-1 text-xs';
+  const hoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
+  const poolSongs = Object.entries(songs).filter(([, song]) => song.status === 'active');
+
+  function handleAddSong() {
+    if (!pickedSongId) return;
+    addSetlistItem(doc, setlistId, buildSongItem(pickedSongId));
+    setPickedSongId('');
+  }
+
+  return (
+    <div className={`absolute right-4 top-16 z-10 w-72 space-y-3 rounded-md border p-4 ${panelClass}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{t('stageMode.editSetlist')}</p>
+        <button type="button" onClick={onClose} className="text-xs opacity-70 hover:opacity-100">
+          {t('stageMode.close')}
+        </button>
+      </div>
+
+      <ul className="max-h-60 space-y-1 overflow-y-auto">
+        {items.map((item, index) => (
+          <li key={item.id} className={`flex items-center justify-between border-b py-1 text-sm ${rowClass}`}>
+            <span className="flex-1 truncate">{itemLabel(t, item, songs)}</span>
+            <span className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => moveSetlistItem(doc, setlistId, item.id, index - 1)}
+                aria-label={t('stageMode.moveUp')}
+                className={`${buttonBase} ${hoverClass} disabled:opacity-30`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={index === items.length - 1}
+                onClick={() => moveSetlistItem(doc, setlistId, item.id, index + 1)}
+                aria-label={t('stageMode.moveDown')}
+                className={`${buttonBase} ${hoverClass} disabled:opacity-30`}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={() => removeSetlistItem(doc, setlistId, item.id)}
+                aria-label={t('stageMode.removeItem')}
+                className={`${buttonBase} ${hoverClass}`}
+              >
+                ✕
+              </button>
+            </span>
+          </li>
+        ))}
+        {items.length === 0 && <li className="py-1 text-xs opacity-70">{t('stageMode.setlistEmpty')}</li>}
+      </ul>
+
+      <div className="flex gap-1">
+        <select
+          value={pickedSongId}
+          onChange={(e) => setPickedSongId(e.target.value)}
+          className={`h-8 flex-1 rounded-md border bg-transparent px-1 text-xs ${rowClass}`}
+        >
+          <option value="">{t('stageMode.addSong')}</option>
+          {poolSongs.map(([songId, song]) => (
+            <option key={songId} value={songId}>
+              {song.title}
+            </option>
+          ))}
+        </select>
+        <button type="button" disabled={!pickedSongId} onClick={handleAddSong} className={`${buttonBase} ${hoverClass} disabled:opacity-30`}>
+          {t('stageMode.add')}
+        </button>
+      </div>
+
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => addSetlistItem(doc, setlistId, buildBreakItem(15))}
+          className={`${buttonBase} border ${rowClass} ${hoverClass}`}
+        >
+          {t('setlistDetail.addBreak')}
+        </button>
+        <button
+          type="button"
+          onClick={() => addSetlistItem(doc, setlistId, buildFinaleItem())}
+          className={`${buttonBase} border ${rowClass} ${hoverClass}`}
+        >
+          {t('setlistDetail.addFinale')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Full-screen, no navigation chrome — the brief is explicit that this is
  * the actual reason the app exists, "no compromises." Renders the current
@@ -329,6 +463,7 @@ export function StageMode() {
   const [following, setFollowing] = useState<string | null>(null);
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
+  const [showEditSetlist, setShowEditSetlist] = useState(false);
 
   // The user's standing preference, applied read-only here (edited from the
   // song editor). Live transpose is layered on top of it, ephemeral to this
@@ -692,6 +827,16 @@ export function StageMode() {
               </Button>
             )
           )}
+          {doc && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowEditSetlist((v) => !v)}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {t('stageMode.editSetlist')}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -721,6 +866,17 @@ export function StageMode() {
           peers={followablePeers}
           onFollow={startFollowing}
           onClose={() => setShowFollowPanel(false)}
+        />
+      )}
+
+      {showEditSetlist && doc && (
+        <EditSetlistPanel
+          isDark={isDark}
+          doc={doc}
+          setlistId={setlistId}
+          items={items}
+          songs={songs}
+          onClose={() => setShowEditSetlist(false)}
         />
       )}
 
