@@ -32,6 +32,28 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
 export type MyBand = Band & { role: BandRole };
 
 /**
+ * 'member' and 'not-member' are authoritative (the server answered);
+ * 'unknown' means the check itself failed (offline, timeout, 5xx) and
+ * callers must not treat that as a denial — see
+ * docs/adr/0006-offline-cache-scoping.md.
+ */
+export type MembershipCheckResult = 'member' | 'not-member' | 'unknown';
+
+async function checkBandMembership(baseUrl: string, bandId: string): Promise<MembershipCheckResult> {
+  try {
+    // Reuses GET /bands/:bandId/members purely as a membership oracle — it
+    // already requires 'member' role, so a 200/403 split is exactly the
+    // answer this needs, with no dedicated endpoint.
+    const res = await fetch(`${baseUrl}/bands/${bandId}/members`, { credentials: 'include' });
+    if (res.ok) return 'member';
+    if (res.status === 403) return 'not-member';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
  * Typed client for apps/server's REST API. Server URL is configurable per
  * account/device, not hardcoded — see docs/ARCHITECTURE.md.
  */
@@ -47,6 +69,8 @@ export function createApiClient(baseUrl: string) {
 
     listBandMembers: (bandId: string) =>
       request<BandMember[]>(baseUrl, `/bands/${bandId}/members`),
+
+    checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
 
     createInvite: (bandId: string, input: CreateInviteInput) =>
       request<Invite>(baseUrl, `/bands/${bandId}/invites`, {

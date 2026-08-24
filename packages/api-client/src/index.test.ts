@@ -59,6 +59,27 @@ describe('createApiClient', () => {
     );
   });
 
+  it('checkBandMembership reports "member" on a 200 and "not-member" on a 403', async () => {
+    mockFetchOnce({ ok: true, status: 200, body: [] });
+    const client = createApiClient('http://api.example');
+    await expect(client.checkBandMembership('band-1')).resolves.toBe('member');
+
+    mockFetchOnce({ ok: false, status: 403, body: { error: 'Forbidden' } });
+    await expect(client.checkBandMembership('band-1')).resolves.toBe('not-member');
+  });
+
+  it('checkBandMembership reports "unknown" on a network failure or an unrelated status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),
+    );
+    const client = createApiClient('http://api.example');
+    await expect(client.checkBandMembership('band-1')).resolves.toBe('unknown');
+
+    mockFetchOnce({ ok: false, status: 500, body: { error: 'Internal Server Error' } });
+    await expect(client.checkBandMembership('band-1')).resolves.toBe('unknown');
+  });
+
   it('falls back to a generic message when the error body is unparseable', async () => {
     vi.stubGlobal(
       'fetch',
