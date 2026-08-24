@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -296,6 +297,7 @@ export function StageMode() {
   const { doc, provider } = useBandDoc(bandId ?? null);
   const { data: session } = authClient.useSession();
   const localUserId = session?.user.id;
+  useWakeLock(true);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const voices = useYMap<Voice>(doc?.getMap('voices'));
   const items = useYArray<SetlistItem>(setlistId ? doc?.getArray(itemsKey(setlistId)) : undefined);
