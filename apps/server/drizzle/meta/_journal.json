@@ -78,6 +78,13 @@
       "when": 1787594447657,
       "tag": "0010_smiling_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787679351904,
+      "tag": "0011_slimy_killmonger",
+      "breakpoints": true
     }
   ]
 }

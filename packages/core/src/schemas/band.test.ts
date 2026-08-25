@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { bandRoleSchema, createBandInputSchema, renameBandInputSchema } from './band';
+import {
+  bandRoleSchema,
+  changeMemberRoleInputSchema,
+  createBandInputSchema,
+  renameBandInputSchema,
+  updateMyInstrumentsInputSchema,
+} from './band';
 
 describe('bandRoleSchema', () => {
   it('accepts owner|admin|member', () => {
@@ -27,5 +33,32 @@ describe('createBandInputSchema / renameBandInputSchema', () => {
 
   it('rejects extra fields', () => {
     expect(() => renameBandInputSchema.parse({ name: 'x', slug: 'y' })).toThrow();
+  });
+});
+
+describe('changeMemberRoleInputSchema', () => {
+  it('accepts admin or member', () => {
+    expect(changeMemberRoleInputSchema.parse({ role: 'admin' })).toEqual({ role: 'admin' });
+    expect(changeMemberRoleInputSchema.parse({ role: 'member' })).toEqual({ role: 'member' });
+  });
+
+  it('rejects owner — that only ever happens via transfer-ownership', () => {
+    expect(() => changeMemberRoleInputSchema.parse({ role: 'owner' })).toThrow();
+  });
+});
+
+describe('updateMyInstrumentsInputSchema', () => {
+  it('accepts a list of instrument strings', () => {
+    expect(updateMyInstrumentsInputSchema.parse({ instruments: ['Guitar', 'Vocals'] })).toEqual({
+      instruments: ['Guitar', 'Vocals'],
+    });
+  });
+
+  it('accepts an empty list', () => {
+    expect(updateMyInstrumentsInputSchema.parse({ instruments: [] })).toEqual({ instruments: [] });
+  });
+
+  it('rejects an empty-string instrument', () => {
+    expect(() => updateMyInstrumentsInputSchema.parse({ instruments: [''] })).toThrow();
   });
 });

@@ -25,3 +25,16 @@ export const bandMemberSchema = z.object({
   instruments: z.array(z.string()),
 });
 export type BandMember = z.infer<typeof bandMemberSchema>;
+
+// Owner is deliberately excluded — becoming (or ceasing to be) "the" owner
+// only ever happens through the transfer-ownership endpoint, which is what
+// keeps "a band has exactly one owner" meaningful.
+export const changeMemberRoleInputSchema = z.strictObject({
+  role: z.enum(['admin', 'member']),
+});
+export type ChangeMemberRoleInput = z.infer<typeof changeMemberRoleInputSchema>;
+
+export const updateMyInstrumentsInputSchema = z.strictObject({
+  instruments: z.array(z.string().min(1)),
+});
+export type UpdateMyInstrumentsInput = z.infer<typeof updateMyInstrumentsInputSchema>;

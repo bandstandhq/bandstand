@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "band_members_one_owner_idx" ON "band_members" USING btree ("band_id") WHERE "band_members"."role" = 'owner';

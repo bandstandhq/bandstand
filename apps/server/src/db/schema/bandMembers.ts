@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { bandRoleEnum } from './enums';
 import { bands } from './bands';
 import { users } from './users';
@@ -17,5 +18,11 @@ export const bandMembers = pgTable(
     instruments: text('instruments').array().notNull().default([]),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.bandId, table.userId] })],
+  (table) => [
+    primaryKey({ columns: [table.bandId, table.userId] }),
+    // A DB-level backstop for "a band always has exactly one owner" —
+    // independent of the ownership-transfer endpoint's own transaction
+    // getting that invariant right (see apps/server/src/routes/bands.ts).
+    uniqueIndex('band_members_one_owner_idx').on(table.bandId).where(sql`${table.role} = 'owner'`),
+  ],
 );
