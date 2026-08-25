@@ -20,16 +20,17 @@ export function setAssignment(doc: Y.Doc, songId: string, userId: string, voiceI
 
 /**
  * The voice a member should see for a song: their explicit assignment if
- * one exists, else a voice whose `instrument` matches theirs, else the
- * song's first voice (insertion order — the original ChordPro voice for any
- * song that predates Milestone 2). `undefined` only if the song has no
- * voices at all, which shouldn't happen for a real song.
+ * one exists, else a voice whose `instrument` matches one of theirs (a
+ * member's `band_members.instruments` is a list — they may play more than
+ * one), else the song's first voice (insertion order — the original
+ * ChordPro voice for any song that predates Milestone 2). `undefined` only
+ * if the song has no voices at all, which shouldn't happen for a real song.
  */
 export function getAssignedVoiceId(
   doc: Y.Doc,
   songId: string,
   userId: string,
-  memberInstrument?: string,
+  memberInstruments?: string[],
 ): string | undefined {
   const explicit = getAssignment(doc, songId, userId);
   if (explicit) return explicit;
@@ -37,8 +38,8 @@ export function getAssignedVoiceId(
   const voices = listVoicesForSong(doc, songId);
   if (voices.length === 0) return undefined;
 
-  if (memberInstrument) {
-    const match = voices.find(({ voice }) => voice.instrument === memberInstrument);
+  if (memberInstruments && memberInstruments.length > 0) {
+    const match = voices.find(({ voice }) => voice.instrument && memberInstruments.includes(voice.instrument));
     if (match) return match.id;
   }
 

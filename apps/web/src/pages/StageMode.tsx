@@ -4,7 +4,7 @@ import {
   buildBreakItem,
   buildFinaleItem,
   buildSongItem,
-  getDefaultVoiceId,
+  getAssignedVoiceId,
   itemsKey,
   moveSetlistItem,
   removeSetlistItem,
@@ -545,6 +545,17 @@ export function StageMode() {
   const { data: session } = authClient.useSession();
   const localUserId = session?.user.id;
   useWakeLock(true);
+
+  // Which voice each member sees can be assigned per-song (see
+  // docs/adr/0008-multi-voice-songs.md); the member's own instruments are
+  // only the fallback guess when no explicit assignment exists.
+  const [myInstruments, setMyInstruments] = useState<string[]>([]);
+  useEffect(() => {
+    if (!bandId) return;
+    apiClient.listBandMembers(bandId).then((members) => {
+      setMyInstruments(members.find((m) => m.userId === localUserId)?.instruments ?? []);
+    });
+  }, [bandId, localUserId]);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   // Raw Yjs values, not run through voiceSchema — see the matching comment
   // in SongEditor.tsx for why that parse has to happen here explicitly.
@@ -653,7 +664,8 @@ export function StageMode() {
     currentSong = songs[currentItem.songId];
     currentSongId = currentItem.songId;
     label = currentSong ? currentSong.title : currentItem.songId;
-    const rawVoice = rawVoices[getDefaultVoiceId(currentItem.songId)];
+    const assignedVoiceId = doc && localUserId ? getAssignedVoiceId(doc, currentItem.songId, localUserId, myInstruments) : undefined;
+    const rawVoice = assignedVoiceId ? rawVoices[assignedVoiceId] : undefined;
     voice = rawVoice ? voiceSchema.parse(rawVoice) : undefined;
   } else if (currentItem?.type === 'break') {
     label = t('stageMode.breakMinutes', { minutes: currentItem.breakMinutes });
