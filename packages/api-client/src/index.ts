@@ -117,6 +117,17 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
         body: JSON.stringify(input),
       }),
 
+    getSongDeleteImpact: (bandId: string, songId: string) =>
+      req<{ affectedSetlists: string[]; hasPersonalNotes: boolean }>(
+        `/bands/${bandId}/songs/${songId}/delete-impact`,
+      ),
+
+    deleteSongForever: (bandId: string, songId: string) =>
+      req<{ affectedSetlists: string[] }>(`/bands/${bandId}/songs/${songId}`, { method: 'DELETE' }),
+
+    deleteSetlist: (bandId: string, setlistId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/setlists/${setlistId}`, { method: 'DELETE' }),
+
     checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
 
     createInvite: (bandId: string, input: CreateInviteInput) =>

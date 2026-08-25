@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
-import type { Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
+import { can, createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
+import type { BandRole, Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,30 @@ function formatDuration(t: (key: string, opts?: Record<string, unknown>) => stri
   return t('setlistList.durationMinutes', { minutes: Math.round(totalSec / 60) });
 }
 
+function DeleteSetlistButton({ bandId, setlistId, setlistName }: { bandId: string; setlistId: string; setlistName: string }) {
+  const { t } = useTranslation();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!window.confirm(t('setlistList.confirmDelete', { name: setlistName }))) return;
+    setDeleting(true);
+    try {
+      await apiClient.deleteSetlist(bandId, setlistId);
+      // No local state update needed — the delete applies to the shared
+      // Yjs doc server-side, and this client's own live connection to the
+      // same doc reflects it as soon as the change syncs back.
+    } catch {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <button type="button" disabled={deleting} onClick={() => void handleDelete()} className="text-xs text-destructive hover:underline">
+      {t('setlistList.delete')}
+    </button>
+  );
+}
+
 function SetlistCard({
   doc,
   bandId,
@@ -24,6 +48,7 @@ function SetlistCard({
   setlist,
   songs,
   variant,
+  canDelete,
 }: {
   doc: Y.Doc;
   bandId: string;
@@ -31,6 +56,7 @@ function SetlistCard({
   setlist: Setlist;
   songs: Record<string, Song>;
   variant: 'list' | 'board';
+  canDelete: boolean;
 }) {
   const { t } = useTranslation();
   const items = useYArray<SetlistItem>(doc.getArray(itemsKey(setlistId)));
@@ -44,9 +70,12 @@ function SetlistCard({
           <p>{setlist.name}</p>
           <p className="text-xs text-muted-foreground">{statsText}</p>
         </div>
-        <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
-          {t('setlistList.open')}
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
+            {t('setlistList.open')}
+          </Link>
+          {canDelete && <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />}
+        </div>
       </li>
     );
   }
@@ -55,19 +84,27 @@ function SetlistCard({
     <div className="w-72 flex-shrink-0 rounded-md border border-border p-3">
       <div className="flex items-center justify-between">
         <p className="font-medium">{setlist.name}</p>
-        <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
-          {t('setlistList.open')}
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
+            {t('setlistList.open')}
+          </Link>
+          {canDelete && <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />}
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">{statsText}</p>
       <ul className="mt-2 space-y-1 text-sm">
         {items.map((item) => (
-          <li key={item.id} className="truncate text-muted-foreground">
-            {item.type === 'song'
-              ? (songs[item.songId]?.title ?? item.songId)
-              : item.type === 'break'
-                ? t('setlistDetail.breakMinutes', { minutes: item.breakMinutes })
-                : t('setlistDetail.finale')}
+          <li key={item.id} className="truncate">
+            <Link
+              to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
+              className="text-muted-foreground hover:text-primary hover:underline"
+            >
+              {item.type === 'song'
+                ? (songs[item.songId]?.title ?? item.songId)
+                : item.type === 'break'
+                  ? t('setlistDetail.breakMinutes', { minutes: item.breakMinutes })
+                  : t('setlistDetail.finale')}
+            </Link>
           </li>
         ))}
       </ul>
@@ -83,12 +120,21 @@ export function SetlistList() {
   const songs = useYMap<Song>(doc?.getMap('songs'));
   const [name, setName] = useState('');
   const [viewMode, setViewMode] = useState<SetlistViewMode>('list');
+  const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const isWideScreen = useIsWideScreen();
   const effectiveViewMode: SetlistViewMode = isWideScreen ? viewMode : 'list';
+  const canDelete = viewerRole ? can(viewerRole, 'setlist:delete') : false;
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => setViewMode(prefs.setlistViewMode));
   }, []);
+
+  useEffect(() => {
+    if (!bandId) return;
+    apiClient.listMyBands().then((bands) => {
+      setViewerRole(bands.find((b) => b.id === bandId)?.role ?? null);
+    });
+  }, [bandId]);
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -147,6 +193,7 @@ export function SetlistList() {
               setlist={setlist}
               songs={songs}
               variant="board"
+              canDelete={canDelete}
             />
           ))}
         </div>
@@ -161,6 +208,7 @@ export function SetlistList() {
               setlist={setlist}
               songs={songs}
               variant="list"
+              canDelete={canDelete}
             />
           ))}
         </ul>

@@ -69,7 +69,9 @@
     "listView": "List view",
     "stats": "{{count}} song, {{duration}}",
     "stats_other": "{{count}} songs, {{duration}}",
-    "durationMinutes": "{{minutes}} min"
+    "durationMinutes": "{{minutes}} min",
+    "delete": "Delete",
+    "confirmDelete": "Delete \"{{name}}\"? This can't be undone."
   },
   "setlistDetail": {
     "back": "Back to setlists",
@@ -82,8 +84,7 @@
     "breakMinutes": "Break ({{minutes}} min)",
     "addFinale": "Add finale",
     "finale": "Finale",
-    "remove": "Remove",
-    "play": "Play"
+    "remove": "Remove"
   },
   "stageMode": {
     "exit": "Exit",
@@ -145,6 +146,8 @@
   "repertoire": {
     "back": "Back to dashboard",
     "title": "Repertoire",
+    "tabActive": "Active",
+    "tabArchive": "Archive ({{count}})",
     "searchPlaceholder": "Search title, artist, or key",
     "statusFilter": "Status",
     "statusAll": "All",
@@ -159,8 +162,21 @@
     "restore": "Restore",
     "noSongs": "No songs match.",
     "noSongsAtAll": "No songs yet.",
+    "noArchivedSongs": "No archived songs.",
     "newSong": "New song",
-    "edit": "Edit"
+    "edit": "Edit",
+    "deleteForever": {
+      "action": "Delete forever",
+      "title": "Permanently delete \"{{title}}\"?",
+      "loading": "Checking what this affects…",
+      "warning": "This removes the song entirely, along with every member's personal notes and setup checklist for it. This can't be undone.",
+      "affectedSetlists": "It's used in these setlists, and will be removed from them: {{setlists}}",
+      "hasNotes": "At least one member has personal notes or a checklist for this song — those will be deleted too.",
+      "confirmLabel": "Type \"{{title}}\" to confirm",
+      "cancel": "Cancel",
+      "confirm": "Delete forever",
+      "deleting": "Deleting…"
+    }
   },
   "chordProImport": {
     "openButton": "Import ChordPro",

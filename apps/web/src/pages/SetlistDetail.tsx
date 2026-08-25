@@ -99,14 +99,18 @@ function SortableSetlistItem({
       style={style}
       className={`flex items-center justify-between rounded-md border border-border p-2 text-sm ${isDragging ? 'opacity-50' : ''}`}
     >
-      <span {...attributes} {...listeners} className="flex-1 cursor-grab">
-        {label}
-      </span>
+      {/* Doubles as the drag handle and the tap target for Stage Mode — a
+          plain tap (no pointer movement past dnd-kit's activation
+          distance) reaches Stage Mode; a drag reorders. Previously only the
+          small separate "Play" link (now removed) navigated at all, so
+          tapping the row itself did nothing. */}
       <Link
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
-        className="mr-3 text-xs text-primary hover:underline"
+        {...attributes}
+        {...listeners}
+        className="flex-1 cursor-grab"
       >
-        {t('setlistDetail.play')}
+        {label}
       </Link>
       <button type="button" onClick={onRemove} className="text-xs text-muted-foreground hover:underline">
         {t('setlistDetail.remove')}
