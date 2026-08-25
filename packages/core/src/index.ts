@@ -8,3 +8,5 @@ export * from './bands/instruments';
 export * from './hocuspocus/authFailure';
 export * from './permissions/roles';
 export * from './permissions/matrix';
+export * from './files/hash';
+export * from './files/schema';

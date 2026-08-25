@@ -20,6 +20,8 @@ owner.
 | Create or edit a setlist | ✅ | ✅ | ✅ |
 | Delete a setlist | ✅ | ✅ | — |
 | Manage your own instruments, notes, and personal transpose | ✅ | ✅ | ✅ |
+| Upload a file to a voice | ✅ | ✅ | ✅ |
+| Detach a file from a voice | ✅ | ✅ | — |
 
 ¹ An admin can remove a member, but never the owner or another admin.
 ² The owner can only leave after transferring ownership to someone else.
