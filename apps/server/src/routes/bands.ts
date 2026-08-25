@@ -47,7 +47,12 @@ bandsRoute.get('/', async (c) => {
     .select({ id: bands.id, name: bands.name, slug: bands.slug, role: bandMembers.role })
     .from(bandMembers)
     .innerJoin(bands, eq(bandMembers.bandId, bands.id))
-    .where(eq(bandMembers.userId, userId));
+    .where(eq(bandMembers.userId, userId))
+    // Deterministic order matters here — the web client defaults to the
+    // first result as the active band (BandSwitcher.tsx) when none is
+    // already selected, and a plain unordered SELECT's row order isn't
+    // guaranteed by Postgres to stay stable across query plans/versions.
+    .orderBy(bandMembers.joinedAt);
   return c.json(rows);
 });
 
