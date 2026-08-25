@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
-import { can, getInviteStatus } from '@bandstand/core';
+import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { RequireBandRole } from '../components/RequireBandRole';
 import { apiClient } from '../lib/api-client';
+import { authClient } from '../lib/auth-client';
 
 export function BandSettings() {
   const { bandId } = useParams<{ bandId: string }>();
@@ -25,6 +26,8 @@ export function BandSettings() {
 function BandSettingsContent({ bandId }: { bandId: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user.id;
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -32,6 +35,15 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [renameSaved, setRenameSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function refreshMembers() {
+    const [freshMembers, myBands] = await Promise.all([
+      apiClient.listBandMembers(bandId),
+      apiClient.listMyBands(),
+    ]);
+    setMembers(freshMembers);
+    setMyBand(myBands.find((b) => b.id === bandId) ?? null);
+  }
 
   useEffect(() => {
     if (!bandId) return;
@@ -102,26 +114,16 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
 
       <section className="mt-8">
         <h2 className="text-lg font-medium">{t('bandSettings.members.title')}</h2>
-        <table className="mt-2 w-full text-sm">
-          <thead>
-            <tr className="text-left text-muted-foreground">
-              <th className="py-1 pr-4">{t('bandSettings.members.name')}</th>
-              <th className="py-1 pr-4">{t('bandSettings.members.email')}</th>
-              <th className="py-1 pr-4">{t('bandSettings.members.role')}</th>
-              <th className="py-1">{t('bandSettings.members.instruments')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr key={member.userId} className="border-t border-border">
-                <td className="py-1 pr-4">{member.name}</td>
-                <td className="py-1 pr-4">{member.email}</td>
-                <td className="py-1 pr-4">{member.role}</td>
-                <td className="py-1">{member.instruments.join(', ')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {myBand && currentUserId && (
+          <MemberList
+            bandId={bandId}
+            members={members}
+            viewerRole={myBand.role}
+            viewerUserId={currentUserId}
+            onRefresh={refreshMembers}
+            onLeftBand={() => navigate('/dashboard')}
+          />
+        )}
       </section>
 
       {canManageInvites && (
@@ -150,6 +152,281 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
         </section>
       )}
     </main>
+  );
+}
+
+function RoleBadge({ role }: { role: BandRole }) {
+  const { t } = useTranslation();
+  const label =
+    role === 'owner'
+      ? t('bandSettings.members.roleOwner')
+      : role === 'admin'
+        ? t('bandSettings.members.roleAdmin')
+        : t('bandSettings.members.roleMember');
+  const colorClass =
+    role === 'owner' ? 'bg-primary text-primary-foreground' : role === 'admin' ? 'bg-accent' : 'bg-muted text-muted-foreground';
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>{label}</span>;
+}
+
+function MemberList({
+  bandId,
+  members,
+  viewerRole,
+  viewerUserId,
+  onRefresh,
+  onLeftBand,
+}: {
+  bandId: string;
+  members: BandMember[];
+  viewerRole: BandRole;
+  viewerUserId: string;
+  onRefresh: () => Promise<void>;
+  onLeftBand: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <table className="mt-2 w-full text-sm">
+      <thead>
+        <tr className="text-left text-muted-foreground">
+          <th className="py-1 pr-4">{t('bandSettings.members.name')}</th>
+          <th className="py-1 pr-4">{t('bandSettings.members.email')}</th>
+          <th className="py-1 pr-4">{t('bandSettings.members.role')}</th>
+          <th className="py-1 pr-4">{t('bandSettings.members.instruments')}</th>
+          <th className="py-1" />
+        </tr>
+      </thead>
+      <tbody>
+        {members.map((member) => (
+          <MemberRow
+            key={member.userId}
+            bandId={bandId}
+            member={member}
+            isSelf={member.userId === viewerUserId}
+            viewerRole={viewerRole}
+            onRefresh={onRefresh}
+            onLeftBand={onLeftBand}
+          />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function MemberRow({
+  bandId,
+  member,
+  isSelf,
+  viewerRole,
+  onRefresh,
+  onLeftBand,
+}: {
+  bandId: string;
+  member: BandMember;
+  isSelf: boolean;
+  viewerRole: BandRole;
+  onRefresh: () => Promise<void>;
+  onLeftBand: () => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleChangeRole(role: 'admin' | 'member') {
+    void run(() => apiClient.changeMemberRole(bandId, member.userId, { role }));
+  }
+
+  function handleRemove() {
+    if (!window.confirm(t('bandSettings.members.confirmRemove', { name: member.name }))) return;
+    void run(() => apiClient.removeMember(bandId, member.userId));
+  }
+
+  function handleTransfer() {
+    if (!window.confirm(t('bandSettings.members.confirmTransfer', { name: member.name }))) return;
+    void run(() => apiClient.transferOwnership(bandId, member.userId));
+  }
+
+  async function handleLeave() {
+    if (!window.confirm(t('bandSettings.members.confirmLeave'))) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiClient.leaveBand(bandId);
+      onLeftBand();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  }
+
+  const canChangeRole = !isSelf && member.role !== 'owner' && can(viewerRole, 'member:changeRole');
+  const canRemove = !isSelf && canRemoveMember(viewerRole, member.role);
+  const canTransfer = !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
+  const canLeave = isSelf && viewerRole !== 'owner' && can(viewerRole, 'band:leave');
+
+  return (
+    <>
+      <tr className="border-t border-border align-top">
+        <td className="py-1 pr-4">{member.name}</td>
+        <td className="py-1 pr-4">{member.email}</td>
+        <td className="py-1 pr-4">
+          <RoleBadge role={member.role} />
+        </td>
+        <td className="py-1 pr-4">
+          {isSelf ? (
+            <InstrumentEditor bandId={bandId} instruments={member.instruments} onChanged={onRefresh} />
+          ) : (
+            member.instruments.join(', ')
+          )}
+        </td>
+        <td className="space-x-2 whitespace-nowrap py-1 text-right">
+          {canChangeRole && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleChangeRole(member.role === 'admin' ? 'member' : 'admin')}
+              className="text-primary hover:underline"
+            >
+              {member.role === 'admin' ? t('bandSettings.members.makeMember') : t('bandSettings.members.makeAdmin')}
+            </button>
+          )}
+          {canTransfer && (
+            <button type="button" disabled={busy} onClick={handleTransfer} className="text-primary hover:underline">
+              {t('bandSettings.members.transferOwnership')}
+            </button>
+          )}
+          {canRemove && (
+            <button type="button" disabled={busy} onClick={handleRemove} className="text-destructive hover:underline">
+              {t('bandSettings.members.remove')}
+            </button>
+          )}
+          {canLeave && (
+            <button type="button" disabled={busy} onClick={() => void handleLeave()} className="text-destructive hover:underline">
+              {t('bandSettings.members.leave')}
+            </button>
+          )}
+          {isSelf && viewerRole === 'owner' && (
+            <span className="text-xs text-muted-foreground">{t('bandSettings.members.ownerMustTransfer')}</span>
+          )}
+        </td>
+      </tr>
+      {error && (
+        <tr>
+          <td colSpan={5} className="pb-2 text-xs text-destructive">
+            {error}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function InstrumentEditor({
+  bandId,
+  instruments,
+  onChanged,
+}: {
+  bandId: string;
+  instruments: string[];
+  onChanged: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [customInstrument, setCustomInstrument] = useState('');
+  const [saving, setSaving] = useState(false);
+  const availableToAdd = COMMON_INSTRUMENTS.filter((i) => !instruments.includes(i));
+
+  async function save(next: string[]) {
+    setSaving(true);
+    try {
+      await apiClient.updateMyInstruments(bandId, { instruments: next });
+      await onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addInstrument(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || instruments.includes(trimmed)) return;
+    void save([...instruments, trimmed]);
+  }
+
+  function removeInstrument(name: string) {
+    void save(instruments.filter((i) => i !== name));
+  }
+
+  return (
+    <div className="space-y-1">
+      {instruments.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {instruments.map((instrument) => (
+            <span key={instrument} className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs">
+              {instrument}
+              <button
+                type="button"
+                onClick={() => removeInstrument(instrument)}
+                aria-label={t('bandSettings.members.removeInstrument', { instrument })}
+                disabled={saving}
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-1">
+        {availableToAdd.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) addInstrument(e.target.value);
+            }}
+            aria-label={t('bandSettings.members.addInstrument')}
+            disabled={saving}
+            className="h-7 rounded-md border border-border bg-background px-1 text-xs"
+          >
+            <option value="">{t('bandSettings.members.addInstrument')}</option>
+            {availableToAdd.map((instrument) => (
+              <option key={instrument} value={instrument}>
+                {instrument}
+              </option>
+            ))}
+          </select>
+        )}
+        <Input
+          value={customInstrument}
+          onChange={(e) => setCustomInstrument(e.target.value)}
+          placeholder={t('bandSettings.members.customInstrumentPlaceholder')}
+          className="h-7 w-28 text-xs"
+          disabled={saving}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={saving || !customInstrument.trim()}
+          onClick={() => {
+            addInstrument(customInstrument);
+            setCustomInstrument('');
+          }}
+        >
+          {t('bandSettings.members.addCustomInstrument')}
+        </Button>
+      </div>
+    </div>
   );
 }
 
