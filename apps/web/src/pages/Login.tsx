@@ -12,6 +12,7 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  const { refetch } = authClient.useSession();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -21,6 +22,15 @@ export function Login() {
       setError(true);
       return;
     }
+    // signIn.email only marks the shared session store stale — it doesn't
+    // itself trigger a refetch. If that store already settled to
+    // "anonymous" earlier in this tab (e.g. an anonymous visit to a
+    // protected route redirected here first), it stays stale until
+    // something re-fetches it. Without this, navigating immediately can
+    // land on a page whose own useSession() call still reads that stale
+    // anonymous state on its very first render and bounces straight back
+    // to /login — the exact "sometimes redirects, sometimes doesn't" bug.
+    await refetch();
     navigate(searchParams.get('next') ?? '/dashboard');
   }
 

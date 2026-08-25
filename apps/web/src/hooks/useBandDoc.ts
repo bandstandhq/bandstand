@@ -46,7 +46,7 @@ function writeLastKnownMembership(userId: string, bandId: string, isMember: bool
  * offline, was last confirmed) to still be a member.
  */
 export function useBandDoc(bandId: string | null): UseBandDocResult {
-  const { data: session } = authClient.useSession();
+  const { data: session, refetch: refetchSession } = authClient.useSession();
   const [doc, setDoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const [status, setStatus] = useState<BandDocStatus>('connecting');
@@ -90,7 +90,19 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
     }
 
     connection.provider.on('authenticationFailed', ({ reason }: { reason: string }) => {
-      if (reason === HOCUSPOCUS_AUTH_FAILURE_REASON.notAMember) deny();
+      if (reason === HOCUSPOCUS_AUTH_FAILURE_REASON.notAMember) {
+        deny();
+        return;
+      }
+      // Any other reason (e.g. an expired/invalid token) — refresh the
+      // session rather than silently staying offline forever. If the
+      // refreshed token differs from the one this effect closed over, the
+      // dependency array below re-runs the whole effect and reconnects
+      // with it; if it's unchanged (session genuinely expired/revoked),
+      // there's nothing left to retry and the provider's own close handler
+      // marks this offline, same as any other disconnect.
+      if (cancelled || forbidden) return;
+      refetchSession();
     });
     connection.provider.on('synced', () => {
       if (cancelled || forbidden) return;
@@ -125,7 +137,7 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
       connection.provider.destroy();
       connection.indexeddb.destroy();
     };
-  }, [bandId, session?.session.token, session?.user.id]);
+  }, [bandId, session?.session.token, session?.user.id, refetchSession]);
 
   return { doc, provider, status };
 }

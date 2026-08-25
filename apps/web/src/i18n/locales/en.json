@@ -1,4 +1,7 @@
 {
+  "common": {
+    "loading": "Loading…"
+  },
   "login": {
     "title": "Log in to Bandstand",
     "email": "Email",

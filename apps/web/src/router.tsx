@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { RequireAuth } from './components/RequireAuth';
 import { BandSettings } from './pages/BandSettings';
 import { Dashboard } from './pages/Dashboard';
 import { JoinBand } from './pages/JoinBand';
@@ -18,14 +19,70 @@ export function AppRouter() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/bands/:bandId/settings" element={<BandSettings />} />
-        <Route path="/bands/:bandId/repertoire" element={<Repertoire />} />
-        <Route path="/bands/:bandId/songs/new" element={<SongEditor />} />
-        <Route path="/bands/:bandId/songs/:songId/edit" element={<SongEditor />} />
-        <Route path="/bands/:bandId/setlists" element={<SetlistList />} />
-        <Route path="/bands/:bandId/setlists/:setlistId" element={<SetlistDetail />} />
-        <Route path="/bands/:bandId/setlists/:setlistId/stage/:itemId" element={<StageMode />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <Dashboard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/settings"
+          element={
+            <RequireAuth>
+              <BandSettings />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/repertoire"
+          element={
+            <RequireAuth>
+              <Repertoire />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/songs/new"
+          element={
+            <RequireAuth>
+              <SongEditor />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/songs/:songId/edit"
+          element={
+            <RequireAuth>
+              <SongEditor />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/setlists"
+          element={
+            <RequireAuth>
+              <SetlistList />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/setlists/:setlistId"
+          element={
+            <RequireAuth>
+              <SetlistDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/setlists/:setlistId/stage/:itemId"
+          element={
+            <RequireAuth>
+              <StageMode />
+            </RequireAuth>
+          }
+        />
         <Route path="/join/:code" element={<JoinBand />} />
       </Routes>
     </BrowserRouter>
