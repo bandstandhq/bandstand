@@ -21,3 +21,7 @@ export const Outline: Story = {
 export const Ghost: Story = {
   args: { children: 'Skip', variant: 'ghost' },
 };
+
+export const Destructive: Story = {
+  args: { children: 'Delete', variant: 'destructive' },
+};

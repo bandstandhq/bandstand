@@ -8,6 +8,7 @@ import type {
   Invite,
   RedeemInviteInput,
   RenameBandInput,
+  ResolveIdeaTieInput,
   UpdateUserPrefsInput,
   UserPrefs,
 } from '@bandstand/core';
@@ -67,8 +68,18 @@ export function createApiClient(baseUrl: string) {
     renameBand: (bandId: string, input: RenameBandInput) =>
       request<Band>(baseUrl, `/bands/${bandId}`, { method: 'PATCH', body: JSON.stringify(input) }),
 
+    deleteBand: (bandId: string) =>
+      request<{ ok: true }>(baseUrl, `/bands/${bandId}`, { method: 'DELETE' }),
+
     listBandMembers: (bandId: string) =>
       request<BandMember[]>(baseUrl, `/bands/${bandId}/members`),
+
+    resolveIdeaTie: (bandId: string, songId: string, input: ResolveIdeaTieInput) =>
+      request<{ resolution: ResolveIdeaTieInput['resolution'] }>(
+        baseUrl,
+        `/bands/${bandId}/songs/${songId}/resolve-tie`,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
 
     checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
 

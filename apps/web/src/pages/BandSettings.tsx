@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
-import { getInviteStatus } from '@bandstand/core';
+import { can, getInviteStatus } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { apiClient } from '../lib/api-client';
 
 export function BandSettings() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { bandId } = useParams<{ bandId: string }>();
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [bandName, setBandName] = useState('');
   const [renameSaved, setRenameSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bandId) return;
@@ -35,7 +38,9 @@ export function BandSettings() {
 
   if (!bandId) return null;
 
-  const isAdmin = myBand?.role === 'owner' || myBand?.role === 'admin';
+  const canRename = myBand ? can(myBand.role, 'band:rename') : false;
+  const canManageInvites = myBand ? can(myBand.role, 'invite:create') : false;
+  const canDelete = myBand ? can(myBand.role, 'band:delete') : false;
 
   async function handleRename(e: FormEvent) {
     e.preventDefault();
@@ -46,6 +51,20 @@ export function BandSettings() {
     setTimeout(() => setRenameSaved(false), 2000);
   }
 
+  async function handleDelete() {
+    if (!bandId || !myBand) return;
+    if (!window.confirm(t('bandSettings.danger.confirm', { name: myBand.name }))) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiClient.deleteBand(bandId);
+      navigate('/dashboard');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : String(err));
+      setDeleting(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
       <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
@@ -53,7 +72,7 @@ export function BandSettings() {
       </Link>
 
       <div className="mt-4">
-        {isAdmin ? (
+        {canRename ? (
           <form onSubmit={handleRename} className="flex items-center gap-2">
             <Input
               id="band-name"
@@ -96,7 +115,7 @@ export function BandSettings() {
         </table>
       </section>
 
-      {isAdmin && (
+      {canManageInvites && (
         <section className="mt-8">
           <h2 className="text-lg font-medium">{t('bandSettings.invites.title')}</h2>
           <CreateInviteForm bandId={bandId} onCreated={(invite) => setInvites((prev) => [invite, ...prev])} />
@@ -108,6 +127,17 @@ export function BandSettings() {
               setInvites((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
             }
           />
+        </section>
+      )}
+
+      {canDelete && (
+        <section className="mt-8 rounded-md border border-destructive p-4">
+          <h2 className="text-lg font-medium text-destructive">{t('bandSettings.danger.title')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('bandSettings.danger.description')}</p>
+          <Button variant="destructive" size="sm" className="mt-3" onClick={handleDelete} disabled={deleting}>
+            {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.delete')}
+          </Button>
+          {deleteError && <p className="mt-2 text-sm text-destructive">{deleteError}</p>}
         </section>
       )}
     </main>

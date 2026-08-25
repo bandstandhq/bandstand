@@ -238,6 +238,13 @@
       "open": "Open",
       "status": "Status",
       "noInvites": "No invites yet."
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Deleting a band removes it, its members, songs, setlists, and invites for everyone. This can't be undone.",
+      "delete": "Delete this band",
+      "deleting": "Deleting…",
+      "confirm": "Permanently delete \"{{name}}\" for everyone? This can't be undone."
     }
   }
 }

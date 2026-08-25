@@ -33,6 +33,28 @@ describe('createApiClient', () => {
     );
   });
 
+  it('requests the right URL/method for deleteBand', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    const client = createApiClient('http://api.example');
+    await client.deleteBand('band-1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('requests the right URL/method/body for resolveIdeaTie', async () => {
+    mockFetchOnce({ ok: true, body: { resolution: 'archived' } });
+    const client = createApiClient('http://api.example');
+    await client.resolveIdeaTie('band-1', 'song-1', { resolution: 'archived' });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/songs/song-1/resolve-tie',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ resolution: 'archived' }) }),
+    );
+  });
+
   it('builds nested invite URLs correctly', async () => {
     mockFetchOnce({ ok: true, body: [] });
     const client = createApiClient('http://api.example');
