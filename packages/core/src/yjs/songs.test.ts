@@ -6,7 +6,9 @@ import {
   addSong,
   archiveSong,
   castVote,
+  deleteSongForever,
   getIdeaVoteTally,
+  resolveIdeaTie,
   restoreSong,
   setSongStatus,
   updateSong,
@@ -94,6 +96,34 @@ describe('setSongStatus / archiveSong / restoreSong', () => {
     const songId = addSong(doc, songInput());
     // @ts-expect-error deliberately invalid for the test
     expect(() => setSongStatus(doc, songId, 'deleted')).toThrow();
+  });
+});
+
+describe('deleteSongForever', () => {
+  it('removes both the song and its default voice', () => {
+    const doc = new Y.Doc();
+    const songId = addSong(doc, songInput());
+
+    deleteSongForever(doc, songId);
+
+    expect(doc.getMap('songs').has(songId)).toBe(false);
+    expect(doc.getMap('voices').has(getDefaultVoiceId(songId))).toBe(false);
+  });
+});
+
+describe('resolveIdeaTie', () => {
+  it('promotes a tied idea to active', () => {
+    const doc = new Y.Doc();
+    const songId = addSong(doc, songInput({ status: 'idea' }));
+    resolveIdeaTie(doc, songId, 'active');
+    expect((doc.getMap('songs').get(songId) as { status: string }).status).toBe('active');
+  });
+
+  it('archives a tied idea instead', () => {
+    const doc = new Y.Doc();
+    const songId = addSong(doc, songInput({ status: 'idea' }));
+    resolveIdeaTie(doc, songId, 'archived');
+    expect((doc.getMap('songs').get(songId) as { status: string }).status).toBe('archived');
   });
 });
 

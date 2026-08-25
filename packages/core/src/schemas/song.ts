@@ -27,3 +27,8 @@ export const songSchema = z.object({
 export type Song = z.infer<typeof songSchema>;
 export type SongStatus = z.infer<typeof songStatusSchema>;
 export type Vote = z.infer<typeof voteSchema>;
+
+export const resolveIdeaTieInputSchema = z.strictObject({
+  resolution: z.enum(['active', 'archived']),
+});
+export type ResolveIdeaTieInput = z.infer<typeof resolveIdeaTieInputSchema>;

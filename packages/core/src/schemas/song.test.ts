@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { songSchema } from './song';
+import { resolveIdeaTieInputSchema, songSchema } from './song';
 
 const validSong = {
   title: 'Wonderwall',
@@ -37,5 +37,20 @@ describe('songSchema', () => {
 
   it('rejects non-array links', () => {
     expect(() => songSchema.parse({ ...validSong, links: 'https://example.com' })).toThrow();
+  });
+});
+
+describe('resolveIdeaTieInputSchema', () => {
+  it('accepts active or archived', () => {
+    expect(resolveIdeaTieInputSchema.parse({ resolution: 'active' })).toEqual({ resolution: 'active' });
+    expect(resolveIdeaTieInputSchema.parse({ resolution: 'archived' })).toEqual({ resolution: 'archived' });
+  });
+
+  it('rejects any other resolution', () => {
+    expect(() => resolveIdeaTieInputSchema.parse({ resolution: 'idea' })).toThrow();
+  });
+
+  it('rejects unknown extra fields', () => {
+    expect(() => resolveIdeaTieInputSchema.parse({ resolution: 'active', extra: true })).toThrow();
   });
 });

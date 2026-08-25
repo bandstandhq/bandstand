@@ -70,6 +70,27 @@ export function restoreSong(doc: Y.Doc, songId: string, status: Extract<SongStat
   setSongStatus(doc, songId, status);
 }
 
+/**
+ * Removes the song and its default voice entirely — a terminal operation,
+ * unlike archiveSong's soft status flip. Callers must remove any setlist
+ * items referencing this song first (see setlists.ts's
+ * removeSongFromAllSetlists); this function doesn't know about setlists.
+ */
+export function deleteSongForever(doc: Y.Doc, songId: string): void {
+  doc.getMap('songs').delete(songId);
+  doc.getMap('voices').delete(getDefaultVoiceId(songId));
+}
+
+/**
+ * An admin/owner's resolution of a tied idea vote — a thin, named wrapper
+ * over setSongStatus. Deliberately not its own access-control boundary: a
+ * member already has unrestricted rights to archive/restore any song via
+ * that same underlying call (see docs/adr/0005-permissions.md).
+ */
+export function resolveIdeaTie(doc: Y.Doc, songId: string, resolution: Extract<SongStatus, 'active' | 'archived'>): void {
+  setSongStatus(doc, songId, resolution);
+}
+
 export function castVote(doc: Y.Doc, songId: string, userId: string, vote: Vote): void {
   const existing = getSongOrThrow(doc, songId);
   const updated = songSchema.parse({ ...existing, votes: { ...existing.votes, [userId]: vote } });

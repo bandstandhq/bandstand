@@ -12,9 +12,11 @@ import {
   createSetlist,
   deleteSetlist,
   duplicateSetlist,
+  findSetlistsReferencingSong,
   getSetlistStats,
   moveSetlistItem,
   removeSetlistItem,
+  removeSongFromAllSetlists,
   renameSetlist,
 } from './setlists';
 
@@ -145,6 +147,65 @@ describe('deleteSetlist', () => {
 
     expect(doc.getMap('setlists').has(setlistId)).toBe(false);
     expect(doc.getArray(itemsKey(setlistId)).length).toBe(0);
+  });
+});
+
+describe('findSetlistsReferencingSong', () => {
+  it('names every setlist that references the song, without modifying anything', () => {
+    const doc = new Y.Doc();
+    const setlistId1 = createSetlist(doc, 'Set 1');
+    const setlistId2 = createSetlist(doc, 'Set 2');
+    addSetlistItem(doc, setlistId1, buildSongItem('song-y'));
+    addSetlistItem(doc, setlistId2, buildBreakItem(10));
+
+    expect(findSetlistsReferencingSong(doc, 'song-y')).toEqual(['Set 1']);
+    // Untouched — still there for removeSongFromAllSetlists to act on later.
+    expect(doc.getArray(itemsKey(setlistId1)).length).toBe(1);
+  });
+
+  it('returns no names when nothing references the song', () => {
+    const doc = new Y.Doc();
+    createSetlist(doc, 'Untouched');
+    expect(findSetlistsReferencingSong(doc, 'song-missing')).toEqual([]);
+  });
+});
+
+describe('removeSongFromAllSetlists', () => {
+  it('removes matching song-items from every setlist and reports affected names', () => {
+    const doc = new Y.Doc();
+    const setlistId1 = createSetlist(doc, 'Set 1');
+    const setlistId2 = createSetlist(doc, 'Set 2');
+    addSetlistItem(doc, setlistId1, buildSongItem('song-x'));
+    addSetlistItem(doc, setlistId1, buildSongItem('song-y'));
+    addSetlistItem(doc, setlistId2, buildSongItem('song-y'));
+    addSetlistItem(doc, setlistId2, buildBreakItem(10));
+
+    const affected = removeSongFromAllSetlists(doc, 'song-y');
+
+    expect(affected.sort()).toEqual(['Set 1', 'Set 2']);
+    const items1 = doc.getArray(itemsKey(setlistId1)).toJSON() as SetlistItem[];
+    expect(items1.map((i) => (i.type === 'song' ? i.songId : i.type))).toEqual(['song-x']);
+    const items2 = doc.getArray(itemsKey(setlistId2)).toJSON() as SetlistItem[];
+    expect(items2.map((i) => i.type)).toEqual(['break']);
+  });
+
+  it('removes every occurrence when the same song appears multiple times in one setlist', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Repeats');
+    addSetlistItem(doc, setlistId, buildSongItem('song-z'));
+    addSetlistItem(doc, setlistId, buildBreakItem(5));
+    addSetlistItem(doc, setlistId, buildSongItem('song-z'));
+
+    removeSongFromAllSetlists(doc, 'song-z');
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => i.type)).toEqual(['break']);
+  });
+
+  it('is a no-op, returning no names, when no setlist references the song', () => {
+    const doc = new Y.Doc();
+    createSetlist(doc, 'Untouched');
+    expect(removeSongFromAllSetlists(doc, 'song-missing')).toEqual([]);
   });
 });
 
