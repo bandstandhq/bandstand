@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { hasAtLeastRole } from './bandAuthz';
+import { hasAtLeastRole } from './roles';
 
 describe('hasAtLeastRole', () => {
   it('owner satisfies every minimum role', () => {

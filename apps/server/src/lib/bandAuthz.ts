@@ -5,13 +5,12 @@
 // middleware, so it calls getBandMembership directly) — one place to fix
 // the membership check, not two.
 import type { BandRole } from '@bandstand/core';
+import { hasAtLeastRole } from '@bandstand/core';
 import { and, eq } from 'drizzle-orm';
 import type { MiddlewareHandler } from 'hono';
 import { db } from '../db/client';
 import { bandMembers } from '../db/schema/index';
 import { auth } from './auth';
-
-const ROLE_RANK: Record<BandRole, number> = { member: 1, admin: 2, owner: 3 };
 
 export async function getBandMembership(
   bandId: string,
@@ -22,10 +21,6 @@ export async function getBandMembership(
     .from(bandMembers)
     .where(and(eq(bandMembers.bandId, bandId), eq(bandMembers.userId, userId)));
   return membership ?? null;
-}
-
-export function hasAtLeastRole(role: BandRole, minRole: BandRole): boolean {
-  return ROLE_RANK[role] >= ROLE_RANK[minRole];
 }
 
 export type AuthVariables = { userId: string };
