@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { BandMember } from '@bandstand/core';
-import { archiveSong, restoreSong } from '@bandstand/core';
+import { archiveSong, can, restoreSong } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
 import { normalizeKey } from '@bandstand/chords';
 import { Button, Input } from '@bandstand/ui';
@@ -39,7 +39,8 @@ export function Repertoire() {
     return <BandAccessDenied />;
   }
 
-  const isAdmin = members.some((m) => m.userId === currentUserId && (m.role === 'owner' || m.role === 'admin'));
+  const myRole = members.find((m) => m.userId === currentUserId)?.role;
+  const canResolveTie = myRole ? can(myRole, 'idea:resolveTie') : false;
 
   const songEntries = Object.entries(songs);
   const query = search.trim().toLowerCase();
@@ -153,16 +154,17 @@ export function Repertoire() {
                     )}
                   </td>
                 </tr>
-                {song.status === 'idea' && doc && currentUserId && (
+                {song.status === 'idea' && doc && currentUserId && bandId && (
                   <tr>
                     <td colSpan={5} className="pb-2">
                       <IdeaVoting
+                        bandId={bandId}
                         doc={doc}
                         songId={songId}
                         song={song}
                         currentUserId={currentUserId}
                         totalMembers={members.length}
-                        isAdmin={isAdmin}
+                        canResolveTie={canResolveTie}
                       />
                     </td>
                   </tr>
