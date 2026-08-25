@@ -58,6 +58,10 @@ jobs:
       BETTER_AUTH_SECRET: ci-integration-test-secret-do-not-use-in-production
       BETTER_AUTH_URL: http://localhost:3001
       WEB_ORIGIN: http://localhost:5173
+      MINIO_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: ci-minio-test
+      MINIO_SECRET_KEY: ci-minio-test-do-not-use-in-production
+      MINIO_BUCKET: bandstand
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -70,4 +74,21 @@ jobs:
       # already overrides every value that matters for these tests.
       - run: pnpm ensure-env
       - run: pnpm --filter @bandstand/server db:migrate
+      # MinIO isn't declared as a `services:` container because its image's
+      # default CMD is bare `minio` (no `server /data`), and job-level
+      # `services:` has no field to override a container's command —
+      # unlike postgres, which starts correctly with its own default CMD.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio --network host \
+            -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            minio/minio:latest server /data
+          timeout 30 sh -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+      - name: Create MinIO bucket
+        run: |
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+            mc alias set local http://localhost:9000 '$MINIO_ACCESS_KEY' '$MINIO_SECRET_KEY' &&
+            mc mb --ignore-existing local/$MINIO_BUCKET
+          "
       - run: pnpm turbo run test:integration --filter=@bandstand/server

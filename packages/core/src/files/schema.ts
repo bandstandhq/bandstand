@@ -24,3 +24,16 @@ export function isAllowedFileMimeType(mime: string): mime is AllowedFileMimeType
 
 /** Overridable via the server's MAX_FILE_SIZE_BYTES env var — this is only the fallback default. */
 export const DEFAULT_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+
+export const checkFileInputSchema = z.object({
+  sha256: z.string().length(64),
+});
+
+export const presignUploadInputSchema = z.object({
+  sha256: z.string().length(64),
+  filename: z.string().min(1),
+  mime: z.string().min(1),
+  size: z.number().int().positive(),
+});
+
+export const confirmFileInputSchema = presignUploadInputSchema;
