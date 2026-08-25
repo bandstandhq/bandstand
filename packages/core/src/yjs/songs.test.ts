@@ -39,7 +39,7 @@ describe('addSong', () => {
     expect(song.votes).toEqual({});
 
     const voice = doc.getMap('voices').get(getDefaultVoiceId(songId)) as Record<string, unknown>;
-    expect(voice).toEqual({ songId, name: 'Default', body: '{title: Wonderwall}' });
+    expect(voice).toEqual({ songId, name: 'Default', kind: 'chordpro', body: '{title: Wonderwall}' });
   });
 
   it('rejects an invalid song (e.g. bad key)', () => {
