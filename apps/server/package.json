@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
-    "seed": "tsx --env-file=../../.env src/seed/index.ts"
+    "seed": "tsx --env-file=../../.env src/seed/index.ts",
+    "blobs:gc": "tsx --env-file=../../.env src/blobs/gc.ts"
   },
   "devDependencies": {
     "@hocuspocus/provider": "^4.6.0",
