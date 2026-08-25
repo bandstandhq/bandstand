@@ -86,19 +86,22 @@ persisted or cached to begin with.
 
 ### 3. Files — content-addressed, S3-compatible
 
-Attachments (charts, reference recordings, etc.) are stored in an
-S3-compatible bucket, keyed by content hash rather than a generated ID, so
-identical files uploaded by different members naturally dedupe. Clients
-cache fetched attachments via the browser/WebView Cache API for offline
-access. The `attachments` table (Postgres) holds the metadata — band, key,
-filename, mime, size, uploader — not the file bytes themselves.
-
-**Status: not yet implemented.** The `attachments` table exists in the
-Drizzle schema (see `apps/server/src/db/schema/attachments.ts`), but there
-is no upload endpoint and no S3/MinIO service running yet — it was
-deliberately dropped from Milestone 0's `docker/compose.yml` since nothing
-uses it (see the Milestone 0 plan). It comes back once attachment upload is
-actually built.
+Voice attachments (scanned parts, chart PDFs) are stored in an
+S3-compatible bucket (MinIO locally and by default self-hosted; any real
+S3-compatible endpoint works unchanged) keyed by content hash
+(`blobs/<sha256>`) rather than a generated ID, so identical files uploaded
+by different members naturally dedupe — see
+[ADR-0007](adr/0007-content-addressed-files.md) for the full design
+(presigned uploads/downloads, server-side hash re-verification, manual
+`pnpm blobs:gc`). The browser talks to the object store directly for the
+actual bytes, never through the app server. The `attachments` table
+(Postgres) is a per-band ledger of known blobs — band, sha256, display
+filename, mime, size, uploader — not the file bytes themselves, and not a
+foreign key from a voice (a voice's `files` array stores
+`{sha256, filename, mime, pageCount}` inline in the Yjs document; see
+[ADR-0008](adr/0008-multi-voice-songs.md)). Clients cache fetched blobs via
+the browser/WebView Cache API for offline access once that's wired up
+(Milestone 2 Part A, in progress).
 
 ## The server URL is configurable, not hardcoded
 
