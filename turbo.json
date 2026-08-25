@@ -33,7 +33,17 @@
       "dependsOn": ["^build"],
       "cache": false,
       "outputs": [],
-      "env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "WEB_ORIGIN"]
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "WEB_ORIGIN",
+        "MINIO_ENDPOINT",
+        "MINIO_ACCESS_KEY",
+        "MINIO_SECRET_KEY",
+        "MINIO_BUCKET",
+        "MAX_FILE_SIZE_BYTES"
+      ]
     },
     "test:e2e": {
       "dependsOn": ["build"],
