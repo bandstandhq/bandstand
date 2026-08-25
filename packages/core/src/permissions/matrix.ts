@@ -26,7 +26,9 @@ export type Action =
   | 'setlist:create'
   | 'setlist:edit'
   | 'setlist:delete'
-  | 'selfPrefs:edit';
+  | 'selfPrefs:edit'
+  | 'file:upload'
+  | 'file:detach';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -60,6 +62,8 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'setlist:edit': 'member',
   'setlist:delete': 'admin',
   'selfPrefs:edit': 'member',
+  'file:upload': 'member',
+  'file:detach': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */

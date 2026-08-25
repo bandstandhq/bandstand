@@ -24,6 +24,8 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['setlist:edit', true, true, true],
   ['setlist:delete', true, true, false],
   ['selfPrefs:edit', true, true, true],
+  ['file:upload', true, true, true],
+  ['file:detach', true, true, false],
 ];
 
 const ROLES: BandRole[] = ['owner', 'admin', 'member'];
