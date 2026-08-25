@@ -5,3 +5,5 @@ export * from './invites/code';
 export * from './invites/status';
 export * from './bands/slug';
 export * from './hocuspocus/authFailure';
+export * from './permissions/roles';
+export * from './permissions/matrix';
