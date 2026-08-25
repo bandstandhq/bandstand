@@ -27,6 +27,8 @@
     "ws": "^8.21.3"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1117.0",
+    "@aws-sdk/s3-request-presigner": "^3.1117.0",
     "@bandstand/core": "workspace:*",
     "@better-auth/drizzle-adapter": "^1.7.1",
     "@hocuspocus/extension-database": "^4.6.0",
