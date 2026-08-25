@@ -60,7 +60,10 @@ export async function enterStageMode(page: Page, bandId: string, setlistName: st
     await switchToListView.click();
   }
   await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open' }).click();
-  await page.getByRole('link', { name: 'Play' }).nth(itemIndex).click();
+  // Each setlist item's whole row is the link now (tapping it is how a
+  // real user reaches Stage Mode) — scoped to the items drop zone so this
+  // doesn't also match the song-pool list on the same page.
+  await page.locator('.border-dashed li a').nth(itemIndex).click();
   await page.waitForURL(/\/stage\//);
 }
 

@@ -21,7 +21,7 @@ test('a live transpose during Stage Mode never persists past the session', async
   // song, so it doesn't carry over.
   await page.getByRole('button', { name: 'Exit' }).click();
   await page.waitForURL(/\/setlists\//);
-  await page.getByRole('link', { name: 'Play' }).first().click();
+  await page.locator('.border-dashed li a').first().click();
   await page.waitForURL(/\/stage\//);
   await expect(page.getByText(/^Key /)).toHaveText(originalKeyText ?? '');
 });
