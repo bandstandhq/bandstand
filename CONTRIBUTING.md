@@ -33,7 +33,7 @@ packages/
   chords/     ChordPro parsing/transposition/render-model
   ui/         shared React components (+ Storybook)
   api-client/ typed client for apps/server
-docs/         ARCHITECTURE.md, SELF_HOSTING.md, adr/, CLA.md, CONTACT.md
+docs/         ARCHITECTURE.md, PERMISSIONS.md, SELF_HOSTING.md, adr/, CLA.md, CONTACT.md
 docker/       compose.yml + Dockerfiles for local infra
 ```
 

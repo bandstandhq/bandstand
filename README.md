@@ -53,6 +53,8 @@ exist yet — no manual setup needed.)
 That brings up Postgres and Mailpit in Docker, applies migrations, and
 starts the web app and server. See [CONTRIBUTING.md](CONTRIBUTING.md) for
 the full contributor setup, including seeding demo data with `pnpm seed`.
+For what each band role (owner/admin/member) can do, see
+[docs/PERMISSIONS.md](docs/PERMISSIONS.md).
 
 ## Licensing
 
