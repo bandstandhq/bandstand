@@ -10,6 +10,7 @@
 import {
   can,
   deleteSongForever,
+  detachVoiceFile,
   findSetlistsReferencingSong,
   removeSongFromAllSetlists,
   resolveIdeaTieInputSchema,
@@ -63,6 +64,18 @@ songsRoute.delete('/:songId', requireBandRole('member'), async (c) => {
   await db.execute(sql`update ${userPrefs} set song_notes = song_notes - ${songId}`);
 
   return c.json({ affectedSetlists });
+});
+
+songsRoute.delete('/:songId/voices/:voiceId/files/:sha256', requireBandRole('member'), async (c) => {
+  const bandId = c.req.param('bandId');
+  const voiceId = c.req.param('voiceId');
+  const sha256 = c.req.param('sha256');
+  if (!bandId || !voiceId || !sha256) return c.json({ error: 'Missing params' }, 400);
+  if (!can(c.get('bandRole'), 'file:detach')) return c.json({ error: 'Forbidden' }, 403);
+
+  await withBandDoc(bandId, (doc) => detachVoiceFile(doc, voiceId, sha256));
+
+  return c.json({ ok: true });
 });
 
 songsRoute.post('/:songId/resolve-tie', requireBandRole('member'), async (c) => {
