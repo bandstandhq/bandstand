@@ -3,12 +3,13 @@ import { can, createBandInputSchema, generateInviteCode, renameBandInputSchema, 
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
-import { bandMembers, bands, users } from '../db/schema/index';
+import { bandMembers, bands } from '../db/schema/index';
 import type { AuthVariables, BandVariables } from '../lib/bandAuthz';
 import { requireAuth, requireBandRole } from '../lib/bandAuthz';
 import { hocuspocusServer } from '../lib/hocuspocus';
 import { isUniqueViolation } from '../lib/pgErrors';
 import { inviteManagementRoute } from './invites';
+import { membersRoute } from './members';
 import { setlistsRoute } from './setlists';
 import { songsRoute } from './songs';
 
@@ -80,23 +81,7 @@ bandScoped.delete('/', requireBandRole('member'), async (c) => {
   return c.json({ ok: true });
 });
 
-bandScoped.get('/members', requireBandRole('member'), async (c) => {
-  const bandId = c.req.param('bandId');
-  if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
-  const rows = await db
-    .select({
-      userId: users.id,
-      name: users.name,
-      email: users.email,
-      role: bandMembers.role,
-      instruments: bandMembers.instruments,
-    })
-    .from(bandMembers)
-    .innerJoin(users, eq(bandMembers.userId, users.id))
-    .where(eq(bandMembers.bandId, bandId));
-  return c.json(rows);
-});
-
+bandScoped.route('/members', membersRoute);
 bandScoped.route('/invites', inviteManagementRoute);
 bandScoped.route('/songs', songsRoute);
 bandScoped.route('/setlists', setlistsRoute);

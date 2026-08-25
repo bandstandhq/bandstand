@@ -3,12 +3,14 @@ import type {
   Band,
   BandMember,
   BandRole,
+  ChangeMemberRoleInput,
   CreateBandInput,
   CreateInviteInput,
   Invite,
   RedeemInviteInput,
   RenameBandInput,
   ResolveIdeaTieInput,
+  UpdateMyInstrumentsInput,
   UpdateUserPrefsInput,
   UserPrefs,
 } from '@bandstand/core';
@@ -91,6 +93,23 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     deleteBand: (bandId: string) => req<{ ok: true }>(`/bands/${bandId}`, { method: 'DELETE' }),
 
     listBandMembers: (bandId: string) => req<BandMember[]>(`/bands/${bandId}/members`),
+
+    updateMyInstruments: (bandId: string, input: UpdateMyInstrumentsInput) =>
+      req<{ instruments: string[] }>(`/bands/${bandId}/members/me`, { method: 'PATCH', body: JSON.stringify(input) }),
+
+    leaveBand: (bandId: string) => req<{ ok: true }>(`/bands/${bandId}/members/me`, { method: 'DELETE' }),
+
+    changeMemberRole: (bandId: string, userId: string, input: ChangeMemberRoleInput) =>
+      req<{ userId: string; role: BandRole }>(`/bands/${bandId}/members/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+
+    removeMember: (bandId: string, userId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/members/${userId}`, { method: 'DELETE' }),
+
+    transferOwnership: (bandId: string, userId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/members/${userId}/transfer-ownership`, { method: 'POST' }),
 
     resolveIdeaTie: (bandId: string, songId: string, input: ResolveIdeaTieInput) =>
       req<{ resolution: ResolveIdeaTieInput['resolution'] }>(`/bands/${bandId}/songs/${songId}/resolve-tie`, {

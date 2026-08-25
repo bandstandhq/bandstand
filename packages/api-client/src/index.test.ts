@@ -55,6 +55,61 @@ describe('createApiClient', () => {
     );
   });
 
+  it('requests the right URL/method/body for updateMyInstruments', async () => {
+    mockFetchOnce({ ok: true, body: { instruments: ['Guitar'] } });
+    const client = createApiClient('http://api.example');
+    await client.updateMyInstruments('band-1', { instruments: ['Guitar'] });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members/me',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ instruments: ['Guitar'] }) }),
+    );
+  });
+
+  it('requests the right URL/method for leaveBand', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    const client = createApiClient('http://api.example');
+    await client.leaveBand('band-1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members/me',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('requests the right URL/method/body for changeMemberRole', async () => {
+    mockFetchOnce({ ok: true, body: { userId: 'user-1', role: 'admin' } });
+    const client = createApiClient('http://api.example');
+    await client.changeMemberRole('band-1', 'user-1', { role: 'admin' });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members/user-1/role',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ role: 'admin' }) }),
+    );
+  });
+
+  it('requests the right URL/method for removeMember', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    const client = createApiClient('http://api.example');
+    await client.removeMember('band-1', 'user-1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members/user-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('requests the right URL/method for transferOwnership', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    const client = createApiClient('http://api.example');
+    await client.transferOwnership('band-1', 'user-1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members/user-1/transfer-ownership',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
   it('builds nested invite URLs correctly', async () => {
     mockFetchOnce({ ok: true, body: [] });
     const client = createApiClient('http://api.example');
