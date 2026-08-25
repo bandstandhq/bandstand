@@ -12,6 +12,8 @@ const DEV_PLACEHOLDER = 'dev-only-changeme';
 assertNotDevPlaceholder('MINIO_ACCESS_KEY', process.env.MINIO_ACCESS_KEY, DEV_PLACEHOLDER);
 assertNotDevPlaceholder('MINIO_SECRET_KEY', process.env.MINIO_SECRET_KEY, DEV_PLACEHOLDER);
 
+console.error('[DIAGNOSTIC] MINIO_ENDPOINT=', process.env.MINIO_ENDPOINT, 'MINIO_ACCESS_KEY=', process.env.MINIO_ACCESS_KEY, 'MINIO_SECRET_KEY=', process.env.MINIO_SECRET_KEY, 'MINIO_BUCKET=', process.env.MINIO_BUCKET);
+
 const BUCKET = process.env.MINIO_BUCKET ?? 'bandstand';
 const PRESIGN_EXPIRY_SECONDS = 15 * 60;
 
