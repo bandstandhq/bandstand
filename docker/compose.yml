@@ -21,5 +21,56 @@ services:
       - "1025:1025" # SMTP
       - "8025:8025" # web UI
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-dev-only-changeme}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-dev-only-changeme}
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # web console
+    volumes:
+      - bandstand-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: creates the bucket if missing and allows the web app's origin
+  # to talk to MinIO directly (presigned uploads/downloads go straight from
+  # the browser, never through the app server — see
+  # docs/adr/0007-content-addressed-files.md). MinIO doesn't implement the
+  # standard per-bucket S3 CORS API (verified: `mc cors set` errors "not
+  # implemented") — the real mechanism is the server-wide `api.cors_allow_origin`
+  # config, which needs a service restart to take effect.
+  #
+  # This container exits 0 once done, by design — `docker compose up --wait`
+  # only recognizes running|healthy as success, so root package.json's
+  # dev:infra runs this as a separate, non-`--wait`ed step after the
+  # long-running services are confirmed healthy, rather than including it in
+  # the same `--wait` invocation (which would treat its clean exit as a
+  # failure to become healthy).
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: sh
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-dev-only-changeme}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-dev-only-changeme}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bandstand}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+    command:
+      - -c
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY" &&
+        mc mb --ignore-existing "local/$$MINIO_BUCKET" &&
+        mc admin config set local api cors_allow_origin="$$WEB_ORIGIN" &&
+        mc admin service restart local --json
+
 volumes:
   bandstand-postgres:
+  bandstand-minio:
