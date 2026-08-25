@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createBandInputSchema, generateInviteCode, renameBandInputSchema, slugify } from '@bandstand/core';
+import { can, createBandInputSchema, generateInviteCode, renameBandInputSchema, slugify } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import type { AuthVariables, BandVariables } from '../lib/bandAuthz';
 import { requireAuth, requireBandRole } from '../lib/bandAuthz';
+import { hocuspocusServer } from '../lib/hocuspocus';
 import { isUniqueViolation } from '../lib/pgErrors';
 import { inviteManagementRoute } from './invites';
+import { setlistsRoute } from './setlists';
+import { songsRoute } from './songs';
 
 export const bandsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -62,6 +65,21 @@ bandScoped.patch('/', requireBandRole('admin'), async (c) => {
   return c.json(band);
 });
 
+// No Yjs-doc bypass vector here — band membership/invites live only in
+// Postgres, which a client can only ever reach through this same REST API
+// (see docs/adr/0005-permissions.md). Plain role-check is the whole story.
+bandScoped.delete('/', requireBandRole('member'), async (c) => {
+  const bandId = c.req.param('bandId');
+  if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
+  if (!can(c.get('bandRole'), 'band:delete')) return c.json({ error: 'Forbidden' }, 403);
+
+  const [band] = await db.delete(bands).where(eq(bands.id, bandId)).returning();
+  if (!band) return c.json({ error: 'Not found' }, 404);
+
+  hocuspocusServer.hocuspocus.closeConnections(bandId);
+  return c.json({ ok: true });
+});
+
 bandScoped.get('/members', requireBandRole('member'), async (c) => {
   const bandId = c.req.param('bandId');
   if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
@@ -80,5 +98,7 @@ bandScoped.get('/members', requireBandRole('member'), async (c) => {
 });
 
 bandScoped.route('/invites', inviteManagementRoute);
+bandScoped.route('/songs', songsRoute);
+bandScoped.route('/setlists', setlistsRoute);
 
 bandsRoute.route('/:bandId', bandScoped);

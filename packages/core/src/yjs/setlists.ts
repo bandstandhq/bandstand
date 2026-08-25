@@ -47,6 +47,59 @@ export function deleteSetlist(doc: Y.Doc, setlistId: string): void {
   if (items.length > 0) items.delete(0, items.length);
 }
 
+function findSongItemIndexes(doc: Y.Doc, setlistId: string, songId: string): number[] {
+  return doc
+    .getArray(itemsKey(setlistId))
+    .toArray()
+    .map((item, index) => ({ item: item as SetlistItem, index }))
+    .filter(({ item }) => item.type === 'song' && item.songId === songId)
+    .map(({ index }) => index);
+}
+
+/**
+ * Read-only: the names of setlists that reference `songId` in at least one
+ * item — for a delete-confirmation dialog to name before anything is
+ * actually removed.
+ */
+export function findSetlistsReferencingSong(doc: Y.Doc, songId: string): string[] {
+  const setlists = doc.getMap('setlists');
+  const names: string[] = [];
+  for (const setlistId of setlists.keys()) {
+    if (findSongItemIndexes(doc, setlistId, songId).length > 0) {
+      names.push((setlists.get(setlistId) as Setlist).name);
+    }
+  }
+  return names;
+}
+
+/**
+ * Removes every song-item referencing `songId` from every setlist's items
+ * array — called before permanently deleting a song, so no setlist is left
+ * pointing at one that no longer exists. Returns the names of setlists that
+ * actually had such an item, so a delete-confirmation flow can name them.
+ */
+export function removeSongFromAllSetlists(doc: Y.Doc, songId: string): string[] {
+  const affectedNames: string[] = [];
+  const setlists = doc.getMap('setlists');
+
+  for (const setlistId of setlists.keys()) {
+    const indexesToRemove = findSongItemIndexes(doc, setlistId, songId);
+    if (indexesToRemove.length === 0) continue;
+
+    doc.transact(() => {
+      const items = doc.getArray(itemsKey(setlistId));
+      // Highest index first, so removing one doesn't shift the rest.
+      for (const index of [...indexesToRemove].reverse()) {
+        items.delete(index, 1);
+      }
+    });
+
+    affectedNames.push((setlists.get(setlistId) as Setlist).name);
+  }
+
+  return affectedNames;
+}
+
 export function buildSongItem(songId: string, overrideKey?: string): SetlistItem {
   return setlistItemSchema.parse({ id: crypto.randomUUID(), type: 'song', songId, overrideKey });
 }
