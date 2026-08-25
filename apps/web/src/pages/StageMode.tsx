@@ -9,6 +9,7 @@ import {
   moveSetlistItem,
   removeSetlistItem,
   stageAwarenessSchema,
+  voiceSchema,
 } from '@bandstand/core';
 import type {
   ContentVisibility,
@@ -121,9 +122,14 @@ function SongContent({
   baseKey: string;
 }) {
   const { t } = useTranslation();
+  // A files-kind voice (scanned parts) has no ChordPro body to render here —
+  // its own viewer lands in a later Milestone 2 step; until then it falls
+  // through to the same placeholder as an unparseable body, below.
+  const body = voice.kind === 'chordpro' ? voice.body : undefined;
   const model: RenderModel | null = useMemo(() => {
+    if (body === undefined) return null;
     try {
-      const parsed = parseChordPro(voice.body);
+      const parsed = parseChordPro(body);
       const normalizedBaseKey = normalizeKey(baseKey);
       const displayed =
         transposeSemitones !== 0
@@ -133,7 +139,7 @@ function SongContent({
     } catch {
       return null;
     }
-  }, [voice.body, transposeSemitones, baseKey]);
+  }, [body, transposeSemitones, baseKey]);
 
   if (!model) {
     return <p className="text-center text-base opacity-70">{t('stageMode.contentError')}</p>;
@@ -540,7 +546,9 @@ export function StageMode() {
   const localUserId = session?.user.id;
   useWakeLock(true);
   const songs = useYMap<Song>(doc?.getMap('songs'));
-  const voices = useYMap<Voice>(doc?.getMap('voices'));
+  // Raw Yjs values, not run through voiceSchema — see the matching comment
+  // in SongEditor.tsx for why that parse has to happen here explicitly.
+  const rawVoices = useYMap<unknown>(doc?.getMap('voices'));
   const items = useYArray<SetlistItem>(setlistId ? doc?.getArray(itemsKey(setlistId)) : undefined);
 
   const startIndex = useMemo(() => {
@@ -645,7 +653,8 @@ export function StageMode() {
     currentSong = songs[currentItem.songId];
     currentSongId = currentItem.songId;
     label = currentSong ? currentSong.title : currentItem.songId;
-    voice = voices[getDefaultVoiceId(currentItem.songId)];
+    const rawVoice = rawVoices[getDefaultVoiceId(currentItem.songId)];
+    voice = rawVoice ? voiceSchema.parse(rawVoice) : undefined;
   } else if (currentItem?.type === 'break') {
     label = t('stageMode.breakMinutes', { minutes: currentItem.breakMinutes });
   } else if (currentItem?.type === 'finale') {

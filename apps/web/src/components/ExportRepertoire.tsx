@@ -24,7 +24,7 @@ export function ExportRepertoire({ doc }: { doc: Y.Doc }) {
     for (const [songId, song] of Object.entries(snapshot.songs)) {
       const voice = snapshot.voices[getDefaultVoiceId(songId)];
       const fileName = `${slugify(song.title) || songId}.cho`;
-      zip.file(fileName, voice?.body ?? '');
+      zip.file(fileName, voice?.kind === 'chordpro' ? voice.body : '');
     }
     const blob = await zip.generateAsync({ type: 'blob' });
     downloadBlob(blob, 'bandstand-chordpro-export.zip');

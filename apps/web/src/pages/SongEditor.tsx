@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { addSong, getDefaultVoiceId, setSongStatus, updateSong, updateVoiceBody } from '@bandstand/core';
-import type { Song, SongStatus, Voice } from '@bandstand/core';
+import { addSong, getDefaultVoiceId, setSongStatus, updateSong, updateVoiceBody, voiceSchema } from '@bandstand/core';
+import type { Song, SongStatus } from '@bandstand/core';
 import {
   buildRenderModel,
   formatChordPro,
@@ -123,12 +123,17 @@ export function SongEditor() {
   const { bandId, songId } = useParams<{ bandId: string; songId?: string }>();
   const { doc, status: docStatus } = useBandDoc(bandId ?? null);
   const songs = useYMap<Song>(doc?.getMap('songs'));
-  const voices = useYMap<Voice>(doc?.getMap('voices'));
+  // useYMap returns raw Yjs values, not run through voiceSchema — so a
+  // voice stored before Milestone 2 (no `kind` field at all) needs the
+  // schema's own back-compat parse here, same as the server already does
+  // in getVoice/listVoicesForSong, or it won't be recognized as chordpro.
+  const rawVoices = useYMap<unknown>(doc?.getMap('voices'));
 
   const isNew = !songId;
   const existingSong = songId ? songs[songId] : undefined;
   const voiceId = songId ? getDefaultVoiceId(songId) : undefined;
-  const existingVoice = voiceId ? voices[voiceId] : undefined;
+  const rawExistingVoice = voiceId ? rawVoices[voiceId] : undefined;
+  const existingVoice = rawExistingVoice ? voiceSchema.parse(rawExistingVoice) : undefined;
 
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
@@ -182,7 +187,10 @@ export function SongEditor() {
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current || isNew) return;
-    if (!existingSong || !existingVoice) return;
+    // The ChordPro form below only applies to a chordpro-kind voice — a
+    // files-kind default voice gets its own editor in a later Milestone 2
+    // step, not this form.
+    if (!existingSong || !existingVoice || existingVoice.kind !== 'chordpro') return;
     const normalizedKey = normalizeKey(existingSong.key);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded one-time init from external (Yjs) state, not a per-render sync
     setTitle(existingSong.title);
