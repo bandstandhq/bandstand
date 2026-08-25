@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Which voices a song has, and which one each member sees — see
+// docs/adr/0008-multi-voice-songs.md. Voice/assignment reads go straight
+// through the live Y.Doc (listVoicesForSong/getAssignedVoiceId), not
+// useYMap's flat object — the useYMap calls below exist only to subscribe
+// this component to re-render on remote changes.
+import type { BandMember, BandRole } from '@bandstand/core';
+import { can, getAssignedVoiceId, getAssignment, listVoicesForSong, setAssignment } from '@bandstand/core';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type * as Y from 'yjs';
+import { useYMap } from '../hooks/useYMap';
+import { apiClient } from '../lib/api-client';
+import { authClient } from '../lib/auth-client';
+
+export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: string; doc: Y.Doc }) {
+  const { t } = useTranslation();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user.id;
+
+  const [members, setMembers] = useState<BandMember[]>([]);
+  const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
+
+  useEffect(() => {
+    apiClient.listBandMembers(bandId).then(setMembers);
+    apiClient.listMyBands().then((myBands) => {
+      setViewerRole(myBands.find((b) => b.id === bandId)?.role ?? null);
+    });
+  }, [bandId]);
+
+  useYMap(doc.getMap('voices'));
+  useYMap(doc.getMap('assignments'));
+
+  const voices = listVoicesForSong(doc, songId);
+  const canEditOthers = viewerRole ? can(viewerRole, 'assignment:editOthers') : false;
+
+  if (voices.length === 0) return null;
+
+  return (
+    <div className="space-y-4 rounded-md border border-border p-4">
+      <div>
+        <p className="mb-2 text-sm font-medium">{t('songVoices.voicesTitle')}</p>
+        <ul className="space-y-1 text-sm text-muted-foreground">
+          {voices.map(({ id, voice }) => (
+            <li key={id}>
+              {voice.name}
+              {voice.instrument ? ` · ${voice.instrument}` : ''} ·{' '}
+              {t(voice.kind === 'chordpro' ? 'songVoices.kindChordpro' : 'songVoices.kindFiles')}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <p className="mb-2 text-sm font-medium">{t('songVoices.assignmentsTitle')}</p>
+        <table className="w-full text-sm">
+          <tbody>
+            {members.map((member) => {
+              const isSelf = member.userId === currentUserId;
+              const canEdit = isSelf || canEditOthers;
+              const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
+              const isGuessed = getAssignment(doc, songId, member.userId) === undefined;
+
+              return (
+                <tr key={member.userId}>
+                  <td className="py-1 pr-4">{member.name}</td>
+                  <td className="py-1">
+                    {canEdit ? (
+                      <select
+                        aria-label={t('songVoices.assignmentFor', { name: member.name })}
+                        value={assignedVoiceId ?? ''}
+                        onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                      >
+                        {voices.map(({ id, voice }) => (
+                          <option key={id} value={id}>
+                            {voice.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
+                    )}
+                    {isGuessed && <span className="ml-2 text-xs text-muted-foreground">{t('songVoices.guessed')}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

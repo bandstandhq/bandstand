@@ -17,6 +17,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { SongVoices } from '../components/SongVoices';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -246,6 +247,12 @@ export function SongEditor() {
       </Link>
 
       <h1 className="mt-4 text-xl font-medium">{isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')}</h1>
+
+      {!isNew && songId && doc && (
+        <div className="mt-4">
+          <SongVoices bandId={bandId} songId={songId} doc={doc} />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-4">

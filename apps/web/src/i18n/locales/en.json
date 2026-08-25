@@ -233,6 +233,14 @@
     "personalTransposeHint": "Shifts the preview for you only — never saved to the song.",
     "transposeSemitones": "{{semitones}} semitones"
   },
+  "songVoices": {
+    "voicesTitle": "Voices",
+    "kindChordpro": "ChordPro",
+    "kindFiles": "Files",
+    "assignmentsTitle": "Who plays what",
+    "assignmentFor": "Voice for {{name}}",
+    "guessed": "(guessed from instrument)"
+  },
   "bandSettings": {
     "back": "Back to dashboard",
     "bandNameLabel": "Band name",
