@@ -44,22 +44,22 @@ describe('getAssignedVoiceId', () => {
     const { chordproId, trumpetId } = seedSongVoices(doc, 'song-1');
     setAssignment(doc, 'song-1', 'user-1', chordproId);
 
-    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', 'Trumpet')).toBe(chordproId);
+    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', ['Trumpet'])).toBe(chordproId);
     expect(trumpetId).toBeDefined();
   });
 
-  it('guesses from the member instrument when no explicit assignment exists', () => {
+  it('guesses from one of the member\'s instruments when no explicit assignment exists', () => {
     const doc = new Y.Doc();
     const { trumpetId } = seedSongVoices(doc, 'song-1');
 
-    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', 'Trumpet')).toBe(trumpetId);
+    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', ['Vocals', 'Trumpet'])).toBe(trumpetId);
   });
 
   it('falls back to the first voice by insertion order when no instrument matches', () => {
     const doc = new Y.Doc();
     const { chordproId } = seedSongVoices(doc, 'song-1');
 
-    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', 'Tuba')).toBe(chordproId);
+    expect(getAssignedVoiceId(doc, 'song-1', 'user-1', ['Tuba'])).toBe(chordproId);
     expect(getAssignedVoiceId(doc, 'song-1', 'user-1')).toBe(chordproId);
   });
 });
