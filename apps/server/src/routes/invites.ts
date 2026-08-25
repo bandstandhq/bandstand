@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { RedeemInviteErrorCode } from '@bandstand/core';
 import {
   createInviteInputSchema,
   generateInviteCode,
@@ -99,6 +100,40 @@ inviteRedemptionRoute.post('/redeem', redeemRateLimiter(clientIp), async (c) => 
   const userId = c.get('userId');
   const normalizedCode = normalizeInviteCode(body.code);
 
+  // A non-mutating classification pass first, purely so the caller gets a
+  // specific reason (docs/... none needed, RedeemInviteErrorCode is the
+  // contract) instead of one generic "invalid" message. This is UX only —
+  // the atomic conditional UPDATE below is still the sole race-safety
+  // arbiter, unchanged, so a genuine concurrent race is still decided
+  // correctly even if state moved between this check and that UPDATE.
+  const [existing] = await db
+    .select()
+    .from(invites)
+    .where(sql`upper(${invites.code}) = ${normalizedCode}`);
+
+  if (!existing) {
+    return c.json({ error: 'unknown_code' satisfies RedeemInviteErrorCode }, 404);
+  }
+  if (existing.revokedAt) {
+    return c.json({ error: 'revoked' satisfies RedeemInviteErrorCode }, 404);
+  }
+  if (existing.redeemedAt) {
+    return c.json({ error: 'redeemed' satisfies RedeemInviteErrorCode }, 404);
+  }
+  if (existing.expiresAt <= new Date()) {
+    return c.json({ error: 'expired' satisfies RedeemInviteErrorCode }, 404);
+  }
+  const [alreadyMember] = await db
+    .select()
+    .from(bandMembers)
+    .where(and(eq(bandMembers.bandId, existing.bandId), eq(bandMembers.userId, userId)));
+  if (alreadyMember) {
+    // Rejected without consuming the code — it's still valid for someone
+    // else, since redeeming it wouldn't have changed anything for this
+    // caller anyway (below used to silently succeed in this exact case).
+    return c.json({ error: 'already_member' satisfies RedeemInviteErrorCode }, 409);
+  }
+
   // Single conditional UPDATE — Postgres's row-level MVCC guarantees only
   // one concurrent transaction can win this race (see db/schema/invites.ts).
   const [invite] = await db
@@ -115,7 +150,10 @@ inviteRedemptionRoute.post('/redeem', redeemRateLimiter(clientIp), async (c) => 
     .returning();
 
   if (!invite) {
-    return c.json({ error: 'Invalid, expired, or already-used invite code' }, 404);
+    // The classification above passed, but something changed in the
+    // meantime (a genuine race with another redemption/revocation) — the
+    // exact reason no longer matters, this is just "someone else won."
+    return c.json({ error: 'redeemed' satisfies RedeemInviteErrorCode }, 404);
   }
 
   try {
@@ -123,7 +161,9 @@ inviteRedemptionRoute.post('/redeem', redeemRateLimiter(clientIp), async (c) => 
       .insert(bandMembers)
       .values({ bandId: invite.bandId, userId, role: invite.role, instruments: [] });
   } catch (err) {
-    // Already a member (bandMembers' composite PK) — redemption still succeeded.
+    // Already a member (bandMembers' composite PK) — the classification
+    // check above should have already caught this, but stay defensive
+    // against the same race window.
     if (!isUniqueViolation(err)) throw err;
   }
 

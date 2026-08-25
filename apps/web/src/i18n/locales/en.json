@@ -23,9 +23,20 @@
   "joinBand": {
     "title": "Join a band",
     "codeLabel": "Joining with invite code {{code}}",
+    "manualCodeLabel": "Invite code",
+    "manualCodePlaceholder": "e.g. AB3D9Z",
+    "manualSubmit": "Join",
+    "joining": "Joining…",
     "signUpAndJoin": "Sign up and join",
     "redeeming": "Joining the band…",
-    "error": "Couldn't redeem this invite code.",
+    "error": {
+      "unknown_code": "That invite code doesn't exist.",
+      "expired": "That invite code has expired.",
+      "revoked": "That invite code has been revoked.",
+      "redeemed": "That invite code has already been used.",
+      "already_member": "You're already a member of this band.",
+      "generic": "Couldn't redeem this invite code."
+    },
     "logInInstead": "Log in instead"
   },
   "dashboard": {
@@ -127,7 +138,9 @@
     "label": "Active band",
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "or": "or",
+    "joinBand": "Join a band"
   },
   "repertoire": {
     "back": "Back to dashboard",
@@ -220,8 +233,8 @@
     },
     "invites": {
       "title": "Invites",
-      "createTitle": "Invite someone",
-      "labelPlaceholder": "Name (e.g. \"Jamie\")",
+      "noteLabel": "Note",
+      "notePlaceholder": "Who is this code for?",
       "instrumentPlaceholder": "Instrument (optional)",
       "role": "Role",
       "roleMember": "Member",

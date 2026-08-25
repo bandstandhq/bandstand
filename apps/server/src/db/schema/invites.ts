@@ -6,9 +6,11 @@ import { bands } from './bands';
 import { users } from './users';
 
 // One-time invite codes replace email-based invites entirely (see docs/adr
-// for context). An owner/admin creates a code labeled for a specific
-// intended recipient (display name + optional instrument) and a role to
-// grant; the code is redeemed exactly once.
+// for context). An owner/admin creates a code with a free-form note for
+// their own reference (e.g. "for Jamie, our new bassist") and a role to
+// grant; the joining person's actual name comes from their own account at
+// redemption time, not from this column — despite its name, `label` was
+// never the recipient's display name. The code is redeemed exactly once.
 //
 // Atomic redemption is a single conditional UPDATE, not a read-then-write:
 //   UPDATE invites

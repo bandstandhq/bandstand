@@ -4,14 +4,22 @@ import type { Band } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { JoinBandForm } from './JoinBandForm';
 import { apiClient } from '../lib/api-client';
 import { useActiveBandStore } from '../stores/activeBand';
 
 export function BandSwitcher() {
   const { t } = useTranslation();
   const [bands, setBands] = useState<MyBand[] | null>(null);
+  const [showJoinForm, setShowJoinForm] = useState(false);
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
+
+  function handleJoined(band: Band) {
+    setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
+    setActiveBandId(band.id);
+    setShowJoinForm(false);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -34,28 +42,41 @@ export function BandSwitcher() {
 
   if (bands.length === 0) {
     return (
-      <CreateFirstBand
-        onCreated={(band) => {
-          setBands([{ ...band, role: 'owner' }]);
-          setActiveBandId(band.id);
-        }}
-      />
+      <div className="flex flex-col gap-2">
+        <CreateFirstBand
+          onCreated={(band) => {
+            setBands([{ ...band, role: 'owner' }]);
+            setActiveBandId(band.id);
+          }}
+        />
+        <p className="text-xs text-muted-foreground">{t('bandSwitcher.or')}</p>
+        <JoinBandForm onJoined={handleJoined} />
+      </div>
     );
   }
 
   return (
-    <select
-      aria-label={t('bandSwitcher.label')}
-      value={activeBandId ?? bands[0]!.id}
-      onChange={(e) => setActiveBandId(e.target.value)}
-      className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-    >
-      {bands.map((band) => (
-        <option key={band.id} value={band.id}>
-          {band.name}
-        </option>
-      ))}
-    </select>
+    <div className="flex items-center gap-2">
+      <select
+        aria-label={t('bandSwitcher.label')}
+        value={activeBandId ?? bands[0]!.id}
+        onChange={(e) => setActiveBandId(e.target.value)}
+        className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+      >
+        {bands.map((band) => (
+          <option key={band.id} value={band.id}>
+            {band.name}
+          </option>
+        ))}
+      </select>
+      {showJoinForm ? (
+        <JoinBandForm onJoined={handleJoined} />
+      ) : (
+        <Button variant="ghost" size="sm" onClick={() => setShowJoinForm(true)}>
+          {t('bandSwitcher.joinBand')}
+        </Button>
+      )}
+    </div>
   );
 }
 

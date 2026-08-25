@@ -10,7 +10,7 @@ test('an invite code redeems exactly once', async ({ page }) => {
   await page.goto(`/bands/${bandId}/settings`);
 
   const label = `Acceptance test ${Date.now()}`;
-  await page.getByLabel('Invite someone').fill(label);
+  await page.getByLabel('Note').fill(label);
   await page.getByRole('button', { name: 'Create invite' }).click();
   const code = await page.getByText(INVITE_CODE_PATTERN).first().innerText();
   expect(code).toMatch(INVITE_CODE_PATTERN);
@@ -32,6 +32,6 @@ test('an invite code redeems exactly once', async ({ page }) => {
   // refusal is surfaced to the user, not just a silent failure.
   await page.goto(`/join/${code}`);
   await signUp(page, { name: 'Second redeemer', email: freshEmail('second') }, 'Sign up and join');
-  await expect(page.getByText('Invalid, expired, or already-used invite code')).toBeVisible();
+  await expect(page.getByText('That invite code has already been used.')).toBeVisible();
   await expect(page).not.toHaveURL(/\/dashboard$/);
 });

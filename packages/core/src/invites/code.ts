@@ -19,9 +19,13 @@ export function generateInviteCode(): string {
   return code;
 }
 
-/** Redemption is case-insensitive, so normalize before comparing/looking up. */
+/**
+ * Redemption is case-insensitive and ignores whitespace (a code relayed by
+ * hand — read aloud, split across a text message — often picks up stray or
+ * mid-string spaces), so normalize before comparing/looking up.
+ */
 export function normalizeInviteCode(code: string): string {
-  return code.trim().toUpperCase();
+  return code.replace(/\s+/g, '').toUpperCase();
 }
 
 /** True if `code` has the right shape to even attempt redemption (cheap pre-check, not a lookup). */

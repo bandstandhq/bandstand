@@ -4,6 +4,9 @@ import { isValidInviteCodeFormat } from '../invites/code';
 import { bandRoleSchema } from './band';
 
 export const createInviteInputSchema = z.strictObject({
+  // A free-form note for the creator's own reference (shown in the UI as
+  // "Note", e.g. "who is this code for?") — not the joining person's
+  // display name, which comes from their own account at redemption time.
   label: z.string().min(1),
   instrument: z.string().min(1).optional(),
   role: bandRoleSchema,
