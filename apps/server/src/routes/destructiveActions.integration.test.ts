@@ -71,13 +71,24 @@ async function setupBand() {
   doc.getMap('setlists').set(setlistId, { name: 'Test Setlist', updatedAt: Date.now() });
   doc.getArray(`items:${setlistId}`).push([{ id: 'item-1', type: 'song', songId }]);
 
+  const filesVoiceId = `voice:${randomUUID()}`;
+  doc.getMap('voices').set(filesVoiceId, {
+    songId,
+    name: 'Trumpet in B',
+    kind: 'files',
+    files: [
+      { sha256: 'a'.repeat(64), filename: 'part-1.pdf', mime: 'application/pdf', pageCount: 1 },
+      { sha256: 'b'.repeat(64), filename: 'part-2.pdf', mime: 'application/pdf', pageCount: 1 },
+    ],
+  });
+
   await db.insert(bandDocs).values({
     bandId: band.id,
     yjsState: Buffer.from(Y.encodeStateAsUpdate(doc)),
     snapshot: yDocToSnapshot(doc),
   });
 
-  return { band, owner, admin, member, songId, setlistId };
+  return { band, owner, admin, member, songId, setlistId, filesVoiceId };
 }
 
 async function loadSnapshot(bandId: string) {
@@ -200,5 +211,21 @@ describe('destructive band/song/setlist actions (integration)', () => {
 
     const snapshot = await loadSnapshot(band.id);
     expect(snapshot?.songs[songId]?.status).toBe('archived');
+  });
+
+  it('rejects a member detaching a file, but lets an admin, keeping the other file', async () => {
+    const { band, admin, member, songId, filesVoiceId } = await setupBand();
+    cleanupUserIds.push(admin.userId, member.userId);
+    cleanupBandIds.push(band.id);
+
+    const forbidden = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}`, 'DELETE', member.token);
+    expect(forbidden.status).toBe(403);
+
+    const ok = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}`, 'DELETE', admin.token);
+    expect(ok.status).toBe(200);
+
+    const snapshot = await loadSnapshot(band.id);
+    const files = snapshot?.voices[filesVoiceId]?.kind === 'files' ? snapshot.voices[filesVoiceId].files : undefined;
+    expect(files?.map((f) => f.sha256)).toEqual(['b'.repeat(64)]);
   });
 });
