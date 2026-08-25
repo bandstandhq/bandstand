@@ -2,4 +2,5 @@
 export * from './snapshot';
 export * from './songs';
 export * from './voices';
+export * from './assignments';
 export * from './setlists';
