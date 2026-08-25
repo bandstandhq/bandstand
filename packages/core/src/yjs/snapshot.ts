@@ -14,6 +14,9 @@ export const bandSnapshotSchema = z.object({
   songs: z.record(z.string(), songSchema),
   voices: z.record(z.string(), voiceSchema),
   setlists: z.record(z.string(), setlistSchema.extend({ items: z.array(setlistItemSchema) })),
+  // `<songId>:<userId>` -> voiceId. Absent entirely on any doc written
+  // before Milestone 2 — defaults to empty rather than requiring a migration.
+  assignments: z.record(z.string(), z.string()).default({}),
 });
 
 export type BandSnapshot = z.infer<typeof bandSnapshotSchema>;
@@ -30,6 +33,7 @@ export const itemsKey = (setlistId: string) => `items:${setlistId}`;
 export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
   const songs = doc.getMap('songs').toJSON();
   const voices = doc.getMap('voices').toJSON();
+  const assignments = doc.getMap('assignments').toJSON();
   const rawSetlists = doc.getMap('setlists').toJSON() as Record<string, unknown>;
 
   const setlists: Record<string, unknown> = {};
@@ -40,7 +44,7 @@ export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
     };
   }
 
-  return bandSnapshotSchema.parse({ songs, voices, setlists });
+  return bandSnapshotSchema.parse({ songs, voices, setlists, assignments });
 }
 
 /**
@@ -60,6 +64,11 @@ export function snapshotToYDoc(snapshot: BandSnapshot): Y.Doc {
   const voicesMap = doc.getMap('voices');
   for (const [voiceId, voice] of Object.entries(parsed.voices)) {
     voicesMap.set(voiceId, voice);
+  }
+
+  const assignmentsMap = doc.getMap('assignments');
+  for (const [key, voiceId] of Object.entries(parsed.assignments)) {
+    assignmentsMap.set(key, voiceId);
   }
 
   const setlistsMap = doc.getMap('setlists');

@@ -30,8 +30,11 @@ const sampleSnapshot: BandSnapshot = {
     },
   },
   voices: {
-    'voice:s1': { songId: 's1', name: 'Default', body: '{title: Wonderwall}' },
-    'voice:s2': { songId: 's2', name: 'Default', body: '{title: Creep}' },
+    'voice:s1': { songId: 's1', name: 'Default', kind: 'chordpro', body: '{title: Wonderwall}' },
+    'voice:s2': { songId: 's2', name: 'Default', kind: 'chordpro', body: '{title: Creep}' },
+  },
+  assignments: {
+    's1:u1': 'voice:s1',
   },
   setlists: {
     'sl1': {

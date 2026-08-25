@@ -28,7 +28,8 @@ export type Action =
   | 'setlist:delete'
   | 'selfPrefs:edit'
   | 'file:upload'
-  | 'file:detach';
+  | 'file:detach'
+  | 'assignment:editOthers';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -41,6 +42,12 @@ export type Action =
  * - `member:remove`'s row reflects only "admins may remove *someone*" — the
  *   additional restriction that an admin can't remove the owner or another
  *   admin is `canRemoveMember` below, not expressible as a single minimum role.
+ *
+ * `assignment:editOthers` has no "self" counterpart here for the same reason
+ * `selfPrefs:edit` covers only self-scoped state: a member changing their
+ * *own* voice assignment is always allowed, at any role, so it isn't a
+ * matrix row at all — only overriding *someone else's* assignment needs a
+ * role check.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -64,6 +71,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'selfPrefs:edit': 'member',
   'file:upload': 'member',
   'file:detach': 'admin',
+  'assignment:editOthers': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */
