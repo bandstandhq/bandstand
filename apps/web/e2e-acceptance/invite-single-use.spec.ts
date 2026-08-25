@@ -18,7 +18,7 @@ test('an invite code redeems exactly once', async ({ page }) => {
   // BandSettings has no logout control of its own.
   await page.goto('/dashboard');
   await page.getByRole('button', { name: 'Log out' }).click();
-  await page.waitForURL(/\/login$/);
+  await page.waitForURL(/\/login/);
 
   // First redemption succeeds and joins the band.
   await page.goto(`/join/${code}`);
@@ -26,7 +26,7 @@ test('an invite code redeems exactly once', async ({ page }) => {
   await page.waitForURL(/\/dashboard$/);
   await expect(page.getByRole('link', { name: 'Repertoire' })).toBeVisible();
   await page.getByRole('button', { name: 'Log out' }).click();
-  await page.waitForURL(/\/login$/);
+  await page.waitForURL(/\/login/);
 
   // A second redemption of the same already-used code is refused, and the
   // refusal is surfaced to the user, not just a silent failure.

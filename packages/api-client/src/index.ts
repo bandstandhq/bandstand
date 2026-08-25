@@ -17,13 +17,25 @@ interface ApiError {
   error: string;
 }
 
-async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  baseUrl: string,
+  path: string,
+  init: RequestInit | undefined,
+  onUnauthorized: (() => void) | undefined,
+): Promise<T> {
   const res = await fetch(`${baseUrl}${path}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
   });
   if (!res.ok) {
+    // A 401 means the local session is no longer valid at all (expired,
+    // revoked, never existed) — every caller would otherwise have to
+    // handle that identically, so it's centralized here instead. A 403
+    // (a real session, just not allowed to do this) is NOT handled here:
+    // it's a normal, per-call error the caller already surfaces its own
+    // way (e.g. a form's own error message), not a reason to sign out.
+    if (res.status === 401) onUnauthorized?.();
     const body = (await res.json().catch(() => null)) as ApiError | null;
     throw new Error(body?.error ?? `Request failed with status ${res.status}`);
   }
@@ -54,56 +66,55 @@ async function checkBandMembership(baseUrl: string, bandId: string): Promise<Mem
   }
 }
 
+export interface ApiClientOptions {
+  /** Called once per request that comes back 401 — the caller decides what "no longer signed in" means (e.g. clearing the local session). */
+  onUnauthorized?: () => void;
+}
+
 /**
  * Typed client for apps/server's REST API. Server URL is configurable per
  * account/device, not hardcoded — see docs/ARCHITECTURE.md.
  */
-export function createApiClient(baseUrl: string) {
+export function createApiClient(baseUrl: string, options: ApiClientOptions = {}) {
+  const { onUnauthorized } = options;
+  const req = <T>(path: string, init?: RequestInit) => request<T>(baseUrl, path, init, onUnauthorized);
+
   return {
     createBand: (input: CreateBandInput) =>
-      request<Band>(baseUrl, '/bands', { method: 'POST', body: JSON.stringify(input) }),
+      req<Band>('/bands', { method: 'POST', body: JSON.stringify(input) }),
 
-    listMyBands: () => request<MyBand[]>(baseUrl, '/bands'),
+    listMyBands: () => req<MyBand[]>('/bands'),
 
     renameBand: (bandId: string, input: RenameBandInput) =>
-      request<Band>(baseUrl, `/bands/${bandId}`, { method: 'PATCH', body: JSON.stringify(input) }),
+      req<Band>(`/bands/${bandId}`, { method: 'PATCH', body: JSON.stringify(input) }),
 
-    deleteBand: (bandId: string) =>
-      request<{ ok: true }>(baseUrl, `/bands/${bandId}`, { method: 'DELETE' }),
+    deleteBand: (bandId: string) => req<{ ok: true }>(`/bands/${bandId}`, { method: 'DELETE' }),
 
-    listBandMembers: (bandId: string) =>
-      request<BandMember[]>(baseUrl, `/bands/${bandId}/members`),
+    listBandMembers: (bandId: string) => req<BandMember[]>(`/bands/${bandId}/members`),
 
     resolveIdeaTie: (bandId: string, songId: string, input: ResolveIdeaTieInput) =>
-      request<{ resolution: ResolveIdeaTieInput['resolution'] }>(
-        baseUrl,
-        `/bands/${bandId}/songs/${songId}/resolve-tie`,
-        { method: 'POST', body: JSON.stringify(input) },
-      ),
+      req<{ resolution: ResolveIdeaTieInput['resolution'] }>(`/bands/${bandId}/songs/${songId}/resolve-tie`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
 
     checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
 
     createInvite: (bandId: string, input: CreateInviteInput) =>
-      request<Invite>(baseUrl, `/bands/${bandId}/invites`, {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+      req<Invite>(`/bands/${bandId}/invites`, { method: 'POST', body: JSON.stringify(input) }),
 
-    listInvites: (bandId: string) => request<Invite[]>(baseUrl, `/bands/${bandId}/invites`),
+    listInvites: (bandId: string) => req<Invite[]>(`/bands/${bandId}/invites`),
 
     revokeInvite: (bandId: string, inviteId: string) =>
-      request<Invite>(baseUrl, `/bands/${bandId}/invites/${inviteId}/revoke`, { method: 'POST' }),
+      req<Invite>(`/bands/${bandId}/invites/${inviteId}/revoke`, { method: 'POST' }),
 
     redeemInvite: (input: RedeemInviteInput) =>
-      request<{ band: Band; role: BandRole }>(baseUrl, '/invites/redeem', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+      req<{ band: Band; role: BandRole }>('/invites/redeem', { method: 'POST', body: JSON.stringify(input) }),
 
-    getMyPrefs: () => request<UserPrefs>(baseUrl, '/me/prefs'),
+    getMyPrefs: () => req<UserPrefs>('/me/prefs'),
 
     updateMyPrefs: (input: UpdateUserPrefsInput) =>
-      request<UserPrefs>(baseUrl, '/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
+      req<UserPrefs>('/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
   };
 }
 

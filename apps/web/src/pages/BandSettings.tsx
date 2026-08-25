@@ -7,12 +7,24 @@ import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
+import { RequireBandRole } from '../components/RequireBandRole';
 import { apiClient } from '../lib/api-client';
 
 export function BandSettings() {
+  const { bandId } = useParams<{ bandId: string }>();
+  if (!bandId) return null;
+
+  return (
+    <RequireBandRole bandId={bandId} role="member" fallback={<BandAccessDenied />}>
+      <BandSettingsContent bandId={bandId} />
+    </RequireBandRole>
+  );
+}
+
+function BandSettingsContent({ bandId }: { bandId: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { bandId } = useParams<{ bandId: string }>();
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -36,15 +48,12 @@ export function BandSettings() {
       .catch(() => setInvites([]));
   }, [bandId]);
 
-  if (!bandId) return null;
-
   const canRename = myBand ? can(myBand.role, 'band:rename') : false;
   const canManageInvites = myBand ? can(myBand.role, 'invite:create') : false;
   const canDelete = myBand ? can(myBand.role, 'band:delete') : false;
 
   async function handleRename(e: FormEvent) {
     e.preventDefault();
-    if (!bandId) return;
     const updated = await apiClient.renameBand(bandId, { name: bandName });
     setMyBand((prev) => (prev ? { ...prev, name: updated.name } : prev));
     setRenameSaved(true);
@@ -52,7 +61,7 @@ export function BandSettings() {
   }
 
   async function handleDelete() {
-    if (!bandId || !myBand) return;
+    if (!myBand) return;
     if (!window.confirm(t('bandSettings.danger.confirm', { name: myBand.name }))) return;
     setDeleting(true);
     setDeleteError(null);

@@ -6,7 +6,7 @@ test('a non-member never sees a band doc\'s content, even navigating straight to
   await login(page, DEMO_OWNER_EMAIL);
   const bandId = await getActiveBandId(page);
   await page.getByRole('button', { name: 'Log out' }).click();
-  await page.waitForURL(/\/login$/);
+  await page.waitForURL(/\/login/);
 
   await page.goto('/signup');
   await signUp(page, { name: 'Eve (outsider)', email: freshEmail('eve') });

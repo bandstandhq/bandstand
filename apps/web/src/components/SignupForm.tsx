@@ -11,17 +11,23 @@ export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; 
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const { refetch } = authClient.useSession();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(false);
     setSubmitting(true);
     const { error: signUpError } = await authClient.signUp.email({ email, password, name });
-    setSubmitting(false);
     if (signUpError) {
       setError(true);
+      setSubmitting(false);
       return;
     }
+    // Same fix as Login.tsx: force the shared session store to refresh
+    // before anything reacts to "we're signed in now" — signUp.email only
+    // marks it stale, it doesn't refetch it itself.
+    await refetch();
+    setSubmitting(false);
     onSuccess();
   }
 

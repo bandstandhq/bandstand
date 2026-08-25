@@ -102,6 +102,23 @@ describe('createApiClient', () => {
     await expect(client.checkBandMembership('band-1')).resolves.toBe('unknown');
   });
 
+  it('calls onUnauthorized exactly on a 401, not on a 403 or a success', async () => {
+    const onUnauthorized = vi.fn();
+    const client = createApiClient('http://api.example', { onUnauthorized });
+
+    mockFetchOnce({ ok: true, body: [] });
+    await client.listMyBands();
+    expect(onUnauthorized).not.toHaveBeenCalled();
+
+    mockFetchOnce({ ok: false, status: 403, body: { error: 'Forbidden' } });
+    await expect(client.listBandMembers('band-1')).rejects.toThrow();
+    expect(onUnauthorized).not.toHaveBeenCalled();
+
+    mockFetchOnce({ ok: false, status: 401, body: { error: 'Unauthorized' } });
+    await expect(client.listBandMembers('band-1')).rejects.toThrow();
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to a generic message when the error body is unparseable', async () => {
     vi.stubGlobal(
       'fetch',

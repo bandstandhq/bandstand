@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Button } from '@bandstand/ui';
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate } from 'react-router';
+import { Link } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BandSwitcher } from '../components/BandSwitcher';
 import { useBandDoc } from '../hooks/useBandDoc';
@@ -12,15 +12,13 @@ import { useActiveBandStore } from '../stores/activeBand';
 
 export function Dashboard() {
   const { t } = useTranslation();
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session } = authClient.useSession();
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const { doc, status } = useBandDoc(activeBandId);
   const songs = useYMap(doc?.getMap('songs'));
 
-  if (!isPending && !session) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // No anonymous check here — RequireAuth (router.tsx) already guarantees a
+  // session before this component ever mounts.
   if (status === 'forbidden') {
     return <BandAccessDenied />;
   }
