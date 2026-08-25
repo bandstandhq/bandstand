@@ -3,6 +3,7 @@
 // Needs a real Postgres — a code's atomic redemption race can't be faked
 // with mocks (see db/schema/invites.ts's comment on the conditional UPDATE).
 import { randomUUID } from 'node:crypto';
+import { generateInviteCode } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { db } from '../db/client';
@@ -112,5 +113,138 @@ describe('POST /invites/redeem (integration)', () => {
 
     const second = await redeem(invite.code, redeemerB.token);
     expect(second.status).toBe(404);
+  });
+
+  it('classifies each redemption failure with a distinct, specific error code', async () => {
+    const creator = await signUpTestUser();
+    const redeemer = await signUpTestUser();
+    cleanupUserIds.push(creator.userId, redeemer.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Invite Classification Band', slug: `invite-classify-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    const unknown = await redeem(generateInviteCode(), redeemer.token);
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toEqual({ error: 'unknown_code' });
+
+    const [revokedInvite] = await db
+      .insert(invites)
+      .values({
+        bandId: band.id,
+        code: generateInviteCode(),
+        label: 'Revoked',
+        role: 'member',
+        createdBy: creator.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        revokedAt: new Date(),
+      })
+      .returning();
+    const revoked = await redeem(revokedInvite!.code, redeemer.token);
+    expect(revoked.status).toBe(404);
+    expect(await revoked.json()).toEqual({ error: 'revoked' });
+
+    const [expiredInvite] = await db
+      .insert(invites)
+      .values({
+        bandId: band.id,
+        code: generateInviteCode(),
+        label: 'Expired',
+        role: 'member',
+        createdBy: creator.userId,
+        expiresAt: new Date(Date.now() - 1000),
+      })
+      .returning();
+    const expired = await redeem(expiredInvite!.code, redeemer.token);
+    expect(expired.status).toBe(404);
+    expect(await expired.json()).toEqual({ error: 'expired' });
+
+    const [redeemedInvite] = await db
+      .insert(invites)
+      .values({
+        bandId: band.id,
+        code: generateInviteCode(),
+        label: 'Already redeemed',
+        role: 'member',
+        createdBy: creator.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        redeemedBy: creator.userId,
+        redeemedAt: new Date(),
+      })
+      .returning();
+    const alreadyRedeemed = await redeem(redeemedInvite!.code, redeemer.token);
+    expect(alreadyRedeemed.status).toBe(404);
+    expect(await alreadyRedeemed.json()).toEqual({ error: 'redeemed' });
+  });
+
+  it("rejects a code from an already-a-member caller without consuming it", async () => {
+    const creator = await signUpTestUser();
+    cleanupUserIds.push(creator.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Invite Already-Member Band', slug: `invite-already-member-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    await db
+      .insert(bandMembers)
+      .values({ bandId: band.id, userId: creator.userId, role: 'owner', instruments: [] });
+
+    const [invite] = await db
+      .insert(invites)
+      .values({
+        bandId: band.id,
+        code: generateInviteCode(),
+        label: 'Self-invite',
+        role: 'member',
+        createdBy: creator.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+    if (!invite) throw new Error('Setup insert returned no row');
+
+    const res = await redeem(invite.code, creator.token);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'already_member' });
+
+    // The code is untouched — still redeemable by someone else.
+    const [reloaded] = await db.select().from(invites).where(eq(invites.id, invite.id));
+    expect(reloaded?.redeemedAt).toBeNull();
+  });
+
+  it('accepts a code with a stray internal space, per normalizeInviteCode', async () => {
+    const creator = await signUpTestUser();
+    const redeemer = await signUpTestUser();
+    cleanupUserIds.push(creator.userId, redeemer.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Invite Whitespace Band', slug: `invite-whitespace-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    const code = generateInviteCode();
+    const [invite] = await db
+      .insert(invites)
+      .values({
+        bandId: band.id,
+        code,
+        label: 'Spaced out',
+        role: 'member',
+        createdBy: creator.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+    if (!invite) throw new Error('Setup insert returned no row');
+
+    const spacedCode = `${code.slice(0, 3)} ${code.slice(3)}`;
+    const res = await redeem(spacedCode, redeemer.token);
+    expect(res.status).toBe(200);
   });
 });

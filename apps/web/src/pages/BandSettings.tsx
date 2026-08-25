@@ -188,14 +188,14 @@ function CreateInviteForm({ bandId, onCreated }: { bandId: string; onCreated: (i
     <form onSubmit={handleSubmit} className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border p-4">
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground" htmlFor="invite-label">
-          {t('bandSettings.invites.createTitle')}
+          {t('bandSettings.invites.noteLabel')}
         </label>
         <Input
           id="invite-label"
           required
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder={t('bandSettings.invites.labelPlaceholder')}
+          placeholder={t('bandSettings.invites.notePlaceholder')}
           className="w-48"
         />
       </div>

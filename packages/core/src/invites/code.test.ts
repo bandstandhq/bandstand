@@ -37,12 +37,22 @@ describe('normalizeInviteCode', () => {
   it('uppercases and trims', () => {
     expect(normalizeInviteCode(' ab3d9z ')).toBe('AB3D9Z');
   });
+
+  it('strips whitespace anywhere, not just leading/trailing', () => {
+    expect(normalizeInviteCode('ab3 d9z')).toBe('AB3D9Z');
+    expect(normalizeInviteCode('a b 3 d 9 z')).toBe('AB3D9Z');
+  });
 });
 
 describe('isValidInviteCodeFormat', () => {
   it('accepts a well-formed code regardless of case', () => {
     expect(isValidInviteCodeFormat('ab3d9z')).toBe(true);
     expect(isValidInviteCodeFormat('AB3D9Z')).toBe(true);
+  });
+
+  it('accepts a code with stray internal whitespace', () => {
+    expect(isValidInviteCodeFormat('AB3 D9Z')).toBe(true);
+    expect(isValidInviteCodeFormat(' AB3D9Z ')).toBe(true);
   });
 
   it('rejects the wrong length', () => {

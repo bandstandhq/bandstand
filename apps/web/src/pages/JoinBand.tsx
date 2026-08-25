@@ -5,6 +5,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { SignupForm } from '../components/SignupForm';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import { joinBandErrorKey } from '../lib/joinBandError';
 import { useActiveBandStore } from '../stores/activeBand';
 
 /**
@@ -29,8 +30,8 @@ export function JoinBand() {
         setActiveBandId(band.id);
         navigate('/dashboard');
       })
-      .catch((err) => setErrorMessage(err instanceof Error ? err.message : String(err)));
-  }, [session, code, navigate, setActiveBandId]);
+      .catch((err) => setErrorMessage(t(joinBandErrorKey(err instanceof Error ? err.message : String(err)))));
+  }, [session, code, navigate, setActiveBandId, t]);
 
   if (!code) return <Navigate to="/dashboard" replace />;
   if (isPending) return null;
