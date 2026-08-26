@@ -1,15 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test } from '@playwright/test';
-import { DEMO_MEMBER_EMAIL, DEMO_OWNER_EMAIL, freshName, getActiveBandId, login } from './fixtures';
+import {
+  createThrowawayBand,
+  DEMO_MEMBER_EMAIL,
+  DEMO_OWNER_EMAIL,
+  DEMO_PASSWORD,
+  deleteThrowawayBand,
+  freshName,
+  login,
+} from './fixtures';
+import { signInForToken } from './hocuspocusTestClient';
+import { addBandMember, getUserIdByEmail, withDb } from './testDb';
 
 test('an edit made while offline reaches other clients once reconnected', async ({ browser }) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'offline-reconnect');
+  await withDb(async (client) => {
+    const bobUserId = await getUserIdByEmail(client, DEMO_MEMBER_EMAIL);
+    await addBandMember(client, bandId, bobUserId);
+  });
+
   const aliceContext = await browser.newContext();
   const alice = await aliceContext.newPage();
 
   try {
     await login(alice, DEMO_OWNER_EMAIL);
-    const bandId = await getActiveBandId(alice);
     await alice.goto(`/bands/${bandId}/setlists`);
+    // useBandDoc only reveals `doc` once either the Hocuspocus provider
+    // fires 'synced' or the checkBandMembership REST call resolves — for a
+    // brand-new browser session with no prior local membership record
+    // (see docs/adr/0006-offline-cache-scoping.md), going offline before
+    // that REST round trip completes would leave `doc` null and silently
+    // no-op the "Create setlist" click below. A short pause here lets that
+    // fast, same-origin call land first.
+    await alice.waitForTimeout(500);
 
     const setlistName = freshName('offline-setlist');
     await aliceContext.setOffline(true);
@@ -38,5 +62,6 @@ test('an edit made while offline reaches other clients once reconnected', async 
     }
   } finally {
     await aliceContext.close();
+    await deleteThrowawayBand(token, bandId);
   }
 });

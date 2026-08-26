@@ -18,6 +18,7 @@ import { db } from '../db/client';
 import { bandDocs } from '../db/schema/index';
 import { auth } from './auth';
 import { getBandMembership } from './bandAuthz';
+import { isForeignKeyViolation } from './pgErrors';
 
 // --- Manipulated-client guard against destructive Yjs-doc writes ---
 //
@@ -163,13 +164,23 @@ export const hocuspocusServer = new Server({
       },
       store: async ({ documentName, state, document }) => {
         const snapshot = bandSnapshotSchema.parse(yDocToSnapshot(document));
-        await db
-          .insert(bandDocs)
-          .values({ bandId: documentName, yjsState: state, snapshot, updatedAt: new Date() })
-          .onConflictDoUpdate({
-            target: bandDocs.bandId,
-            set: { yjsState: state, snapshot, updatedAt: new Date() },
-          });
+        try {
+          await db
+            .insert(bandDocs)
+            .values({ bandId: documentName, yjsState: state, snapshot, updatedAt: new Date() })
+            .onConflictDoUpdate({
+              target: bandDocs.bandId,
+              set: { yjsState: state, snapshot, updatedAt: new Date() },
+            });
+        } catch (err) {
+          // This debounced store (up to `maxDebounce` below) can still be in
+          // flight after the band itself was deleted via DELETE
+          // /bands/:bandId — the band row (and this one, via cascade) is
+          // already gone by the time this write lands. The deletion is
+          // authoritative; a stale write racing behind it is expected, not
+          // a real failure, so it's dropped rather than logged as an error.
+          if (!isForeignKeyViolation(err)) throw err;
+        }
       },
     }),
   ],

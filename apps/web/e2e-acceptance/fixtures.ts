@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Page } from '@playwright/test';
 
-// Matches apps/server/src/seed/index.ts.
+const SERVER_URL = process.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001';
+
+// Matches apps/server/src/seed/index.ts. Only used to log in as an already
+// -existing demo user or to add one as a member of a throwaway band — no
+// acceptance test reads or writes demo-band/second-fiddle's own content
+// (see issue #81).
 export const DEMO_OWNER_EMAIL = 'alice@bandstand.local';
 export const DEMO_MEMBER_EMAIL = 'bob@bandstand.local';
 export const DEMO_PASSWORD = 'bandstand-demo';
@@ -75,4 +80,38 @@ export async function enterStageMode(page: Page, bandId: string, setlistName: st
 /** Stage Mode's current item title/label — the page's only <h1>. */
 export function stageModeHeading(page: Page) {
   return page.getByRole('heading', { level: 1 });
+}
+
+export interface ThrowawayBand {
+  bandId: string;
+  name: string;
+}
+
+/**
+ * Creates a fresh, single-test-owned band via the real `POST /bands` route
+ * — the caller becomes its owner. Pair with `deleteThrowawayBand` in the
+ * test's own `finally` so nothing is left behind. This is the standard
+ * setup for any acceptance test that needs a band to write into — no
+ * acceptance test reads or writes the shared demo-band/second-fiddle seed
+ * data (issue #81: a shared, mutated-in-place fixture meant one test's
+ * leftovers could break another's assumptions about what's there).
+ */
+export async function createThrowawayBand(token: string, namePrefix: string): Promise<ThrowawayBand> {
+  const name = freshName(namePrefix);
+  const res = await fetch(`${SERVER_URL}/bands`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(`Failed to create throwaway band: ${res.status} ${await res.text()}`);
+  const body = (await res.json()) as { id: string };
+  return { bandId: body.id, name };
+}
+
+/** Deletes a band created by `createThrowawayBand` — must be called by its owner. Cascades to memberships, invites, and its band doc. */
+export async function deleteThrowawayBand(token: string, bandId: string): Promise<void> {
+  await fetch(`${SERVER_URL}/bands/${bandId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }

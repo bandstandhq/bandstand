@@ -1,29 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// A fresh, throwaway setlist (never a name any other acceptance test
-// reuses) — this test mutates it freely via real drag gestures and deletes
-// it afterward, rather than adding to the "Open Mic Night"/"Full Band
-// Practice Set" setlists other tests and a developer's own manual testing
-// rely on staying recognizable (see issue #81's finding on shared-fixture
-// pollution).
-import { addSetlistItem, buildSongItem, createSetlist } from '@bandstand/core';
+// A fresh, single-test-owned band (see fixtures.ts's createThrowawayBand) —
+// this test mutates its setlist freely via real drag gestures and deletes
+// the whole band afterward, rather than touching the shared demo-band seed
+// data other tests and a developer's own manual testing rely on staying
+// recognizable (issue #81).
+import { addSetlistItem, addSong, buildSongItem, createSetlist } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
-import { DEMO_OWNER_EMAIL, login } from './fixtures';
+import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
-import { getBandIdBySlug, withDb } from './testDb';
-
-const SERVER_URL = process.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001';
 
 function flush() {
   return new Promise((resolve) => setTimeout(resolve, 800));
-}
-
-/** Setlist deletion is a REST route, not a plain CRDT write (see docs/adr/0005-permissions.md) — a raw `deleteSetlist(doc, ...)` from this test's own direct Yjs connection would just get reverted by the server's own permission guard. */
-async function deleteSetlistViaApi(token: string, bandId: string, setlistId: string) {
-  await fetch(`${SERVER_URL}/bands/${bandId}/setlists/${setlistId}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  });
 }
 
 /** A point near the left edge of a row's box — inside the label/drag-handle area on either side of this fix, never on a right-aligned action button. */
@@ -47,15 +35,33 @@ async function dragTo(page: import('@playwright/test').Page, fromPoint: { x: num
   }
 }
 
+function songFixture(title: string) {
+  return {
+    title,
+    artist: 'Acceptance Suite',
+    key: 'C',
+    bpm: 100,
+    durationSec: 180,
+    status: 'active' as const,
+    body: `{title: ${title}}\n{start_of_verse}\n[C]la la la[C]\n{end_of_verse}`,
+  };
+}
+
 test('dragging a song from the pool into the setlist inserts it where it was dropped, not always at the end', async ({ page }) => {
-  const bandId = await withDb((client) => getBandIdBySlug(client, 'demo-band'));
-  const token = await signInForToken(DEMO_OWNER_EMAIL, 'bandstand-demo');
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop');
   const setup = connectTestBandDoc(bandId, token);
   await setup.waitForSynced();
 
-  const setlistId = createSetlist(setup.doc, `Drag Drop Test ${Date.now()}`);
-  const songIds = ['song-amazing-grace', 'song-auld-lang-syne', 'song-house-of-the-rising-sun', 'song-shenandoah'];
-  for (const songId of songIds) addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+  const setlistId = createSetlist(setup.doc, 'Drag Drop Test');
+  const setlistSongTitles = ['Amazing Grace', 'Auld Lang Syne', 'House of the Rising Sun', 'Shenandoah'];
+  for (const title of setlistSongTitles) {
+    const songId = addSong(setup.doc, songFixture(title));
+    addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+  }
+  // Stays in the band's repertoire pool, never added to the setlist above —
+  // this is the song the test drags in.
+  addSong(setup.doc, songFixture('Scarborough Fair'));
   await flush();
 
   try {
@@ -108,7 +114,7 @@ test('dragging a song from the pool into the setlist inserts it where it was dro
     expect(shenandoahIndex).toBeGreaterThanOrEqual(0);
     expect(shenandoahIndex).toBeLessThan(4);
   } finally {
-    await deleteSetlistViaApi(token, bandId, setlistId);
+    await deleteThrowawayBand(token, bandId);
     setup.provider.destroy();
   }
 });
