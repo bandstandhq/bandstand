@@ -25,6 +25,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
+import { AnnotationOverlay } from './AnnotationOverlay';
 import { useYArray } from '../hooks/useYArray';
 import { apiClient } from '../lib/api-client';
 import { ensureCached, getCachedBlob } from '../lib/blobCache';
@@ -218,6 +219,7 @@ function PageView({
   cropMargins,
   containerWidth,
   onPointClick,
+  overlay,
 }: {
   doc: PdfDoc | undefined;
   imageUrl: string | undefined;
@@ -228,6 +230,8 @@ function PageView({
   containerWidth: number;
   /** Fractions (0-1) of this page as currently displayed — cropped and rotated. Only set during anchor calibration. */
   onPointClick?: (xFracDisplay: number, yFracDisplay: number) => void;
+  /** Rendered as an absolutely-positioned sibling, never a child of the ref'd container below — that one's contents get wiped by `replaceChildren` on every re-render. */
+  overlay?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -277,12 +281,14 @@ function PageView({
   }
 
   return (
-    <div
-      ref={containerRef}
-      onClick={onPointClick ? handleClick : undefined}
-      className={`min-h-40 bg-muted ${onPointClick ? 'cursor-crosshair' : ''}`}
-      style={{ width: containerWidth }}
-    />
+    <div className="relative" style={{ width: containerWidth }}>
+      <div
+        ref={containerRef}
+        onClick={onPointClick ? handleClick : undefined}
+        className={`min-h-40 bg-muted ${onPointClick ? 'cursor-crosshair' : ''}`}
+      />
+      {overlay}
+    </div>
   );
 }
 
@@ -769,6 +775,9 @@ export function PdfVoiceViewer({
                     containerWidth={mode === 'spread' ? containerWidth / 2 - 4 : containerWidth}
                     onPointClick={
                       calibratingAnchors && mode === 'single' && i === 0 ? handleCalibrationClick(p) : undefined
+                    }
+                    overlay={
+                      mode === 'single' && i === 0 ? <AnnotationOverlay bandId={bandId} voiceId={voiceId} page={p.position} /> : undefined
                     }
                   />
                 ))}
