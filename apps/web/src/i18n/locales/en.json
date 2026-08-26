@@ -310,6 +310,24 @@
     "barFor": "Bar for anchor \"{{label}}\"",
     "matchesSection": "Matches a ChordPro section with the same label — no manual calibration needed for that voice"
   },
+  "annotations": {
+    "tool_pen": "Pen",
+    "tool_highlighter": "Highlighter",
+    "tool_eraser": "Eraser",
+    "tool_rect": "Rectangle",
+    "tool_ellipse": "Ellipse",
+    "tool_line": "Line",
+    "tool_text": "Text",
+    "layers": "Layers",
+    "noLayers": "No layers yet — create one to start drawing.",
+    "newLayer": "New layer",
+    "newLayerPrompt": "Name this layer (e.g. \"Rehearsal May\")",
+    "textPrompt": "Text",
+    "share": "Share",
+    "delete": "Delete",
+    "confirmDelete": "Delete this layer? This can't be undone.",
+    "sharedBadge": "shared"
+  },
   "bandSettings": {
     "back": "Back to dashboard",
     "bandNameLabel": "Band name",
