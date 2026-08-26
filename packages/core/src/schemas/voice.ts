@@ -53,6 +53,22 @@ const displayRecipeSchema = z.object({
 
 export type DisplayRecipe = z.infer<typeof displayRecipeSchema>;
 
+// Where a song anchor (packages/core/src/schemas/anchor.ts) falls in this
+// voice's *source* content — `fileIndex` into `files`, `page` (1-based,
+// matching pdf.js) within that file, `yPct` down that page in its original,
+// unrotated orientation. Deliberately never a position in the *rendered*
+// sequence (after displayRecipe reorders/rotates/duplicates pages) — that
+// would silently break the moment someone reorders pages after calibrating.
+// The display recipe is applied only when *resolving* an anchor to a screen
+// position, never when saving one. See docs/adr/0010-anchor-sync.md.
+const anchorPositionSchema = z.object({
+  fileIndex: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  yPct: z.number().min(0).max(1),
+});
+
+export type VoiceAnchorPosition = z.infer<typeof anchorPositionSchema>;
+
 const filesVoiceSchema = z.object({
   ...voiceBaseFields,
   kind: z.literal('files'),
@@ -60,6 +76,11 @@ const filesVoiceSchema = z.object({
   // scan split across several files shouldn't force separate voices.
   files: z.array(fileRefSchema).min(1),
   displayRecipe: displayRecipeSchema.optional(),
+  // Keyed by anchor id. Missing entries are expressly allowed — not every
+  // anchor need be calibrated for every voice. A `chordpro` voice never has
+  // this field at all; its anchor mapping is derived automatically from
+  // section labels instead (see yjs/anchors.ts).
+  anchorMap: z.record(z.string(), anchorPositionSchema).optional(),
 });
 
 const voiceUnionSchema = z.discriminatedUnion('kind', [chordproVoiceSchema, filesVoiceSchema]);

@@ -85,6 +85,29 @@ describe('voiceSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts a files voice with an anchorMap', () => {
+    const voice = {
+      songId: 's1',
+      name: 'Trumpet in B',
+      kind: 'files',
+      files: [{ sha256: 'a'.repeat(64), filename: 'part.pdf', mime: 'application/pdf', pageCount: 2 }],
+      anchorMap: { a1: { fileIndex: 0, page: 1, yPct: 0.2 }, a2: { fileIndex: 0, page: 2, yPct: 0.9 } },
+    };
+    expect(voiceSchema.parse(voice)).toEqual(voice);
+  });
+
+  it('rejects an anchorMap entry with a yPct outside 0-1', () => {
+    expect(() =>
+      voiceSchema.parse({
+        songId: 's1',
+        name: 'Trumpet',
+        kind: 'files',
+        files: [{ sha256: 'a'.repeat(64), filename: 'part.pdf', mime: 'application/pdf', pageCount: 1 }],
+        anchorMap: { a1: { fileIndex: 0, page: 1, yPct: 1.1 } },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('getDefaultVoiceId', () => {
