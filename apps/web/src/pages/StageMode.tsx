@@ -25,7 +25,7 @@ import type {
 import { buildRenderModel, normalizeKey, parseChordPro, shiftKeyBySemitones, transposeChordProToKey } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
@@ -36,6 +36,10 @@ import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 import type * as Y from 'yjs';
+
+// Code-split: pdf.js is a large dependency most songs (plain ChordPro)
+// never touch, so it shouldn't sit in the app's main bundle.
+const PdfVoiceViewer = lazy(() => import('../components/PdfVoiceViewer').then((m) => ({ default: m.PdfVoiceViewer })));
 
 const TEXT_SIZE_CLASSES: Record<TextSize, string> = {
   small: 'text-xl',
@@ -109,12 +113,14 @@ function ContentLine({ line, visibility, chordColor }: { line: RenderLine; visib
 }
 
 function SongContent({
+  bandId,
   voice,
   visibility,
   chordColor,
   transposeSemitones,
   baseKey,
 }: {
+  bandId: string;
   voice: Voice;
   visibility: ContentVisibility;
   chordColor: string;
@@ -122,9 +128,6 @@ function SongContent({
   baseKey: string;
 }) {
   const { t } = useTranslation();
-  // A files-kind voice (scanned parts) has no ChordPro body to render here —
-  // its own viewer lands in a later Milestone 2 step; until then it falls
-  // through to the same placeholder as an unparseable body, below.
   const body = voice.kind === 'chordpro' ? voice.body : undefined;
   const model: RenderModel | null = useMemo(() => {
     if (body === undefined) return null;
@@ -140,6 +143,14 @@ function SongContent({
       return null;
     }
   }, [body, transposeSemitones, baseKey]);
+
+  if (voice.kind === 'files') {
+    return (
+      <Suspense fallback={null}>
+        <PdfVoiceViewer bandId={bandId} voice={voice} />
+      </Suspense>
+    );
+  }
 
   if (!model) {
     return <p className="text-center text-base opacity-70">{t('stageMode.contentError')}</p>;
@@ -1059,6 +1070,7 @@ export function StageMode() {
         {voice && (
           <div className={`mt-6 ${TEXT_SIZE_CLASSES[textSize]} ${boldText ? 'font-bold' : 'font-normal'}`}>
             <SongContent
+              bandId={bandId}
               voice={voice}
               visibility={contentVisibility}
               chordColor={chordColor}

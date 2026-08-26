@@ -6,13 +6,19 @@
 // useYMap's flat object — the useYMap calls below exist only to subscribe
 // this component to re-render on remote changes.
 import type { BandMember, BandRole } from '@bandstand/core';
-import { can, getAssignedVoiceId, getAssignment, listVoicesForSong, setAssignment } from '@bandstand/core';
-import { useEffect, useState } from 'react';
+import { can, createVoice, getAssignedVoiceId, getAssignment, listVoicesForSong, setAssignment } from '@bandstand/core';
+import { Button } from '@bandstand/ui';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import { UnsupportedFileTypeError, uploadFileToBand } from '../lib/uploadFile';
+
+// Code-split: pdf.js is a large dependency most songs (plain ChordPro)
+// never touch, so it shouldn't sit in the app's main bundle.
+const PdfVoiceViewer = lazy(() => import('./PdfVoiceViewer').then((m) => ({ default: m.PdfVoiceViewer })));
 
 export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: string; doc: Y.Doc }) {
   const { t } = useTranslation();
@@ -21,6 +27,10 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
 
   const [members, setMembers] = useState<BandMember[]>([]);
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [expandedVoiceId, setExpandedVoiceId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiClient.listBandMembers(bandId).then(setMembers);
@@ -28,6 +38,26 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
       setViewerRole(myBands.find((b) => b.id === bandId)?.role ?? null);
     });
   }, [bandId]);
+
+  async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const name = window.prompt(t('songVoices.addVoiceNamePrompt'), file.name.replace(/\.[^.]+$/, ''));
+    if (!name) return;
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const fileRef = await uploadFileToBand(apiClient, bandId, file);
+      createVoice(doc, songId, { name, kind: 'files', files: [fileRef] });
+    } catch (err) {
+      setUploadError(err instanceof UnsupportedFileTypeError ? t('songVoices.addVoiceUnsupportedType') : t('songVoices.addVoiceFailed'));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useYMap(doc.getMap('voices'));
   useYMap(doc.getMap('assignments'));
@@ -44,12 +74,46 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
         <ul className="space-y-1 text-sm text-muted-foreground">
           {voices.map(({ id, voice }) => (
             <li key={id}>
-              {voice.name}
-              {voice.instrument ? ` · ${voice.instrument}` : ''} ·{' '}
-              {t(voice.kind === 'chordpro' ? 'songVoices.kindChordpro' : 'songVoices.kindFiles')}
+              {voice.kind === 'files' ? (
+                <button
+                  type="button"
+                  className="text-left hover:underline"
+                  onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
+                >
+                  {voice.name}
+                  {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
+                </button>
+              ) : (
+                <span>
+                  {voice.name}
+                  {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
+                </span>
+              )}
+              {voice.kind === 'files' && expandedVoiceId === id && (
+                <div className="mt-2 max-w-md">
+                  <Suspense fallback={null}>
+                    <PdfVoiceViewer bandId={bandId} voice={voice} />
+                  </Suspense>
+                </div>
+              )}
             </li>
           ))}
         </ul>
+        {viewerRole && can(viewerRole, 'file:upload') && (
+          <div className="mt-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,image/png,image/jpeg"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+              {uploading ? t('songVoices.addVoiceUploading') : t('songVoices.addVoice')}
+            </Button>
+            {uploadError && <p className="mt-1 text-sm text-destructive">{uploadError}</p>}
+          </div>
+        )}
       </div>
 
       <div>
