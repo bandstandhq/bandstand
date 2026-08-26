@@ -30,7 +30,8 @@ export type Action =
   | 'file:upload'
   | 'file:detach'
   | 'assignment:editOthers'
-  | 'anchor:edit';
+  | 'anchor:edit'
+  | 'annotation:moderateShared';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -54,6 +55,11 @@ export type Action =
  * docs/adr/0010-anchor-sync.md. Unlike assignments/instruments/notes, there
  * is no self-scoped variant: anchors are band-wide, not per-member, so every
  * edit goes through this one check.
+ *
+ * `annotation:moderateShared` gates removing a *shared* annotation layer
+ * someone else published — same shape as `file:detach`. Removing one's own
+ * (personal, or previously shared by oneself) needs no matrix entry, same
+ * self-always-allowed pattern as `assignment:editOthers`.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -79,6 +85,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'file:detach': 'admin',
   'assignment:editOthers': 'admin',
   'anchor:edit': 'admin',
+  'annotation:moderateShared': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */
