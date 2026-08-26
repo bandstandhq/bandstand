@@ -296,8 +296,8 @@ export function AnnotationOverlay({ bandId, voiceId, page }: { bandId: string; v
     if (!window.confirm(t('annotations.confirmDelete'))) return;
     try {
       await apiClient.deleteAnnotationLayer(bandId, layerId);
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : String(err));
+    } catch {
+      window.alert(t('annotations.deleteFailed'));
       return;
     }
     await deleteCachedLayer(layerId);

@@ -332,6 +332,7 @@
     "share": "Share",
     "delete": "Delete",
     "confirmDelete": "Delete this layer? This can't be undone.",
+    "deleteFailed": "Couldn't delete layer.",
     "sharedBadge": "shared"
   },
   "bandSettings": {
