@@ -16,6 +16,12 @@ export interface RenderLine {
 
 export interface RenderSection {
   type: string;
+  // From the first section-delimiter tag's `label=` attribute, e.g.
+  // `{start_of_chorus: label="Chorus"}` — `null` for an untagged/unlabeled
+  // paragraph. Used to automatically match a song's anchors (see
+  // docs/adr/0010-anchor-sync.md) against ChordPro content without any
+  // manual calibration step.
+  label: string | null;
   lines: RenderLine[];
 }
 
@@ -48,6 +54,7 @@ export function buildRenderModel(song: Song): RenderModel {
   const normalized = parseChordPro(formatChordPro(song));
   const sections: RenderSection[] = normalized.bodyParagraphs.map((paragraph) => ({
     type: paragraph.type,
+    label: paragraph.label,
     lines: paragraph.lines.map((line) => ({
       type: line.type,
       segments: line.items

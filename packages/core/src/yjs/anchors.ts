@@ -76,3 +76,39 @@ export function reorderAnchors(doc: Y.Doc, songId: string, orderedIds: string[])
     array.push(reordered);
   });
 }
+
+function normalizeLabel(label: string): string {
+  return label.trim().toLowerCase();
+}
+
+/**
+ * A `chordpro` voice never stores its own anchor mapping — it's derived by
+ * matching each anchor's label against a ChordPro section's label
+ * (case/whitespace-insensitive), which is what "no manual calibration
+ * effort" means for this voice kind (see docs/adr/0010-anchor-sync.md). An
+ * unmatched anchor is simply absent from the result, same as a `files`
+ * voice's `anchorMap` being allowed to omit entries.
+ *
+ * Deliberately takes a bare `{label}[]` rather than `@bandstand/chords`'
+ * `RenderModel.sections` directly — `packages/core` has no dependency on
+ * `@bandstand/chords` (and shouldn't gain one just for this), and
+ * `RenderSection` already satisfies this shape structurally.
+ */
+export function matchAnchorsToChordProSections(
+  anchors: Anchor[],
+  sections: { label: string | null }[],
+): Map<string, number> {
+  const bySectionLabel = new Map<string, number>();
+  sections.forEach((section, index) => {
+    if (section.label && !bySectionLabel.has(normalizeLabel(section.label))) {
+      bySectionLabel.set(normalizeLabel(section.label), index);
+    }
+  });
+
+  const result = new Map<string, number>();
+  for (const anchor of anchors) {
+    const sectionIndex = bySectionLabel.get(normalizeLabel(anchor.label));
+    if (sectionIndex !== undefined) result.set(anchor.id, sectionIndex);
+  }
+  return result;
+}
