@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { BandMember } from '@bandstand/core';
-import { archiveSong, can, restoreSong } from '@bandstand/core';
+import {
+  archiveSong,
+  can,
+  getAnchorCalibrationProgress,
+  getAssignedVoiceId,
+  listAnchorsForSong,
+  listVoicesForSong,
+  restoreSong,
+} from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
-import { normalizeKey } from '@bandstand/chords';
+import { buildRenderModel, normalizeKey, parseChordPro } from '@bandstand/chords';
 import { Button, Dialog, Input } from '@bandstand/ui';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import type * as Y from 'yjs';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
@@ -18,6 +27,44 @@ import { authClient } from '../lib/auth-client';
 
 type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea' | 'active'>;
 type RepertoireView = 'active' | 'archive';
+
+/**
+ * "Before a gig it's clear where it's stuck" (see docs/adr/0010-anchor-sync.md)
+ * — how many members' currently-assigned voice has every song anchor
+ * calibrated. Nothing to show for a song with no anchors at all. Reads the
+ * doc directly rather than subscribing to every song's own anchors:<songId>
+ * array (one per song shown would mean many live subscriptions for a
+ * secondary readiness hint) — refreshes with the rest of the row on the
+ * `songs`/`voices`/`assignments` changes Repertoire already re-renders on.
+ */
+function AnchorReadiness({ doc, songId, members }: { doc: Y.Doc; songId: string; members: BandMember[] }) {
+  const { t } = useTranslation();
+  const anchors = listAnchorsForSong(doc, songId);
+  if (anchors.length === 0 || members.length === 0) return null;
+
+  const voices = listVoicesForSong(doc, songId);
+  const perMember = members.map((member) => {
+    const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
+    const voice = voices.find((v) => v.id === assignedVoiceId)?.voice;
+    if (!voice) return { member, progress: { done: 0, total: anchors.length } };
+    const sections = voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
+    return { member, progress: getAnchorCalibrationProgress(voice, anchors, sections) };
+  });
+
+  const readyCount = perMember.filter(({ progress }) => progress.done === progress.total).length;
+  const notReady = perMember
+    .filter(({ progress }) => progress.done < progress.total)
+    .map(({ member, progress }) => `${member.name}: ${progress.done}/${progress.total}`);
+
+  return (
+    <span
+      className={`text-xs ${readyCount === members.length ? 'text-muted-foreground' : 'text-destructive'}`}
+      title={notReady.length > 0 ? notReady.join(', ') : undefined}
+    >
+      {t('repertoire.anchorReadiness', { ready: readyCount, total: members.length })}
+    </span>
+  );
+}
 
 export function Repertoire() {
   const { t } = useTranslation();
@@ -148,6 +195,7 @@ export function Repertoire() {
               <th className="py-1 pr-4">{t('repertoire.columnArtist')}</th>
               <th className="py-1 pr-4">{t('repertoire.columnKey')}</th>
               <th className="py-1 pr-4">{t('repertoire.columnStatus')}</th>
+              <th className="py-1 pr-4">{t('repertoire.columnAnchors')}</th>
               <th className="py-1" />
             </tr>
           </thead>
@@ -159,6 +207,9 @@ export function Repertoire() {
                   <td className="py-1 pr-4">{song.artist}</td>
                   <td className="py-1 pr-4">{normalizeKey(song.key)}</td>
                   <td className="py-1 pr-4">{song.status}</td>
+                  <td className="py-1 pr-4">
+                    {doc && <AnchorReadiness doc={doc} songId={songId} members={members} />}
+                  </td>
                   <td className="space-x-3 py-1 text-right">
                     <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
                       {t('repertoire.edit')}
@@ -195,7 +246,7 @@ export function Repertoire() {
                 </tr>
                 {view === 'active' && song.status === 'idea' && doc && currentUserId && bandId && (
                   <tr>
-                    <td colSpan={5} className="pb-2">
+                    <td colSpan={6} className="pb-2">
                       <IdeaVoting
                         bandId={bandId}
                         doc={doc}

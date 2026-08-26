@@ -158,6 +158,8 @@
     "columnArtist": "Artist",
     "columnKey": "Key",
     "columnStatus": "Status",
+    "columnAnchors": "Anchors",
+    "anchorReadiness": "{{ready}}/{{total}} ready",
     "archive": "Archive",
     "restore": "Restore",
     "noSongs": "No songs match.",
@@ -244,7 +246,8 @@
     "addVoiceUploading": "Uploading…",
     "addVoiceNamePrompt": "Name this part (e.g. \"Trumpet in B\")",
     "addVoiceUnsupportedType": "Only PDF, PNG, and JPEG files are supported.",
-    "addVoiceFailed": "Upload failed. Please try again."
+    "addVoiceFailed": "Upload failed. Please try again.",
+    "anchorProgress": "({{done}} of {{total}} anchors set)"
   },
   "pdfViewer": {
     "modeSingle": "Single page",
