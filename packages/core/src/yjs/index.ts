@@ -4,3 +4,4 @@ export * from './songs';
 export * from './voices';
 export * from './assignments';
 export * from './setlists';
+export * from './offline';
