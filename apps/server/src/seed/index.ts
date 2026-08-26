@@ -9,13 +9,40 @@
 // have swapped roles between them, and carol only exists in the second —
 // so every role (owner/admin/member) is visible somewhere without having
 // to manually create bands/members while developing role-gated UI.
-import { generateInviteCode, getDefaultVoiceId, yDocToSnapshot } from '@bandstand/core';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createVoice, generateInviteCode, getDefaultVoiceId, sha256Hex, yDocToSnapshot } from '@bandstand/core';
 import * as Y from 'yjs';
 import { eq } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 import { db } from '../db/client';
-import { bandDocs, bandMembers, bands, invites, users } from '../db/schema/index';
+import { attachments, bandDocs, bandMembers, bands, invites, users } from '../db/schema/index';
+import { putObjectDirect } from '../lib/storage';
 import { seedSongs } from './songs';
+
+const ASSETS_DIR = fileURLToPath(new URL('./assets', import.meta.url));
+
+// Two small public-domain PDF scores (an original chord-tone arrangement of
+// the traditional, long-public-domain "Amazing Grace" tune, not a
+// transcription of any copyrighted edition) — see A5 in the Milestone 2
+// plan. Uploaded directly via storage.ts's S3 client rather than looping
+// through the presigned-URL flow: seeding isn't a real client, so there's
+// no reason to round-trip through the HTTP API to reach the same bucket.
+const SEED_VOICE_PDFS = [
+  { filename: 'amazing-grace-trumpet.pdf', pageCount: 1, voiceName: 'Trumpet in B♭', instrument: 'Trumpet' },
+  { filename: 'amazing-grace-full-score.pdf', pageCount: 2, voiceName: 'Full Score', instrument: undefined },
+];
+
+async function uploadSeedAsset(bandId: string, uploadedBy: string, filename: string): Promise<string> {
+  const bytes = readFileSync(`${ASSETS_DIR}/${filename}`);
+  const sha256 = await sha256Hex(bytes);
+  await putObjectDirect(sha256, bytes, 'application/pdf');
+  await db
+    .insert(attachments)
+    .values({ bandId, sha256, filename, mime: 'application/pdf', size: bytes.byteLength, uploadedBy })
+    .onConflictDoNothing({ target: [attachments.bandId, attachments.sha256] });
+  return sha256;
+}
 
 const DEMO_BAND_SLUG = 'demo-band';
 const SECOND_BAND_SLUG = 'second-fiddle';
@@ -129,6 +156,20 @@ async function main() {
     });
   }
 
+  // Milestone 2 A5: "Amazing Grace" additionally carries two files-kind
+  // voices (a single-page Bb trumpet part and a two-page full score), so
+  // one seeded song exercises all three voice kinds' worth of the
+  // multi-voice pipeline — different page counts included.
+  for (const pdf of SEED_VOICE_PDFS) {
+    const sha256 = await uploadSeedAsset(band.id, userIds[0]!, pdf.filename);
+    createVoice(doc, 'song-amazing-grace', {
+      name: pdf.voiceName,
+      kind: 'files',
+      instrument: pdf.instrument,
+      files: [{ sha256, filename: pdf.filename, mime: 'application/pdf', pageCount: pdf.pageCount }],
+    });
+  }
+
   const activeSongIds = Object.entries(seedSongs)
     .filter(([, s]) => s.song.status === 'active')
     .map(([id]) => id);
@@ -163,6 +204,7 @@ async function main() {
   console.log('Seeded demo data:');
   console.log(`  Band: "${band.name}" (slug: ${band.slug})`);
   console.log(`  Songs: ${Object.keys(seedSongs).length}`);
+  console.log('  "Amazing Grace" has 3 voices: ChordPro, Trumpet in B♭ (1 page), Full Score (2 pages)');
   console.log('  Setlists: 2');
   console.log('  Invites: 1 open, 1 redeemed');
   for (const u of DEMO_USERS) {
