@@ -17,6 +17,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { SongAnchors } from '../components/SongAnchors';
 import { SongVoices } from '../components/SongVoices';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -249,8 +250,9 @@ export function SongEditor() {
       <h1 className="mt-4 text-xl font-medium">{isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')}</h1>
 
       {!isNew && songId && doc && (
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           <SongVoices bandId={bandId} songId={songId} doc={doc} />
+          <SongAnchors bandId={bandId} songId={songId} doc={doc} />
         </div>
       )}
 
