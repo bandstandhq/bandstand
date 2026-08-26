@@ -175,7 +175,7 @@ export function SongEditor() {
       setKey(newKey);
       setBody(formatChordPro(transposed));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(t('songEditor.keyError'))
     }
   }
 
@@ -237,7 +237,7 @@ export function SongEditor() {
       }
       navigate(`/bands/${bandId}/repertoire`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(t('songEditor.saveError'));
     }
   }
 
