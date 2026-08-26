@@ -79,6 +79,7 @@
     "pool": "Repertoire",
     "poolHint": "Drag a song onto the setlist to add it.",
     "poolEmpty": "No active songs yet — add some in Repertoire first.",
+    "addToEnd": "Add to end",
     "items": "Setlist",
     "itemsEmpty": "Drag songs here to build the set.",
     "itemsEmptyReadOnly": "This setlist is empty. Tap Edit to add songs.",
