@@ -202,16 +202,29 @@ export function Repertoire() {
           <tbody>
             {filtered.map(([songId, song]) => (
               <Fragment key={songId}>
-                <tr className="border-t border-border">
-                  <td className="py-1 pr-4">{song.title}</td>
-                  <td className="py-1 pr-4">{song.artist}</td>
-                  <td className="py-1 pr-4">{normalizeKey(song.key)}</td>
-                  <td className="py-1 pr-4">{song.status}</td>
-                  <td className="py-1 pr-4">
+                <tr className="relative border-t border-border hover:bg-accent/50 focus-within:bg-accent/50">
+                  <td className="py-2 pr-4">
+                    {/* Stretched-link pattern: its containing block is
+                        this `relative` <tr>, so it covers the whole row —
+                        the visible "Edit"/"Restore"/"Archive"/"Delete
+                        forever" controls each get `relative` so they stay
+                        on top and independently clickable, per normal
+                        DOM-order stacking within the row. */}
+                    <Link
+                      to={`/bands/${bandId}/songs/${songId}/edit`}
+                      className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      aria-label={t('repertoire.editAria', { title: song.title })}
+                    />
+                    {song.title}
+                  </td>
+                  <td className="py-2 pr-4">{song.artist}</td>
+                  <td className="py-2 pr-4">{normalizeKey(song.key)}</td>
+                  <td className="py-2 pr-4">{song.status}</td>
+                  <td className="py-2 pr-4">
                     {doc && <AnchorReadiness doc={doc} songId={songId} members={members} />}
                   </td>
-                  <td className="space-x-3 py-1 text-right">
-                    <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="text-sm text-primary hover:underline">
+                  <td className="space-x-3 py-2 text-right">
+                    <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="relative text-sm text-primary hover:underline">
                       {t('repertoire.edit')}
                     </Link>
                     {view === 'archive' ? (
@@ -219,7 +232,7 @@ export function Repertoire() {
                         <button
                           type="button"
                           onClick={() => handleRestore(songId)}
-                          className="text-sm text-primary hover:underline"
+                          className="relative text-sm text-primary hover:underline"
                         >
                           {t('repertoire.restore')}
                         </button>
@@ -227,7 +240,7 @@ export function Repertoire() {
                           <button
                             type="button"
                             onClick={() => setDeleteTarget({ songId, song })}
-                            className="text-sm text-destructive hover:underline"
+                            className="relative text-sm text-destructive hover:underline"
                           >
                             {t('repertoire.deleteForever.action')}
                           </button>
@@ -237,7 +250,7 @@ export function Repertoire() {
                       <button
                         type="button"
                         onClick={() => handleArchive(songId)}
-                        className="text-sm text-muted-foreground hover:underline"
+                        className="relative text-sm text-muted-foreground hover:underline"
                       >
                         {t('repertoire.archive')}
                       </button>

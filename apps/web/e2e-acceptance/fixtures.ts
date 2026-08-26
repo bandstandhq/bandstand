@@ -59,7 +59,11 @@ export async function enterStageMode(page: Page, bandId: string, setlistName: st
   if (await switchToListView.isVisible().catch(() => false)) {
     await switchToListView.click();
   }
-  await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open' }).click();
+  // The row itself is now also a (stretched, invisible) link to the same
+  // destination, with its own accessible name ("Open <setlist name>") — an
+  // exact match on the small visible "Open" link keeps this from matching
+  // both.
+  await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open', exact: true }).click();
   // Each setlist item's whole row is the link now (tapping it is how a
   // real user reaches Stage Mode) — scoped to the items drop zone so this
   // doesn't also match the song-pool list on the same page.

@@ -51,7 +51,11 @@ async function gotoStageForSong(
   await page.goto(`/bands/${bandId}/setlists`);
   const switchToListView = page.getByRole('button', { name: 'List view' });
   if (await switchToListView.isVisible().catch(() => false)) await switchToListView.click();
-  await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open' }).click();
+  // The row itself is now also a (stretched, invisible) link to the same
+  // destination, with its own accessible name ("Open <setlist name>") — an
+  // exact match on the small visible "Open" link keeps this from matching
+  // both.
+  await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open', exact: true }).click();
   const matchingLink = page.locator('a', { hasText: songTitle }).first();
   await matchingLink.waitFor({ state: 'visible', timeout: 15000 });
   await matchingLink.click();
