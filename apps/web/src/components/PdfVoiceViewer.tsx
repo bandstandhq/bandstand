@@ -478,12 +478,18 @@ export function PdfVoiceViewer({
   voice,
   doc,
   editable = true,
+  onPageChange,
+  jumpToRenderedPosition,
 }: {
   bandId: string;
   voiceId: string;
   voice: FilesVoice;
   doc: Y.Doc;
   editable?: boolean;
+  /** Fires whenever the currently-displayed page changes — Stage Mode's Follow Mode broadcasts from this. */
+  onPageChange?: (page: { fileIndex: number; pageNumberInFile: number }) => void;
+  /** An imperative "go to this position in the rendered sequence" — Stage Mode's Follow Mode applies a peer's anchor through this. Forces single-page mode, since a jump target is inherently one page. */
+  jumpToRenderedPosition?: number;
 }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<DisplayMode>('single');
@@ -524,6 +530,25 @@ export function PdfVoiceViewer({
   }, []);
 
   const clampedIndex = Math.max(0, Math.min(pageIndex, sequence.length - 1));
+  const currentPageForCallback = sequence[clampedIndex];
+
+  // Reports the page actually on screen — only meaningful in single/spread
+  // mode, since 'scroll' mode renders every page at once and `pageIndex`
+  // doesn't track which one the viewer is looking at.
+  useEffect(() => {
+    if (mode === 'scroll' || !currentPageForCallback) return;
+    onPageChange?.({ fileIndex: currentPageForCallback.fileIndex, pageNumberInFile: currentPageForCallback.pageNumberInFile });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, currentPageForCallback?.fileIndex, currentPageForCallback?.pageNumberInFile]);
+
+  useEffect(() => {
+    if (jumpToRenderedPosition === undefined) return;
+    // Syncing local page state to an externally-driven jump target (Stage
+    // Mode's Follow Mode), not a redundant re-derivation of local state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMode('single');
+    setPageIndex(jumpToRenderedPosition);
+  }, [jumpToRenderedPosition]);
 
   // Current page is what's on screen; neighbors are pre-warmed into pdf.js's
   // own page cache in the background so a page turn doesn't wait on a fresh

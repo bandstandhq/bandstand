@@ -11,7 +11,13 @@ export const stageAwarenessSchema = z.object({
   userId: z.string(),
   setlistId: z.string(),
   itemId: z.string(),
-  position: stagePositionSchema,
+  // Absent at the "song only" and "offline" fallback levels (see
+  // docs/adr/0010-anchor-sync.md's four-level ladder) — there's nothing
+  // meaningful to broadcast below the "same file" page-sync level, which
+  // itself rides in `position.anchorId` as a synthetic per-page id, never a
+  // page-number field of its own. This is the entire reason the ladder
+  // needs only ever one position-shaped field, not a second for "page."
+  position: stagePositionSchema.optional(),
   // Ephemeral, semitone offset — resets to the stored key on Stage Mode
   // exit, never written back to the song (see ARCHITECTURE.md).
   liveTranspose: z.number().int(),

@@ -6,3 +6,4 @@ export * from './assignments';
 export * from './setlists';
 export * from './offline';
 export * from './anchors';
+export * from './stageSync';

@@ -1,23 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   addSetlistItem,
+  anchorsKey,
+  applyAnchorToChordProPosition,
+  applyAnchorToFilesPosition,
   buildBreakItem,
   buildFinaleItem,
   buildSongItem,
+  computeCurrentAnchorInChordPro,
+  computeCurrentAnchorInFiles,
+  createInitialStagePosition,
   getAssignedVoiceId,
   itemsKey,
+  matchAnchorsToChordProSections,
   moveSetlistItem,
   removeSetlistItem,
+  resolveKnownAnchor,
   stageAwarenessSchema,
   voiceSchema,
 } from '@bandstand/core';
 import type {
+  Anchor,
   ContentVisibility,
   SetlistItem,
   Song,
   SongChecklistItem,
   SongNote,
   StageAwarenessState,
+  StagePosition,
   TextSize,
   Theme,
   Voice,
@@ -56,28 +66,60 @@ const MAX_SCROLL_SPEED = 2.5;
 const SCROLL_SPEED_STEP = 0.1;
 const POSITION_BROADCAST_THROTTLE_MS = 250;
 
-/**
- * This milestone doesn't yet track which content section is under the
- * viewport, so `sectionIndex` is always 0 and `fraction` stands in for
- * "how far through the whole item" rather than "through one section" —
- * see stagePosition.ts's own note that its internal shape is free to
- * change later behind the same type.
- */
 function buildStagePayload(
   userId: string,
   setlistId: string,
   itemId: string,
-  fraction: number,
+  position: StagePosition | undefined,
   liveTranspose: number,
 ): StageAwarenessState {
   return stageAwarenessSchema.parse({
     userId,
     setlistId,
     itemId,
-    position: { sectionIndex: 0, fraction: Math.max(0, Math.min(1, fraction)) },
+    position,
     liveTranspose,
     isLeaderCandidate: true,
   });
+}
+
+/**
+ * Which ChordPro section is at (or just above) the scrollable container's
+ * current scroll position, and how far scrolled past it — the DOM
+ * equivalent of `computeCurrentAnchorInChordPro`'s `ChordProViewState`.
+ * Relies on each section in `SongContent` carrying a
+ * `data-anchor-section-index` attribute. `undefined` if the content has no
+ * sections at all (e.g. not rendered yet).
+ */
+function findCurrentChordProSection(container: HTMLElement): { sectionIndex: number; fractionInSection: number } | undefined {
+  const sectionEls = Array.from(container.querySelectorAll<HTMLElement>('[data-anchor-section-index]'));
+  if (sectionEls.length === 0) return undefined;
+
+  const scrollTop = container.scrollTop;
+  let currentIdx = 0;
+  for (let i = 0; i < sectionEls.length; i++) {
+    if (sectionEls[i]!.offsetTop <= scrollTop + 1) currentIdx = i;
+    else break;
+  }
+
+  const currentTop = sectionEls[currentIdx]!.offsetTop;
+  const nextTop = sectionEls[currentIdx + 1]?.offsetTop ?? container.scrollHeight;
+  const span = Math.max(1, nextTop - currentTop);
+  const fractionInSection = Math.min(1, Math.max(0, (scrollTop - currentTop) / span));
+  const sectionIndex = Number(sectionEls[currentIdx]!.dataset.anchorSectionIndex);
+  return { sectionIndex, fractionInSection };
+}
+
+/** Inverse of the above — scrolls to a `{sectionIndex, fractionInSection}` target, used when applying a followed peer's position. */
+function scrollToChordProSection(container: HTMLElement, target: { sectionIndex: number; fractionInSection: number }): void {
+  const sectionEls = Array.from(container.querySelectorAll<HTMLElement>('[data-anchor-section-index]'));
+  const idx = sectionEls.findIndex((el) => Number(el.dataset.anchorSectionIndex) === target.sectionIndex);
+  if (idx === -1) return;
+
+  const currentTop = sectionEls[idx]!.offsetTop;
+  const nextTop = sectionEls[idx + 1]?.offsetTop ?? container.scrollHeight;
+  const span = Math.max(0, nextTop - currentTop);
+  container.scrollTop = currentTop + target.fractionInSection * span;
 }
 
 function ContentLine({ line, visibility, chordColor }: { line: RenderLine; visibility: ContentVisibility; chordColor: string }) {
@@ -119,8 +161,9 @@ function SongContent({
   doc,
   visibility,
   chordColor,
-  transposeSemitones,
-  baseKey,
+  model,
+  onPageChange,
+  jumpToRenderedPosition,
 }: {
   bandId: string;
   voiceId: string;
@@ -128,30 +171,25 @@ function SongContent({
   doc: Y.Doc;
   visibility: ContentVisibility;
   chordColor: string;
-  transposeSemitones: number;
-  baseKey: string;
+  /** Precomputed by StageMode, not here — Follow Mode's scroll-position tracking needs the exact same model to measure section boundaries against. */
+  model: RenderModel | null;
+  onPageChange?: (page: { fileIndex: number; pageNumberInFile: number }) => void;
+  jumpToRenderedPosition?: number;
 }) {
   const { t } = useTranslation();
-  const body = voice.kind === 'chordpro' ? voice.body : undefined;
-  const model: RenderModel | null = useMemo(() => {
-    if (body === undefined) return null;
-    try {
-      const parsed = parseChordPro(body);
-      const normalizedBaseKey = normalizeKey(baseKey);
-      const displayed =
-        transposeSemitones !== 0
-          ? transposeChordProToKey(parsed, normalizedBaseKey, shiftKeyBySemitones(normalizedBaseKey, transposeSemitones))
-          : parsed;
-      return buildRenderModel(displayed);
-    } catch {
-      return null;
-    }
-  }, [body, transposeSemitones, baseKey]);
 
   if (voice.kind === 'files') {
     return (
       <Suspense fallback={null}>
-        <PdfVoiceViewer bandId={bandId} voiceId={voiceId} voice={voice} doc={doc} editable={false} />
+        <PdfVoiceViewer
+          bandId={bandId}
+          voiceId={voiceId}
+          voice={voice}
+          doc={doc}
+          editable={false}
+          onPageChange={onPageChange}
+          jumpToRenderedPosition={jumpToRenderedPosition}
+        />
       </Suspense>
     );
   }
@@ -163,7 +201,7 @@ function SongContent({
   return (
     <div className="mx-auto max-w-3xl leading-relaxed">
       {model.sections.map((section, sectionIndex) => (
-        <div key={sectionIndex} className="mb-6">
+        <div key={sectionIndex} data-anchor-section-index={sectionIndex} className="mb-6">
           {section.lines.map((line, lineIndex) => (
             <ContentLine key={lineIndex} line={line} visibility={visibility} chordColor={chordColor} />
           ))}
@@ -603,6 +641,13 @@ export function StageMode() {
   const [peerStates, setPeerStates] = useState<StageAwarenessState[]>([]);
   const [following, setFollowing] = useState<string | null>(null);
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
+  // The page currently on screen for a `files`-kind voice — PdfVoiceViewer
+  // manages page navigation internally, so this is fed back up via its
+  // onPageChange callback, purely for anchor-position broadcasting.
+  const [currentFilesPage, setCurrentFilesPage] = useState<{ fileIndex: number; pageNumberInFile: number } | null>(null);
+  // An imperative "jump to this rendered position" for Follow Mode applying
+  // a peer's anchor to a `files` voice — see PdfVoiceViewer's own prop docs.
+  const [jumpToRenderedPosition, setJumpToRenderedPosition] = useState<number | undefined>(undefined);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
   const [showEditSetlist, setShowEditSetlist] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -690,6 +735,33 @@ export function StageMode() {
   }
   const canAutoScroll = Boolean(voice) && Boolean(currentSong?.durationSec) && !following;
 
+  // Anchors are song-wide, not per-voice (docs/adr/0010-anchor-sync.md) —
+  // fetched here, once, rather than inside SongContent, since Follow
+  // Mode's own broadcast/apply logic needs them directly too.
+  const anchors = useYArray<Anchor>(currentSongId && doc ? doc.getArray(anchorsKey(currentSongId)) : undefined).sort(
+    (a, b) => a.order - b.order,
+  );
+
+  // Computed here rather than inside SongContent — Follow Mode's own
+  // scroll-position tracking (below) has to measure section boundaries
+  // against this exact model, not a second, possibly-differently-timed one.
+  const chordProBody = voice?.kind === 'chordpro' ? voice.body : undefined;
+  const baseKey = currentSong?.key ?? 'C';
+  const model: RenderModel | null = useMemo(() => {
+    if (chordProBody === undefined) return null;
+    try {
+      const parsed = parseChordPro(chordProBody);
+      const normalizedBaseKey = normalizeKey(baseKey);
+      const displayed =
+        effectiveTranspose !== 0
+          ? transposeChordProToKey(parsed, normalizedBaseKey, shiftKeyBySemitones(normalizedBaseKey, effectiveTranspose))
+          : parsed;
+      return buildRenderModel(displayed);
+    } catch {
+      return null;
+    }
+  }, [chordProBody, effectiveTranspose, baseKey]);
+
   const displayedKey = useMemo(() => {
     if (!currentSong) return null;
     const baseKey = normalizeKey(currentSong.key);
@@ -768,24 +840,32 @@ export function StageMode() {
   }, [currentItem?.id]);
 
   // Broadcast our own position — once whenever the item changes (starting
-  // fresh at the top), and throttled while the content area scrolls, so
-  // band members can follow this session in Follow Mode.
+  // fresh at the first anchor, if any), throttled while a ChordPro voice's
+  // content area scrolls, and whenever a `files` voice's current page
+  // changes — so band members can follow this session in Follow Mode. Never
+  // a page number or scroll pixel on the wire — only ever `{anchorId,
+  // fraction}` or nothing at all (see docs/adr/0010-anchor-sync.md).
   useEffect(() => {
     const awareness = provider?.awareness;
     if (!awareness || !localUserId || !setlistId || !currentItemId) return;
     awareness.setLocalStateField(
       'stage',
-      buildStagePayload(localUserId, setlistId, currentItemId, 0, liveTransposeRef.current),
+      buildStagePayload(localUserId, setlistId, currentItemId, createInitialStagePosition(anchors[0]?.id), liveTransposeRef.current),
     );
-  }, [provider, localUserId, setlistId, currentItemId]);
+    // `anchors` is a fresh array every render (useYArray) — re-run only when the actual anchor set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, localUserId, setlistId, currentItemId, anchors.map((a) => a.id).join(',')]);
 
   useEffect(() => {
     const el = contentAreaRef.current;
     const awareness = provider?.awareness;
-    if (!el || !awareness || !localUserId || !setlistId || !currentItemId) return undefined;
+    if (!el || !awareness || !localUserId || !setlistId || !currentItemId || voice?.kind !== 'chordpro' || !model) {
+      return undefined;
+    }
     const uid = localUserId;
     const sid = setlistId;
     const iid = currentItemId;
+    const currentModel = model;
     let throttled = false;
     function handleScroll() {
       if (throttled) return;
@@ -793,14 +873,46 @@ export function StageMode() {
       window.setTimeout(() => {
         throttled = false;
         if (!el || !awareness) return;
-        const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
-        const fraction = maxScroll > 0 ? el.scrollTop / maxScroll : 0;
-        awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, fraction, liveTransposeRef.current));
+        const section = findCurrentChordProSection(el);
+        const position = section ? computeCurrentAnchorInChordPro(anchors, currentModel.sections, section) : undefined;
+        awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, position, liveTransposeRef.current));
       }, POSITION_BROADCAST_THROTTLE_MS);
     }
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [provider, localUserId, setlistId, currentItemId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, localUserId, setlistId, currentItemId, voice?.kind, model, anchors.map((a) => a.id).join(',')]);
+
+  // `files` voices don't scroll their own page turns through this
+  // component's content-area scroll listener (PdfVoiceViewer manages
+  // paging internally) — a page change reported via onPageChange is this
+  // voice kind's equivalent broadcast trigger.
+  useEffect(() => {
+    const awareness = provider?.awareness;
+    if (!awareness || !localUserId || !setlistId || !currentItemId || voice?.kind !== 'files' || !currentFilesPage) {
+      return;
+    }
+    const position = computeCurrentAnchorInFiles(anchors, voice.files, voice.anchorMap, {
+      fileIndex: currentFilesPage.fileIndex,
+      page: currentFilesPage.pageNumberInFile,
+      yPct: 0,
+    });
+    awareness.setLocalStateField(
+      'stage',
+      buildStagePayload(localUserId, setlistId, currentItemId, position, liveTransposeRef.current),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, localUserId, setlistId, currentItemId, voice, currentFilesPage, anchors.map((a) => a.id).join(',')]);
+
+  // A fresh item has no current page yet — otherwise a stale page from the
+  // previous song's files voice would linger and broadcast a wrong position.
+  useEffect(() => {
+    // A fresh item is external state (the setlist's own ordering), not a
+    // redundant re-derivation of local state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentFilesPage(null);
+    setJumpToRenderedPosition(undefined);
+  }, [currentItem?.id]);
 
   // Disappear from other members' followable list as soon as we leave.
   useEffect(() => {
@@ -838,10 +950,13 @@ export function StageMode() {
     return Array.from(byUserId.values());
   }, [peerStates, setlistId, localUserId, memberNames]);
 
-  // Mirror the followed peer's item and scroll position; if they've moved
-  // to a different item, jump there first and mirror scroll once we land.
+  // Mirror the followed peer's item and anchor position; if they've moved to
+  // a different item, jump there first and mirror position once we land. A
+  // peer with no `position` at all (the song-only/offline fallback levels —
+  // see docs/adr/0010-anchor-sync.md) still gets its item mirrored above,
+  // just not a within-item position — everyone scrolls/pages for themselves.
   useEffect(() => {
-    if (!following) return;
+    if (!following || !voice) return;
     const peer = peerStates.find((state) => state.userId === following);
     if (!peer) return;
     if (peer.itemId !== currentItem?.id) {
@@ -852,12 +967,33 @@ export function StageMode() {
       if (index !== -1) setRequestedIndex(index);
       return;
     }
-    const el = contentAreaRef.current;
-    if (el) {
-      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
-      el.scrollTop = peer.position.fraction * maxScroll;
+    if (!peer.position) return;
+
+    // A device that receives an anchor its own voice doesn't know walks back
+    // to the nearest earlier known one instead — no error, no dialog (the
+    // visible hint for this lands in a follow-up; the walk-back itself
+    // works here regardless).
+    const knownAnchorIds = new Set(
+      voice.kind === 'chordpro'
+        ? model
+          ? [...matchAnchorsToChordProSections(anchors, model.sections).keys()]
+          : []
+        : Object.keys(voice.anchorMap ?? {}),
+    );
+    const resolvedAnchorId = knownAnchorIds.has(peer.position.anchorId)
+      ? peer.position.anchorId
+      : resolveKnownAnchor(anchors, knownAnchorIds, peer.position.anchorId);
+    if (!resolvedAnchorId) return;
+
+    if (voice.kind === 'chordpro' && model) {
+      const el = contentAreaRef.current;
+      const target = applyAnchorToChordProPosition(anchors, model.sections, resolvedAnchorId, peer.position.fraction);
+      if (el && target) scrollToChordProSection(el, target);
+    } else if (voice.kind === 'files') {
+      const resolved = applyAnchorToFilesPosition(voice.files, voice.displayRecipe, voice.anchorMap, resolvedAnchorId);
+      if (resolved) setJumpToRenderedPosition(resolved.position);
     }
-  }, [following, peerStates, currentItem?.id, items]);
+  }, [following, peerStates, currentItem?.id, items, voice, anchors, model]);
 
   if (!bandId || !setlistId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
@@ -1081,8 +1217,9 @@ export function StageMode() {
               doc={doc}
               visibility={contentVisibility}
               chordColor={chordColor}
-              transposeSemitones={effectiveTranspose}
-              baseKey={currentSong?.key ?? 'C'}
+              model={model}
+              onPageChange={setCurrentFilesPage}
+              jumpToRenderedPosition={jumpToRenderedPosition}
             />
           </div>
         )}
