@@ -24,6 +24,7 @@ owner.
 | Detach a file from a voice | ✅ | ✅ | — |
 | Change your own voice assignment | ✅ | ✅ | ✅ |
 | Change another member's voice assignment | ✅ | ✅ | — |
+| Edit a song's anchor list | ✅ | ✅ | — |
 
 ¹ An admin can remove a member, but never the owner or another admin.
 ² The owner can only leave after transferring ownership to someone else.

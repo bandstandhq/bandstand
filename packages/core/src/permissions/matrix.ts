@@ -29,7 +29,8 @@ export type Action =
   | 'selfPrefs:edit'
   | 'file:upload'
   | 'file:detach'
-  | 'assignment:editOthers';
+  | 'assignment:editOthers'
+  | 'anchor:edit';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -48,6 +49,11 @@ export type Action =
  * *own* voice assignment is always allowed, at any role, so it isn't a
  * matrix row at all — only overriding *someone else's* assignment needs a
  * role check.
+ *
+ * `anchor:edit` covers a song's shared anchor list — see
+ * docs/adr/0010-anchor-sync.md. Unlike assignments/instruments/notes, there
+ * is no self-scoped variant: anchors are band-wide, not per-member, so every
+ * edit goes through this one check.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -72,6 +78,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'file:upload': 'member',
   'file:detach': 'admin',
   'assignment:editOthers': 'admin',
+  'anchor:edit': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */
