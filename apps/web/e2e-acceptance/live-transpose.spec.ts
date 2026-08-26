@@ -21,7 +21,9 @@ test('a live transpose during Stage Mode never persists past the session', async
   // song, so it doesn't carry over.
   await page.getByRole('button', { name: 'Exit' }).click();
   await page.waitForURL(/\/setlists\//);
-  await page.locator('.border-dashed li a').first().click();
+  // The setlist opens in its calm read view by default — each item's whole
+  // row is a link straight into Stage Mode.
+  await page.locator('main a[href*="/stage/"]').first().click();
   await page.waitForURL(/\/stage\//);
   await expect(page.getByText(/^Key /)).toHaveText(originalKeyText ?? '');
 });

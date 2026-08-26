@@ -64,10 +64,11 @@ export async function enterStageMode(page: Page, bandId: string, setlistName: st
   // exact match on the small visible "Open" link keeps this from matching
   // both.
   await page.locator('li', { hasText: setlistName }).getByRole('link', { name: 'Open', exact: true }).click();
-  // Each setlist item's whole row is the link now (tapping it is how a
-  // real user reaches Stage Mode) — scoped to the items drop zone so this
-  // doesn't also match the song-pool list on the same page.
-  await page.locator('.border-dashed li a').nth(itemIndex).click();
+  // A setlist opens in its calm read view by default (no song pool, no
+  // edit affordances) — each item's whole row is a link straight into
+  // Stage Mode, matched here by its href rather than any edit-mode-only
+  // container class.
+  await page.locator('main a[href*="/stage/"]').nth(itemIndex).click();
   await page.waitForURL(/\/stage\//);
 }
 
