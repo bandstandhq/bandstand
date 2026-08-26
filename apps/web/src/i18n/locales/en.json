@@ -239,7 +239,20 @@
     "kindFiles": "Files",
     "assignmentsTitle": "Who plays what",
     "assignmentFor": "Voice for {{name}}",
-    "guessed": "(guessed from instrument)"
+    "guessed": "(guessed from instrument)",
+    "addVoice": "Add a part (PDF or image)",
+    "addVoiceUploading": "Uploading…",
+    "addVoiceNamePrompt": "Name this part (e.g. \"Trumpet in B\")",
+    "addVoiceUnsupportedType": "Only PDF, PNG, and JPEG files are supported.",
+    "addVoiceFailed": "Upload failed. Please try again."
+  },
+  "pdfViewer": {
+    "modeSingle": "Single page",
+    "modeSpread": "Two-page spread",
+    "modeScroll": "Scroll",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageOf": "Page {{current}} of {{total}}"
   },
   "bandSettings": {
     "back": "Back to dashboard",
