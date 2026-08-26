@@ -84,6 +84,8 @@ export const createAnnotationLayerInputSchema = z.object({
   name: z.string().min(1),
 });
 
+export type CreateAnnotationLayerInput = z.infer<typeof createAnnotationLayerInputSchema>;
+
 // `expectedUpdatedAt` is the updatedAt the client's edit was based on — the
 // server applies the update only if it still matches, forking a
 // "(Konfliktkopie)" layer instead of overwriting when it doesn't (the same
@@ -94,3 +96,5 @@ export const updateAnnotationLayerInputSchema = z.object({
   objects: z.array(annotationObjectSchema),
   expectedUpdatedAt: z.string(),
 });
+
+export type UpdateAnnotationLayerInput = z.infer<typeof updateAnnotationLayerInputSchema>;

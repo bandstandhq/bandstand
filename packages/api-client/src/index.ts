@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type {
+  AnnotationObject,
   Band,
   BandMember,
   BandRole,
   ChangeMemberRoleInput,
   ConfirmFileInput,
+  CreateAnnotationLayerInput,
   CreateBandInput,
   CreateInviteInput,
   Invite,
@@ -12,10 +14,21 @@ import type {
   RedeemInviteInput,
   RenameBandInput,
   ResolveIdeaTieInput,
+  UpdateAnnotationLayerInput,
   UpdateMyInstrumentsInput,
   UpdateUserPrefsInput,
   UserPrefs,
 } from '@bandstand/core';
+
+export interface AnnotationLayerDto {
+  id: string;
+  voiceId: string;
+  name: string;
+  objects: AnnotationObject[];
+  shared: boolean;
+  sourceLayerId: string | null;
+  updatedAt: string;
+}
 
 interface ApiError {
   error: string;
@@ -165,6 +178,32 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     presignFileDownload: (bandId: string, sha256: string) =>
       req<{ downloadUrl: string }>(`/bands/${bandId}/files/${sha256}/presign-download`),
+
+    // Strictly personal voice annotations — see B4 of the Milestone 2 Teil B
+    // plan. Never routed through the band's Yjs document.
+    listMyAnnotationLayers: (bandId: string, voiceId: string) =>
+      req<AnnotationLayerDto[]>(`/bands/${bandId}/annotations/voices/${voiceId}`),
+
+    listSharedAnnotationLayers: (bandId: string, voiceId: string) =>
+      req<AnnotationLayerDto[]>(`/bands/${bandId}/annotations/voices/${voiceId}/shared`),
+
+    createAnnotationLayer: (bandId: string, voiceId: string, input: CreateAnnotationLayerInput) =>
+      req<AnnotationLayerDto>(`/bands/${bandId}/annotations/voices/${voiceId}`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+
+    updateAnnotationLayer: (bandId: string, layerId: string, input: UpdateAnnotationLayerInput) =>
+      req<{ conflict: boolean; layer: AnnotationLayerDto }>(`/bands/${bandId}/annotations/${layerId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+
+    deleteAnnotationLayer: (bandId: string, layerId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/annotations/${layerId}`, { method: 'DELETE' }),
+
+    shareAnnotationLayer: (bandId: string, layerId: string) =>
+      req<AnnotationLayerDto>(`/bands/${bandId}/annotations/${layerId}/share`, { method: 'POST' }),
   };
 }
 
