@@ -252,7 +252,19 @@
     "modeScroll": "Scroll",
     "prevPage": "Previous",
     "nextPage": "Next",
-    "pageOf": "Page {{current}} of {{total}}"
+    "pageOf": "Page {{current}} of {{total}}",
+    "editLayout": "Edit layout",
+    "editCrop": "Adjust crop",
+    "rotatePage": "Rotate this page",
+    "rotateShort": "Rotate",
+    "duplicatePage": "Duplicate this page",
+    "duplicateShort": "Duplicate",
+    "cropTop": "Top",
+    "cropRight": "Right",
+    "cropBottom": "Bottom",
+    "cropLeft": "Left",
+    "cropSave": "Save crop",
+    "cropCancel": "Cancel"
   },
   "bandSettings": {
     "back": "Back to dashboard",
