@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
 import { apiClient } from '../lib/api-client';
+import { ensureCached, getCachedBlob } from '../lib/blobCache';
 import { pdfjsLib } from '../lib/pdfjs';
 
 type FilesVoice = Extract<Voice, { kind: 'files' }>;
@@ -59,29 +60,57 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** One per sha256 — a PDF's pages all come from the same loaded document. */
+/** A cache hit never needs the network at all; a miss falls back to a presigned download (and caches it for next time). */
+async function loadFileBlob(bandId: string, sha256: string): Promise<Blob> {
+  const cached = await getCachedBlob(sha256);
+  if (cached) return cached;
+
+  await ensureCached(sha256, async () => {
+    const { downloadUrl } = await apiClient.presignFileDownload(bandId, sha256);
+    return downloadUrl;
+  });
+  const blob = await getCachedBlob(sha256);
+  if (!blob) throw new Error(`Blob ${sha256} missing from cache immediately after caching it`);
+  return blob;
+}
+
+/** One per sha256 — a PDF's pages all come from the same loaded document. Falls back to the offline blob cache (A4) when the network is unavailable. */
 function usePdfDocuments(bandId: string, files: FilesVoice['files']) {
   const [docs, setDocs] = useState<Map<string, PdfDoc>>(new Map());
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
+  const [unavailable, setUnavailable] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
     // `destroy()` lives on the loading task, not the resolved document proxy.
     const loadingTasks: import('pdfjs-dist').PDFDocumentLoadingTask[] = [];
+    const objectUrls: string[] = [];
 
     async function loadAll() {
       const uniqueFiles = [...new Map(files.map((f) => [f.sha256, f])).values()];
       for (const file of uniqueFiles) {
-        const { downloadUrl } = await apiClient.presignFileDownload(bandId, file.sha256);
+        let blob: Blob;
+        try {
+          blob = await loadFileBlob(bandId, file.sha256);
+        } catch {
+          // Offline and never pre-loaded (A4's pre-load pass, or a previous
+          // view, would have cached it otherwise) — a clear "not available"
+          // state beats an indefinite spinner.
+          if (!cancelled) setUnavailable((prev) => new Set(prev).add(file.sha256));
+          continue;
+        }
         if (cancelled) return;
+
         if (file.mime === 'application/pdf') {
-          const loadingTask = pdfjsLib.getDocument({ url: downloadUrl });
+          const loadingTask = pdfjsLib.getDocument({ data: await blob.arrayBuffer() });
           loadingTasks.push(loadingTask);
           const doc = await loadingTask.promise;
           if (cancelled) return;
           setDocs((prev) => new Map(prev).set(file.sha256, doc));
         } else {
-          setImageUrls((prev) => new Map(prev).set(file.sha256, downloadUrl));
+          const objectUrl = URL.createObjectURL(blob);
+          objectUrls.push(objectUrl);
+          setImageUrls((prev) => new Map(prev).set(file.sha256, objectUrl));
         }
       }
     }
@@ -90,13 +119,14 @@ function usePdfDocuments(bandId: string, files: FilesVoice['files']) {
     return () => {
       cancelled = true;
       for (const task of loadingTasks) void task.destroy();
+      for (const url of objectUrls) URL.revokeObjectURL(url);
     };
     // `files` is a fresh array from listVoicesForSong on every Yjs change —
     // re-run only when the actual file set (by hash) changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bandId, files.map((f) => f.sha256).join(',')]);
 
-  return { docs, imageUrls };
+  return { docs, imageUrls, unavailable };
 }
 
 /** Renders one page (PDF or image) at `targetWidth`, already rotated — pdf.js applies rotation during render, and the image path rotates via canvas transform. Never crops; see `cropCanvas` for that, kept separate so a crop-only change can reuse this render. */
@@ -150,6 +180,7 @@ async function renderFullPage(
 function PageView({
   doc,
   imageUrl,
+  unavailable,
   pageNumberInFile,
   rotation,
   cropMargins,
@@ -157,11 +188,13 @@ function PageView({
 }: {
   doc: PdfDoc | undefined;
   imageUrl: string | undefined;
+  unavailable: boolean;
   pageNumberInFile: number;
   rotation: Rotation;
   cropMargins: CropMargins | undefined;
   containerWidth: number;
 }) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -193,6 +226,14 @@ function PageView({
     cropMargins?.bottom,
     cropMargins?.left,
   ]);
+
+  if (unavailable) {
+    return (
+      <div className="flex min-h-40 items-center justify-center bg-muted p-4 text-center text-sm text-muted-foreground" style={{ width: containerWidth }}>
+        {t('pdfViewer.notAvailableOffline')}
+      </div>
+    );
+  }
 
   return <div ref={containerRef} className="min-h-40 bg-muted" style={{ width: containerWidth }} />;
 }
@@ -365,7 +406,7 @@ export function PdfVoiceViewer({
     () => resolveDisplaySequence(voice.files, recipe),
     [voice.files, recipe],
   );
-  const { docs, imageUrls } = usePdfDocuments(bandId, voice.files);
+  const { docs, imageUrls, unavailable } = usePdfDocuments(bandId, voice.files);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => {
@@ -550,6 +591,7 @@ export function PdfVoiceViewer({
                     key={p.position}
                     doc={docs.get(p.file.sha256)}
                     imageUrl={imageUrls.get(p.file.sha256)}
+                    unavailable={unavailable.has(p.file.sha256)}
                     pageNumberInFile={p.pageNumberInFile}
                     rotation={p.rotation}
                     cropMargins={recipe?.cropMargins}
@@ -564,6 +606,7 @@ export function PdfVoiceViewer({
                     key={p.position}
                     doc={docs.get(p.file.sha256)}
                     imageUrl={imageUrls.get(p.file.sha256)}
+                    unavailable={unavailable.has(p.file.sha256)}
                     pageNumberInFile={p.pageNumberInFile}
                     rotation={p.rotation}
                     cropMargins={recipe?.cropMargins}

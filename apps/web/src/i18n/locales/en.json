@@ -264,7 +264,12 @@
     "cropBottom": "Bottom",
     "cropLeft": "Left",
     "cropSave": "Save crop",
-    "cropCancel": "Cancel"
+    "cropCancel": "Cancel",
+    "notAvailableOffline": "Not available offline — reconnect to load this page"
+  },
+  "offline": {
+    "preparing": "Preparing for offline use… ({{done}}/{{total}})",
+    "ready": "Ready for the show — everything's cached offline"
   },
   "bandSettings": {
     "back": "Back to dashboard",
