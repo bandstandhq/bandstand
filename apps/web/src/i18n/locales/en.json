@@ -265,7 +265,13 @@
     "cropLeft": "Left",
     "cropSave": "Save crop",
     "cropCancel": "Cancel",
-    "notAvailableOffline": "Not available offline — reconnect to load this page"
+    "notAvailableOffline": "Not available offline — reconnect to load this page",
+    "calibrateAnchors": "Calibrate anchors",
+    "calibrateChooseAnchor": "Anchor",
+    "calibrateChooseAnchorPlaceholder": "Choose an anchor…",
+    "calibrateAlreadySet": "set",
+    "calibrateInstructions": "Tap the spot on this page where that anchor starts.",
+    "calibratePickFirst": "Choose an anchor above, then tap this page."
   },
   "offline": {
     "preparing": "Preparing for offline use… ({{done}}/{{total}})",
