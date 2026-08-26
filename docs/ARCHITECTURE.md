@@ -35,7 +35,14 @@ Zod-validated version of this):
 Y.Map "songs"                → songId → { title, artist, key, bpm,
                                            durationSec, status, bandNotes,
                                            links, votes }
-Y.Map "voices"                → voiceId → { songId, name, body (ChordPro) }
+Y.Map "voices"                → voiceId → a chordpro voice { songId, name,
+                                           body } or a files voice
+                                           { songId, name, files,
+                                           displayRecipe?, anchorMap? } —
+                                           see ADR-0008/0009/0010
+Y.Map "assignments"           → "<songId>:<userId>" → voiceId
+Y.Array "anchors:<songId>"    → ordered list of { id, label, order, bar?,
+                                                   timeMs? } — see ADR-0010
 Y.Map "setlists"              → setlistId → { name, eventDate?, updatedAt }
 Y.Array "items:<setlistId>"   → ordered list of { id, type, songId?,
                                                    breakMinutes?,
@@ -43,9 +50,12 @@ Y.Array "items:<setlistId>"   → ordered list of { id, type, songId?,
 ```
 
 A song's ChordPro content lives on a voice, not the song itself — see
-[ADR-0004](adr/0004-parts-and-anchors.md). Milestone 1 always creates
-exactly one voice per song (at `getDefaultVoiceId(songId)`), but the
-model doesn't assume that stays true.
+[ADR-0004](adr/0004-parts-and-anchors.md). Milestone 1 always created
+exactly one voice per song (at `getDefaultVoiceId(songId)`); Milestone 2
+made that additive — any number of voices per song, of either kind (see
+[ADR-0008](adr/0008-multi-voice-songs.md)) — and added the shared anchor
+list every voice's own position maps into
+([ADR-0010](adr/0010-anchor-sync.md)).
 
 Order within a setlist is carried entirely by the `Y.Array`'s own
 ordering — never by a position/index field on the item — so concurrent
@@ -53,14 +63,14 @@ inserts and reorders merge conflict-free.
 
 ### 2. Stage — ephemeral, never persisted
 
-During a live performance, band members' devices need to know what song,
-section, and scroll position everyone else is on — but none of that is
-data worth keeping after the show. This uses Yjs's **Awareness** protocol
-(not the document itself): each connected client broadcasts a small
-payload under the `'stage'` awareness field —
+During a live performance, band members' devices need to know what song and
+musical position everyone else is on — but none of that is data worth
+keeping after the show. This uses Yjs's **Awareness** protocol (not the
+document itself): each connected client broadcasts a small payload under
+the `'stage'` awareness field —
 
 ```
-{ userId, setlistId, itemId, position: { sectionIndex, fraction },
+{ userId, setlistId, itemId, position?: { anchorId, fraction },
   liveTranspose, isLeaderCandidate }
 ```
 
@@ -69,20 +79,25 @@ every other client in the same band doc's connection, over the same
 WebSocket the document itself syncs over. Nothing here touches Postgres. A
 live transposition set during Stage Mode affects everyone's view for the
 duration of the show and is deliberately never written back to the song's
-stored key. `position` is a logical anchor, not a scroll coordinate — see
-[ADR-0004](adr/0004-parts-and-anchors.md) for why, and why `sectionIndex`
-is currently always `0` (Milestone 1 has one voice per song, so `fraction`
-alone — how far through the whole item — is enough; a real per-section
-anchor arrives with multiple voices per song, behind the same type).
+stored key. `position` is a logical anchor, never a rendering coordinate —
+see [ADR-0004](adr/0004-parts-and-anchors.md) for why that type exists and
+[ADR-0010](adr/0010-anchor-sync.md) for the anchor-based design it grew
+into once a song could have several voices of genuinely different kinds
+(a chorister's ChordPro, a horn player's scanned PDF). `position` is
+`undefined` entirely at the two lower rungs of ADR-0010's four-level
+fallback ladder — a page number, when that's the best available signal,
+still travels through `anchorId` as a synthetic id, never a field of its
+own; the wire shape never grows a second, rendering-coordinate-shaped
+field under any name.
 
-**Status: implemented (Milestone 1).** `apps/web/src/pages/StageMode.tsx`
+**Status: implemented (Milestone 2).** `apps/web/src/pages/StageMode.tsx`
 broadcasts and subscribes to this payload for Follow Mode (any member can
-follow any other; a manual scroll pauses it, with a "Back to `<name>`"
-control to resume) and the live-transpose display. See
-[ADR-0006](adr/0006-offline-cache-scoping.md) for the related — but
-separate — concern of gating the underlying band doc's *local cache* on
-membership; that ADR isn't about this Awareness layer, which was never
-persisted or cached to begin with.
+follow any other; a manual scroll or page turn pauses it, with a "Back to
+`<name>`" control to resume), a small sync-level indicator, and the
+live-transpose display. See [ADR-0006](adr/0006-offline-cache-scoping.md)
+for the related — but separate — concern of gating the underlying band
+doc's *local cache* on membership; that ADR isn't about this Awareness
+layer, which was never persisted or cached to begin with.
 
 ### 3. Files — content-addressed, S3-compatible
 
