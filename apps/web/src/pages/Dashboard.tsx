@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BandSwitcher } from '../components/BandSwitcher';
+import { OfflineReadiness } from '../components/OfflineReadiness';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { authClient } from '../lib/auth-client';
@@ -69,6 +70,7 @@ export function Dashboard() {
           <p className="mt-1 text-sm text-muted-foreground">
             {t('dashboard.songCount', { count: Object.keys(songs).length })}
           </p>
+          {doc && <OfflineReadiness bandId={activeBandId} doc={doc} />}
         </>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>
