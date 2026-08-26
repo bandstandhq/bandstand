@@ -65,6 +65,7 @@
     "create": "Create setlist",
     "noSetlists": "No setlists yet.",
     "open": "Open",
+    "openAria": "Open {{name}}",
     "boardView": "Board view",
     "listView": "List view",
     "stats": "{{count}} song, {{duration}}",
@@ -186,6 +187,7 @@
     "noArchivedSongs": "No archived songs.",
     "newSong": "New song",
     "edit": "Edit",
+    "editAria": "Edit {{title}}",
     "deleteForever": {
       "action": "Delete forever",
       "title": "Permanently delete \"{{title}}\"?",

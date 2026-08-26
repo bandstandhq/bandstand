@@ -65,39 +65,63 @@ function SetlistCard({
 
   if (variant === 'list') {
     return (
-      <li className="flex items-center justify-between rounded-md border border-border p-3">
+      <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+        {/* Stretched-link pattern: this covers the whole row (its
+            containing block is the `relative` <li> above, not this <div>)
+            so the entire row opens the setlist, while the visible "Open"
+            link and delete button — each given `relative` below — stay on
+            top and independently clickable/tabbable, per normal DOM-order
+            stacking. */}
+        <Link
+          to={`/bands/${bandId}/setlists/${setlistId}`}
+          className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          aria-label={t('setlistList.openAria', { name: setlist.name })}
+        />
         <div>
           <p>{setlist.name}</p>
           <p className="text-xs text-muted-foreground">{statsText}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
+          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="relative text-sm text-primary hover:underline">
             {t('setlistList.open')}
           </Link>
-          {canDelete && <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />}
+          {canDelete && (
+            <span className="relative">
+              <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />
+            </span>
+          )}
         </div>
       </li>
     );
   }
 
   return (
-    <div className="w-72 flex-shrink-0 rounded-md border border-border p-3">
+    <div className="relative w-72 flex-shrink-0 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+      <Link
+        to={`/bands/${bandId}/setlists/${setlistId}`}
+        className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        aria-label={t('setlistList.openAria', { name: setlist.name })}
+      />
       <div className="flex items-center justify-between">
-        <p className="font-medium">{setlist.name}</p>
+        <p className="relative font-medium">{setlist.name}</p>
         <div className="flex items-center gap-3">
-          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="text-sm text-primary hover:underline">
+          <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="relative text-sm text-primary hover:underline">
             {t('setlistList.open')}
           </Link>
-          {canDelete && <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />}
+          {canDelete && (
+            <span className="relative">
+              <DeleteSetlistButton bandId={bandId} setlistId={setlistId} setlistName={setlist.name} />
+            </span>
+          )}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">{statsText}</p>
-      <ul className="mt-2 space-y-1 text-sm">
+      <p className="relative text-xs text-muted-foreground">{statsText}</p>
+      <ul className="relative mt-2 space-y-1 text-sm">
         {items.map((item) => (
           <li key={item.id} className="truncate">
             <Link
               to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
-              className="text-muted-foreground hover:text-primary hover:underline"
+              className="relative text-muted-foreground hover:text-primary hover:underline"
             >
               {item.type === 'song'
                 ? (songs[item.songId]?.title ?? item.songId)

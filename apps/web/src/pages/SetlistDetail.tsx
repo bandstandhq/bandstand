@@ -108,7 +108,7 @@ function SortableSetlistItem({
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
         {...attributes}
         {...listeners}
-        className="flex-1 cursor-grab"
+        className="flex-1 cursor-grab rounded-md px-1 py-1.5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {label}
       </Link>

@@ -95,21 +95,26 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
                 {voice.kind === 'files' ? (
                   <button
                     type="button"
-                    className="text-left hover:underline"
+                    className="w-full rounded-md px-1 py-1 text-left hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
                   >
                     {voice.name}
                     {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
+                    {progress && (
+                      <span className="ml-2 text-xs">
+                        {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                      </span>
+                    )}
                   </button>
                 ) : (
                   <span>
                     {voice.name}
                     {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
-                  </span>
-                )}
-                {progress && (
-                  <span className="ml-2 text-xs">
-                    {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                    {progress && (
+                      <span className="ml-2 text-xs">
+                        {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                      </span>
+                    )}
                   </span>
                 )}
                 {voice.kind === 'files' && expandedVoiceId === id && (
