@@ -92,7 +92,7 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
               {voice.kind === 'files' && expandedVoiceId === id && (
                 <div className="mt-2 max-w-md">
                   <Suspense fallback={null}>
-                    <PdfVoiceViewer bandId={bandId} voice={voice} />
+                    <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
                   </Suspense>
                 </div>
               )}

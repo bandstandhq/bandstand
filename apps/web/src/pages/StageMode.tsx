@@ -114,14 +114,18 @@ function ContentLine({ line, visibility, chordColor }: { line: RenderLine; visib
 
 function SongContent({
   bandId,
+  voiceId,
   voice,
+  doc,
   visibility,
   chordColor,
   transposeSemitones,
   baseKey,
 }: {
   bandId: string;
+  voiceId: string;
   voice: Voice;
+  doc: Y.Doc;
   visibility: ContentVisibility;
   chordColor: string;
   transposeSemitones: number;
@@ -147,7 +151,7 @@ function SongContent({
   if (voice.kind === 'files') {
     return (
       <Suspense fallback={null}>
-        <PdfVoiceViewer bandId={bandId} voice={voice} />
+        <PdfVoiceViewer bandId={bandId} voiceId={voiceId} voice={voice} doc={doc} editable={false} />
       </Suspense>
     );
   }
@@ -669,14 +673,15 @@ export function StageMode() {
 
   let label = '';
   let voice: Voice | undefined;
+  let voiceId: string | undefined;
   let currentSong: Song | undefined;
   let currentSongId: string | undefined;
   if (currentItem?.type === 'song') {
     currentSong = songs[currentItem.songId];
     currentSongId = currentItem.songId;
     label = currentSong ? currentSong.title : currentItem.songId;
-    const assignedVoiceId = doc && localUserId ? getAssignedVoiceId(doc, currentItem.songId, localUserId, myInstruments) : undefined;
-    const rawVoice = assignedVoiceId ? rawVoices[assignedVoiceId] : undefined;
+    voiceId = doc && localUserId ? getAssignedVoiceId(doc, currentItem.songId, localUserId, myInstruments) : undefined;
+    const rawVoice = voiceId ? rawVoices[voiceId] : undefined;
     voice = rawVoice ? voiceSchema.parse(rawVoice) : undefined;
   } else if (currentItem?.type === 'break') {
     label = t('stageMode.breakMinutes', { minutes: currentItem.breakMinutes });
@@ -1067,11 +1072,13 @@ export function StageMode() {
         className={`stage-item-transition flex flex-1 flex-col ${voice ? 'overflow-y-auto' : 'items-center justify-center'} p-8`}
       >
         <h1 className="text-center text-3xl font-semibold">{label}</h1>
-        {voice && (
+        {voice && voiceId && doc && (
           <div className={`mt-6 ${TEXT_SIZE_CLASSES[textSize]} ${boldText ? 'font-bold' : 'font-normal'}`}>
             <SongContent
               bandId={bandId}
+              voiceId={voiceId}
               voice={voice}
+              doc={doc}
               visibility={contentVisibility}
               chordColor={chordColor}
               transposeSemitones={effectiveTranspose}
