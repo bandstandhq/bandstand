@@ -36,6 +36,12 @@ const sampleSnapshot: BandSnapshot = {
   assignments: {
     's1:u1': 'voice:s1',
   },
+  anchors: {
+    's1': [
+      { id: 'a1', label: 'Intro', order: 0 },
+      { id: 'a2', label: 'Chorus', order: 1, bar: 17 },
+    ],
+  },
   setlists: {
     'sl1': {
       name: 'Summer Gig',
@@ -86,5 +92,18 @@ describe('yDoc <-> snapshot round-trip', () => {
     doc.getMap('songs').set('s1', { ...sampleSnapshot.songs.s1, title: undefined });
 
     expect(() => yDocToSnapshot(doc)).toThrow();
+  });
+
+  it('parses a doc with no anchors written at all as an empty anchors map (pre-Teil-B back-compat)', () => {
+    const doc = new Y.Doc();
+    doc.getMap('songs').set('s1', sampleSnapshot.songs.s1);
+
+    const snapshot = yDocToSnapshot(doc);
+    expect(snapshot.anchors).toEqual({});
+  });
+
+  it('parses a raw object with no `anchors` key at all — pre-Teil-B snapshots never had one', () => {
+    const { anchors: _anchors, ...withoutAnchors } = sampleSnapshot;
+    expect(bandSnapshotSchema.parse(withoutAnchors).anchors).toEqual({});
   });
 });

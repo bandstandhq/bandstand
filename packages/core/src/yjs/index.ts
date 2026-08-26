@@ -5,3 +5,4 @@ export * from './voices';
 export * from './assignments';
 export * from './setlists';
 export * from './offline';
+export * from './anchors';

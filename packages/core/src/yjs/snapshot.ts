@@ -5,6 +5,7 @@ import { songSchema } from '../schemas/song';
 import { voiceSchema } from '../schemas/voice';
 import { setlistSchema } from '../schemas/setlist';
 import { setlistItemSchema } from '../schemas/setlistItem';
+import { anchorSchema } from '../schemas/anchor';
 
 // Plain-object projection of a band's Yjs document. This is what gets
 // written to Postgres's band_docs.snapshot (jsonb) on every Hocuspocus
@@ -17,12 +18,19 @@ export const bandSnapshotSchema = z.object({
   // `<songId>:<userId>` -> voiceId. Absent entirely on any doc written
   // before Milestone 2 — defaults to empty rather than requiring a migration.
   assignments: z.record(z.string(), z.string()).default({}),
+  // Keyed by songId. Absent entirely on any doc written before Milestone 2
+  // Teil B — defaults to empty rather than requiring a migration, same as
+  // `assignments` above. See docs/adr/0010-anchor-sync.md.
+  anchors: z.record(z.string(), z.array(anchorSchema)).default({}),
 });
 
 export type BandSnapshot = z.infer<typeof bandSnapshotSchema>;
 
 /** The `items:<setlistId>` Y.Array naming convention — shared with yjs/setlists.ts. */
 export const itemsKey = (setlistId: string) => `items:${setlistId}`;
+
+/** The `anchors:<songId>` Y.Array naming convention — shared with yjs/anchors.ts. */
+export const anchorsKey = (songId: string) => `anchors:${songId}`;
 
 /**
  * Reads the documented per-band Yjs shape (`songs` Y.Map, `setlists` Y.Map,
@@ -44,7 +52,13 @@ export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
     };
   }
 
-  return bandSnapshotSchema.parse({ songs, voices, setlists, assignments });
+  const anchors: Record<string, unknown> = {};
+  for (const songId of Object.keys(songs)) {
+    const songAnchors = doc.getArray(anchorsKey(songId)).toJSON();
+    if (songAnchors.length > 0) anchors[songId] = songAnchors;
+  }
+
+  return bandSnapshotSchema.parse({ songs, voices, setlists, assignments, anchors });
 }
 
 /**
@@ -75,6 +89,10 @@ export function snapshotToYDoc(snapshot: BandSnapshot): Y.Doc {
   for (const [setlistId, { items, ...setlist }] of Object.entries(parsed.setlists)) {
     setlistsMap.set(setlistId, setlist);
     doc.getArray(itemsKey(setlistId)).push(items);
+  }
+
+  for (const [songId, songAnchors] of Object.entries(parsed.anchors)) {
+    if (songAnchors.length > 0) doc.getArray(anchorsKey(songId)).push(songAnchors);
   }
 
   return doc;
