@@ -29,6 +29,8 @@ export const checkFileInputSchema = z.object({
   sha256: z.string().length(64),
 });
 
+export type CheckFileInput = z.infer<typeof checkFileInputSchema>;
+
 export const presignUploadInputSchema = z.object({
   sha256: z.string().length(64),
   filename: z.string().min(1),
@@ -36,4 +38,8 @@ export const presignUploadInputSchema = z.object({
   size: z.number().int().positive(),
 });
 
+export type PresignUploadInput = z.infer<typeof presignUploadInputSchema>;
+
 export const confirmFileInputSchema = presignUploadInputSchema;
+
+export type ConfirmFileInput = z.infer<typeof confirmFileInputSchema>;
