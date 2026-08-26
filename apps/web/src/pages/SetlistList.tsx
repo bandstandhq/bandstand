@@ -11,11 +11,8 @@ import { useIsWideScreen } from '../hooks/useIsWideScreen';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
+import { formatSetlistDuration } from '../lib/formatSetlistDuration';
 import type * as Y from 'yjs';
-
-function formatDuration(t: (key: string, opts?: Record<string, unknown>) => string, totalSec: number): string {
-  return t('setlistList.durationMinutes', { minutes: Math.round(totalSec / 60) });
-}
 
 function DeleteSetlistButton({ bandId, setlistId, setlistName }: { bandId: string; setlistId: string; setlistName: string }) {
   const { t } = useTranslation();
@@ -61,7 +58,7 @@ function SetlistCard({
   const { t } = useTranslation();
   const items = useYArray<SetlistItem>(doc.getArray(itemsKey(setlistId)));
   const stats = getSetlistStats(items, songs);
-  const statsText = t('setlistList.stats', { count: stats.songCount, duration: formatDuration(t, stats.totalDurationSec) });
+  const statsText = t('setlistList.stats', { count: stats.songCount, duration: formatSetlistDuration(t, stats.totalDurationSec) });
 
   if (variant === 'list') {
     return (

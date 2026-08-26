@@ -81,11 +81,14 @@
     "poolEmpty": "No active songs yet — add some in Repertoire first.",
     "items": "Setlist",
     "itemsEmpty": "Drag songs here to build the set.",
+    "itemsEmptyReadOnly": "This setlist is empty. Tap Edit to add songs.",
     "addBreak": "Add break",
     "breakMinutes": "Break ({{minutes}} min)",
     "addFinale": "Add finale",
     "finale": "Finale",
-    "remove": "Remove"
+    "remove": "Remove",
+    "editMode": "Edit",
+    "doneEditing": "Done"
   },
   "stageMode": {
     "exit": "Exit",
