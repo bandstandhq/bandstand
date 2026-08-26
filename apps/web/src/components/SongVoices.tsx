@@ -5,12 +5,23 @@
 // through the live Y.Doc (listVoicesForSong/getAssignedVoiceId), not
 // useYMap's flat object — the useYMap calls below exist only to subscribe
 // this component to re-render on remote changes.
-import type { BandMember, BandRole } from '@bandstand/core';
-import { can, createVoice, getAssignedVoiceId, getAssignment, listVoicesForSong, setAssignment } from '@bandstand/core';
+import type { Anchor, BandMember, BandRole } from '@bandstand/core';
+import {
+  anchorsKey,
+  can,
+  createVoice,
+  getAnchorCalibrationProgress,
+  getAssignedVoiceId,
+  getAssignment,
+  listVoicesForSong,
+  setAssignment,
+} from '@bandstand/core';
+import { buildRenderModel, parseChordPro } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
+import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
@@ -61,6 +72,7 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
 
   useYMap(doc.getMap('voices'));
   useYMap(doc.getMap('assignments'));
+  const anchors = useYArray<Anchor>(doc.getArray(anchorsKey(songId))).sort((a, b) => a.order - b.order);
 
   const voices = listVoicesForSong(doc, songId);
   const canEditOthers = viewerRole ? can(viewerRole, 'assignment:editOthers') : false;
@@ -72,32 +84,44 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
       <div>
         <p className="mb-2 text-sm font-medium">{t('songVoices.voicesTitle')}</p>
         <ul className="space-y-1 text-sm text-muted-foreground">
-          {voices.map(({ id, voice }) => (
-            <li key={id}>
-              {voice.kind === 'files' ? (
-                <button
-                  type="button"
-                  className="text-left hover:underline"
-                  onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
-                >
-                  {voice.name}
-                  {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
-                </button>
-              ) : (
-                <span>
-                  {voice.name}
-                  {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
-                </span>
-              )}
-              {voice.kind === 'files' && expandedVoiceId === id && (
-                <div className="mt-2 max-w-md">
-                  <Suspense fallback={null}>
-                    <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
-                  </Suspense>
-                </div>
-              )}
-            </li>
-          ))}
+          {voices.map(({ id, voice }) => {
+            const chordProSections =
+              voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
+            const progress =
+              anchors.length > 0 ? getAnchorCalibrationProgress(voice, anchors, chordProSections) : null;
+
+            return (
+              <li key={id}>
+                {voice.kind === 'files' ? (
+                  <button
+                    type="button"
+                    className="text-left hover:underline"
+                    onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
+                  >
+                    {voice.name}
+                    {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
+                  </button>
+                ) : (
+                  <span>
+                    {voice.name}
+                    {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
+                  </span>
+                )}
+                {progress && (
+                  <span className="ml-2 text-xs">
+                    {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                  </span>
+                )}
+                {voice.kind === 'files' && expandedVoiceId === id && (
+                  <div className="mt-2 max-w-md">
+                    <Suspense fallback={null}>
+                      <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
+                    </Suspense>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
         {viewerRole && can(viewerRole, 'file:upload') && (
           <div className="mt-2">
