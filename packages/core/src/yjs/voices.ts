@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as Y from 'yjs';
+import type { Anchor } from '../schemas/anchor';
 import type { FileRef } from '../files/schema';
-import { type DisplayRecipe, type Voice, voiceSchema } from '../schemas/voice';
+import { type DisplayRecipe, type Voice, type VoiceAnchorPosition, voiceSchema } from '../schemas/voice';
+import { matchAnchorsToChordProSections } from './anchors';
 
 export function getVoice(doc: Y.Doc, voiceId: string): Voice | undefined {
   return doc.getMap('voices').get(voiceId) as Voice | undefined;
@@ -48,17 +50,23 @@ export function detachVoiceFile(doc: Y.Doc, voiceId: string, sha256: string): vo
   if (existing.kind !== 'files') throw new Error(`Voice is not a files voice: ${voiceId}`);
 
   const files = existing.files.filter((f) => f.sha256 !== sha256);
-  // A display recipe's page indices are positions in the *current* files
-  // array — removing a file shifts every later page's index, silently
-  // pointing rotations/pageOrder at the wrong pages. Dropping the recipe
-  // is the only correct move here; a file:detach is rare enough (admin
-  // action, see ADR-0007) that "re-crop/re-rotate afterward" is fine.
-  doc.getMap('voices').set(voiceId, voiceSchema.parse({ ...existing, files, displayRecipe: undefined }));
+  // Both a display recipe and an anchorMap key by a page's position in the
+  // *current* files array — removing a file shifts every later file's
+  // index, silently pointing either at the wrong page (not merely at a
+  // now-invalid one: a shifted index can still be in range, just wrong).
+  // Dropping both is the only correct move here; a file:detach is rare
+  // enough (admin action, see ADR-0007) that re-crop/re-calibrate
+  // afterward is fine.
+  doc
+    .getMap('voices')
+    .set(voiceId, voiceSchema.parse({ ...existing, files, displayRecipe: undefined, anchorMap: undefined }));
 }
 
 export interface FlatPage {
   /** Position in the sequence built by concatenating `files` in order — what `displayRecipe` keys/reorders against. */
   originalIndex: number;
+  /** This page's file's position in `files` — what an anchorMap entry's `fileIndex` addresses. */
+  fileIndex: number;
   file: FileRef;
   /** 1-based — pdf.js pages are 1-based. */
   pageNumberInFile: number;
@@ -66,11 +74,11 @@ export interface FlatPage {
 
 export function flattenVoiceFiles(files: FileRef[]): FlatPage[] {
   const pages: FlatPage[] = [];
-  for (const file of files) {
+  files.forEach((file, fileIndex) => {
     for (let pageNumberInFile = 1; pageNumberInFile <= file.pageCount; pageNumberInFile++) {
-      pages.push({ originalIndex: pages.length, file, pageNumberInFile });
+      pages.push({ originalIndex: pages.length, fileIndex, file, pageNumberInFile });
     }
-  }
+  });
   return pages;
 }
 
@@ -106,4 +114,73 @@ export function setVoiceDisplayRecipe(doc: Y.Doc, voiceId: string, displayRecipe
   if (!existing) throw new Error(`Voice not found: ${voiceId}`);
   if (existing.kind !== 'files') throw new Error(`Voice is not a files voice: ${voiceId}`);
   doc.getMap('voices').set(voiceId, voiceSchema.parse({ ...existing, displayRecipe }));
+}
+
+/**
+ * Resolves a source page (`fileIndex` into `files`, 1-based `page` within
+ * it — an anchorMap entry's own addressing, see schemas/voice.ts) to where
+ * it currently sits in the *rendered* sequence, applying whatever the
+ * voice's display recipe currently does (reorder/rotate/duplicate). A
+ * calibrated anchor is never invalidated by later reordering/duplicating —
+ * only by removing the underlying file (`detachVoiceFile` already drops the
+ * whole `anchorMap` in that case). A duplicated page resolves to its first
+ * occurrence in `pageOrder` — an arbitrary but deterministic tie-break.
+ */
+export function findRenderedPositionForSourcePage(
+  files: FileRef[],
+  displayRecipe: DisplayRecipe | undefined,
+  fileIndex: number,
+  page: number,
+): ResolvedPage | undefined {
+  return resolveDisplaySequence(files, displayRecipe).find(
+    (resolved) => resolved.fileIndex === fileIndex && resolved.pageNumberInFile === page,
+  );
+}
+
+/** Records where an anchor falls in a `files` voice's source content — see schemas/voice.ts's `anchorPositionSchema`. */
+export function setVoiceAnchorPosition(doc: Y.Doc, voiceId: string, anchorId: string, position: VoiceAnchorPosition): void {
+  const existing = getVoice(doc, voiceId);
+  if (!existing) throw new Error(`Voice not found: ${voiceId}`);
+  if (existing.kind !== 'files') throw new Error(`Voice is not a files voice: ${voiceId}`);
+  const anchorMap = { ...existing.anchorMap, [anchorId]: position };
+  doc.getMap('voices').set(voiceId, voiceSchema.parse({ ...existing, anchorMap }));
+}
+
+export function clearVoiceAnchorPosition(doc: Y.Doc, voiceId: string, anchorId: string): void {
+  const existing = getVoice(doc, voiceId);
+  if (!existing) throw new Error(`Voice not found: ${voiceId}`);
+  if (existing.kind !== 'files') throw new Error(`Voice is not a files voice: ${voiceId}`);
+  if (!existing.anchorMap || !(anchorId in existing.anchorMap)) return;
+  const anchorMap = { ...existing.anchorMap };
+  delete anchorMap[anchorId];
+  doc.getMap('voices').set(voiceId, voiceSchema.parse({ ...existing, anchorMap }));
+}
+
+export interface AnchorCalibrationProgress {
+  done: number;
+  total: number;
+}
+
+/**
+ * Uniform "how ready is this voice" count across both voice kinds — used
+ * for the per-voice and band-wide calibration-progress UI (see
+ * docs/adr/0010-anchor-sync.md). For a `files` voice, `done` counts anchors
+ * present in `anchorMap`; for a `chordpro` voice, which never stores its
+ * own mapping, `done` counts anchors matched against `chordProSections`
+ * (pass the voice's `RenderModel.sections`, or omit if unavailable — no
+ * ChordPro voice ever reports progress without it, since the caller is
+ * expected to have already parsed the voice to render it).
+ */
+export function getAnchorCalibrationProgress(
+  voice: Voice,
+  anchors: Anchor[],
+  chordProSections?: { label: string | null }[],
+): AnchorCalibrationProgress {
+  const total = anchors.length;
+  if (voice.kind === 'files') {
+    const done = anchors.filter((anchor) => voice.anchorMap?.[anchor.id] !== undefined).length;
+    return { done, total };
+  }
+  const done = chordProSections ? matchAnchorsToChordProSections(anchors, chordProSections).size : 0;
+  return { done, total };
 }
