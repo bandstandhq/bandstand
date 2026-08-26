@@ -4,8 +4,8 @@
 // client-side (never server-rendered). Display customization (crop/rotate/
 // reorder/duplicate) is a "recipe" applied at render time, never a file
 // edit — see docs/adr/0009-voice-display-recipe.md.
-import type { CropMargins, DisplayRecipe, Voice } from '@bandstand/core';
-import { resolveDisplaySequence, setVoiceDisplayRecipe } from '@bandstand/core';
+import type { Anchor, CropMargins, DisplayRecipe, Voice, VoiceAnchorPosition } from '@bandstand/core';
+import { anchorsKey, resolveDisplaySequence, setVoiceAnchorPosition, setVoiceDisplayRecipe } from '@bandstand/core';
 import {
   DndContext,
   type DragEndEvent,
@@ -25,6 +25,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
+import { useYArray } from '../hooks/useYArray';
 import { apiClient } from '../lib/api-client';
 import { ensureCached, getCachedBlob } from '../lib/blobCache';
 import { pdfjsLib } from '../lib/pdfjs';
@@ -48,6 +49,37 @@ function cropCanvas(source: HTMLCanvasElement, crop: CropMargins): HTMLCanvasEle
   out.height = sh;
   out.getContext('2d')!.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
   return out;
+}
+
+/**
+ * A tap during anchor calibration lands in *display* space — cropped, and
+ * rotated the way the page is currently shown — but an anchorMap entry's
+ * `yPct` must always mean "how far down the page in its original, unrotated
+ * orientation" (see docs/adr/0010-anchor-sync.md and schemas/voice.ts), so a
+ * 90°-rotated page's on-screen Y is actually the source page's X. This
+ * undoes both transforms, in that order: first the crop (recovering a
+ * fraction of the *full*, uncropped-but-rotated page), then the rotation.
+ */
+function displayPointToSourceYPct(
+  rotation: Rotation,
+  crop: CropMargins | undefined,
+  xFracDisplay: number,
+  yFracDisplay: number,
+): number {
+  const c = crop ?? NO_CROP;
+  const xFracRotated = c.left + xFracDisplay * (1 - c.left - c.right);
+  const yFracRotated = c.top + yFracDisplay * (1 - c.top - c.bottom);
+
+  switch (rotation) {
+    case 0:
+      return yFracRotated;
+    case 180:
+      return 1 - yFracRotated;
+    case 90:
+      return 1 - xFracRotated;
+    case 270:
+      return xFracRotated;
+  }
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -185,6 +217,7 @@ function PageView({
   rotation,
   cropMargins,
   containerWidth,
+  onPointClick,
 }: {
   doc: PdfDoc | undefined;
   imageUrl: string | undefined;
@@ -193,6 +226,8 @@ function PageView({
   rotation: Rotation;
   cropMargins: CropMargins | undefined;
   containerWidth: number;
+  /** Fractions (0-1) of this page as currently displayed — cropped and rotated. Only set during anchor calibration. */
+  onPointClick?: (xFracDisplay: number, yFracDisplay: number) => void;
 }) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -235,7 +270,20 @@ function PageView({
     );
   }
 
-  return <div ref={containerRef} className="min-h-40 bg-muted" style={{ width: containerWidth }} />;
+  function handleClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!onPointClick) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    onPointClick((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={onPointClick ? handleClick : undefined}
+      className={`min-h-40 bg-muted ${onPointClick ? 'cursor-crosshair' : ''}`}
+      style={{ width: containerWidth }}
+    />
+  );
 }
 
 /** A focused single-page crop editor — cropping a cached full render is cheap, so sliders preview live without re-decoding the page on every tick. */
@@ -380,6 +428,50 @@ function LayoutThumbnail({
   );
 }
 
+/**
+ * The anchor picker shown above the (still-navigable) normal page view while
+ * calibrating — "pick an anchor, tap a point in your own document" (see
+ * docs/adr/0010-anchor-sync.md). Deliberately not a separate exclusive
+ * editor like CropEditor: unlike a crop (one setting for the whole voice),
+ * calibrating is inherently per-page, so page navigation must stay usable.
+ */
+function AnchorCalibrationToolbar({
+  anchors,
+  calibratedAnchorIds,
+  selectedAnchorId,
+  onSelectAnchor,
+}: {
+  anchors: Anchor[];
+  calibratedAnchorIds: Set<string>;
+  selectedAnchorId: string | null;
+  onSelectAnchor: (anchorId: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-1 rounded-md border border-border p-2">
+      <label className="flex flex-col gap-1 text-xs">
+        {t('pdfViewer.calibrateChooseAnchor')}
+        <select
+          value={selectedAnchorId ?? ''}
+          onChange={(e) => onSelectAnchor(e.target.value || null)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="">{t('pdfViewer.calibrateChooseAnchorPlaceholder')}</option>
+          {anchors.map((anchor) => (
+            <option key={anchor.id} value={anchor.id}>
+              {anchor.label}
+              {calibratedAnchorIds.has(anchor.id) ? ` (${t('pdfViewer.calibrateAlreadySet')})` : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {selectedAnchorId ? t('pdfViewer.calibrateInstructions') : t('pdfViewer.calibratePickFirst')}
+      </p>
+    </div>
+  );
+}
+
 export function PdfVoiceViewer({
   bandId,
   voiceId,
@@ -399,6 +491,8 @@ export function PdfVoiceViewer({
   const [containerWidth, setContainerWidth] = useState(800);
   const [editingLayout, setEditingLayout] = useState(false);
   const [editingCrop, setEditingCrop] = useState(false);
+  const [calibratingAnchors, setCalibratingAnchors] = useState(false);
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const recipe = voice.displayRecipe;
@@ -408,6 +502,16 @@ export function PdfVoiceViewer({
   );
   const { docs, imageUrls, unavailable } = usePdfDocuments(bandId, voice.files);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const anchors = useYArray<Anchor>(doc.getArray(anchorsKey(voice.songId))).sort((a, b) => a.order - b.order);
+  const calibratedAnchorIds = new Set(Object.keys(voice.anchorMap ?? {}));
+
+  function toggleCalibratingAnchors() {
+    setCalibratingAnchors((wasCalibrating) => {
+      if (!wasCalibrating) setMode('single'); // calibration is inherently per-page — spread/scroll make "which page did I tap" ambiguous
+      return !wasCalibrating;
+    });
+  }
 
   useEffect(() => {
     const el = containerRef.current;
@@ -441,6 +545,15 @@ export function PdfVoiceViewer({
 
   function commitRecipe(patch: Partial<DisplayRecipe>) {
     setVoiceDisplayRecipe(doc, voiceId, { ...recipe, ...patch });
+  }
+
+  function handleCalibrationClick(page: { fileIndex: number; pageNumberInFile: number; rotation: Rotation }) {
+    return (xFracDisplay: number, yFracDisplay: number) => {
+      if (!selectedAnchorId) return;
+      const yPct = displayPointToSourceYPct(page.rotation, recipe?.cropMargins, xFracDisplay, yFracDisplay);
+      const position: VoiceAnchorPosition = { fileIndex: page.fileIndex, page: page.pageNumberInFile, yPct };
+      setVoiceAnchorPosition(doc, voiceId, selectedAnchorId, position);
+    };
   }
 
   function handleRotate(originalIndex: number) {
@@ -552,7 +665,25 @@ export function PdfVoiceViewer({
               <Button variant="outline" size="sm" onClick={() => setEditingCrop(true)}>
                 {t('pdfViewer.editCrop')}
               </Button>
+              {anchors.length > 0 && (
+                <Button
+                  variant={calibratingAnchors ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={toggleCalibratingAnchors}
+                >
+                  {t('pdfViewer.calibrateAnchors')}
+                </Button>
+              )}
             </div>
+          )}
+
+          {calibratingAnchors && (
+            <AnchorCalibrationToolbar
+              anchors={anchors}
+              calibratedAnchorIds={calibratedAnchorIds}
+              selectedAnchorId={selectedAnchorId}
+              onSelectAnchor={setSelectedAnchorId}
+            />
           )}
 
           {editingLayout && (
@@ -601,7 +732,7 @@ export function PdfVoiceViewer({
               </div>
             ) : (
               <div className={mode === 'spread' ? 'flex gap-2' : ''}>
-                {visiblePages.map((p) => (
+                {visiblePages.map((p, i) => (
                   <PageView
                     key={p.position}
                     doc={docs.get(p.file.sha256)}
@@ -611,6 +742,9 @@ export function PdfVoiceViewer({
                     rotation={p.rotation}
                     cropMargins={recipe?.cropMargins}
                     containerWidth={mode === 'spread' ? containerWidth / 2 - 4 : containerWidth}
+                    onPointClick={
+                      calibratingAnchors && mode === 'single' && i === 0 ? handleCalibrationClick(p) : undefined
+                    }
                   />
                 ))}
               </div>
