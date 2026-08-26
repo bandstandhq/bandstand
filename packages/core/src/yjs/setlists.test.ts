@@ -14,6 +14,7 @@ import {
   duplicateSetlist,
   findSetlistsReferencingSong,
   getSetlistStats,
+  insertSetlistItem,
   moveSetlistItem,
   removeSetlistItem,
   removeSongFromAllSetlists,
@@ -61,6 +62,48 @@ describe('item builders + addSetlistItem', () => {
     const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
     expect(items.map((i) => i.type)).toEqual(['song', 'break', 'song', 'finale']);
     expect(items[2]).toMatchObject({ songId: 'song-2', overrideKey: 'D' });
+  });
+});
+
+describe('insertSetlistItem', () => {
+  it('inserts at the given index, not always at the end', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    addSetlistItem(doc, setlistId, buildSongItem('song-1'));
+    addSetlistItem(doc, setlistId, buildSongItem('song-2'));
+    addSetlistItem(doc, setlistId, buildSongItem('song-3'));
+
+    insertSetlistItem(doc, setlistId, buildSongItem('song-new'), 1);
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => (i.type === 'song' ? i.songId : i.type))).toEqual([
+      'song-1',
+      'song-new',
+      'song-2',
+      'song-3',
+    ]);
+  });
+
+  it('clamps a too-large index to the end', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    addSetlistItem(doc, setlistId, buildSongItem('song-1'));
+
+    insertSetlistItem(doc, setlistId, buildSongItem('song-new'), 99);
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => (i.type === 'song' ? i.songId : i.type))).toEqual(['song-1', 'song-new']);
+  });
+
+  it('clamps a negative index to the start', () => {
+    const doc = new Y.Doc();
+    const setlistId = createSetlist(doc, 'Set 1');
+    addSetlistItem(doc, setlistId, buildSongItem('song-1'));
+
+    insertSetlistItem(doc, setlistId, buildSongItem('song-new'), -5);
+
+    const items = doc.getArray(itemsKey(setlistId)).toJSON() as SetlistItem[];
+    expect(items.map((i) => (i.type === 'song' ? i.songId : i.type))).toEqual(['song-new', 'song-1']);
   });
 });
 

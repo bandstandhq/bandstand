@@ -116,6 +116,21 @@ export function addSetlistItem(doc: Y.Doc, setlistId: string, item: SetlistItem)
   doc.getArray(itemsKey(setlistId)).push([item]);
 }
 
+/**
+ * Like `addSetlistItem`, but inserts at a specific position instead of
+ * always appending — for dragging a song from the repertoire pool onto a
+ * specific spot in the setlist, where "always lands at the end regardless
+ * of where you drop it" would be a bug, not a simplification.
+ * `atIndex` is clamped to the current length, so a stale index (e.g. a
+ * concurrent edit shrank the list between drag-start and drop) still
+ * inserts somewhere valid rather than throwing.
+ */
+export function insertSetlistItem(doc: Y.Doc, setlistId: string, item: SetlistItem, atIndex: number): void {
+  const items = doc.getArray(itemsKey(setlistId));
+  const clampedIndex = Math.max(0, Math.min(atIndex, items.length));
+  items.insert(clampedIndex, [item]);
+}
+
 export function removeSetlistItem(doc: Y.Doc, setlistId: string, itemId: string): void {
   const items = doc.getArray(itemsKey(setlistId));
   const index = items.toArray().findIndex((item) => (item as SetlistItem).id === itemId);
