@@ -4,9 +4,11 @@ import type {
   BandMember,
   BandRole,
   ChangeMemberRoleInput,
+  ConfirmFileInput,
   CreateBandInput,
   CreateInviteInput,
   Invite,
+  PresignUploadInput,
   RedeemInviteInput,
   RenameBandInput,
   ResolveIdeaTieInput,
@@ -145,6 +147,24 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     updateMyPrefs: (input: UpdateUserPrefsInput) =>
       req<UserPrefs>('/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
+
+    // Content-addressed file upload flow — see docs/adr/0007-content-addressed-files.md.
+    // The actual bytes never go through this client: presign-upload/download
+    // return a URL the caller PUTs/GETs directly against the object store.
+    checkFileExists: (bandId: string, sha256: string) =>
+      req<{ exists: boolean }>(`/bands/${bandId}/files/check`, { method: 'POST', body: JSON.stringify({ sha256 }) }),
+
+    presignFileUpload: (bandId: string, input: PresignUploadInput) =>
+      req<{ uploadUrl: string }>(`/bands/${bandId}/files/presign-upload`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+
+    confirmFileUpload: (bandId: string, input: ConfirmFileInput) =>
+      req<{ ok: true }>(`/bands/${bandId}/files/confirm`, { method: 'POST', body: JSON.stringify(input) }),
+
+    presignFileDownload: (bandId: string, sha256: string) =>
+      req<{ downloadUrl: string }>(`/bands/${bandId}/files/${sha256}/presign-download`),
   };
 }
 
