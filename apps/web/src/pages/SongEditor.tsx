@@ -170,12 +170,13 @@ export function SongEditor() {
   const originalBodyRef = useRef('');
 
   function applyTargetKey(newKey: string) {
+    setError(null);
     try {
       const transposed = transposeChordProToKey(parseChordPro(originalBodyRef.current), originalKeyRef.current, newKey);
       setKey(newKey);
       setBody(formatChordPro(transposed));
-    } catch (err) {
-      setError(t('songEditor.keyError'))
+    } catch {
+      setError(t('songEditor.transposeError'));
     }
   }
 
@@ -236,7 +237,7 @@ export function SongEditor() {
         updateVoiceBody(doc, voiceId, body);
       }
       navigate(`/bands/${bandId}/repertoire`);
-    } catch (err) {
+    } catch {
       setError(t('songEditor.saveError'));
     }
   }
