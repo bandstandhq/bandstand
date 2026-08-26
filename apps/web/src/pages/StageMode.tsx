@@ -739,11 +739,27 @@ export function StageMode() {
   const rawVoices = useYMap<unknown>(doc?.getMap('voices'));
   const items = useYArray<SetlistItem>(setlistId ? doc?.getArray(itemsKey(setlistId)) : undefined);
 
-  const startIndex = useMemo(() => {
-    const index = items.findIndex((item) => item.id === itemId);
-    return index === -1 ? 0 : index;
-  }, [items, itemId]);
-  const [requestedIndex, setRequestedIndex] = useState(startIndex);
+  // `items` reflects whatever this client's local Yjs doc has synced so
+  // far — on a cold cache (a fresh browser, or a URL opened before this
+  // setlist's own items have arrived over the wire), the target `itemId`
+  // may not be in `items` *yet* even though it's a real, valid item. A
+  // plain "not found -> default to 0" here would be a one-time snapshot:
+  // `useState`'s initializer only runs on mount, so if it fell back to 0
+  // at that moment, it would never self-correct once `items` finished
+  // syncing a beat later, silently stranding the viewer on the wrong item.
+  // The effect below re-derives `requestedIndex` from a resolved
+  // `startIndex` until the target is actually found once, then leaves it
+  // alone — the user's own Previous/Next from then on is authoritative.
+  const startIndex = useMemo(() => items.findIndex((item) => item.id === itemId), [items, itemId]);
+  const [requestedIndex, setRequestedIndex] = useState(() => Math.max(0, startIndex));
+  const hasResolvedInitialItemRef = useRef(startIndex !== -1);
+  useEffect(() => {
+    if (hasResolvedInitialItemRef.current || startIndex === -1) return;
+    hasResolvedInitialItemRef.current = true;
+    // Syncing to the URL's own target item once it's actually available —
+    // not a redundant re-derivation of local state.
+    setRequestedIndex(startIndex);
+  }, [startIndex]);
   const currentIndex = Math.max(0, Math.min(requestedIndex, items.length - 1));
   const currentItem = items[currentIndex];
 
@@ -1268,7 +1284,11 @@ export function StageMode() {
             </span>
           )}
           {currentSong && syncLevel && (
-            <span className={`text-xs ${mutedClass}`} title={t(`stageMode.syncLevel_${syncLevel}_hint`)}>
+            <span
+              data-testid="sync-level-indicator"
+              className={`text-xs ${mutedClass}`}
+              title={t(`stageMode.syncLevel_${syncLevel}_hint`)}
+            >
               {t(`stageMode.syncLevel_${syncLevel}`)}
             </span>
           )}

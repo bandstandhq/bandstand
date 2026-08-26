@@ -2,8 +2,13 @@
 //
 // `pnpm seed` — Definition of Done for Milestone 0, not a stretch goal:
 // two demo users, one band, 12 songs with real ChordPro content, two
-// setlists. Idempotent: re-running it after the demo band already exists
-// just reports that and exits, rather than erroring on unique constraints.
+// setlists. Idempotent: re-running it deletes the demo bands (by slug) and
+// everything scoped to them — cascading via each table's own bandId FK —
+// then recreates them fresh, rather than either erroring on unique
+// constraints or silently leaving a previous run's accumulated state (band
+// docs mutated by hand or by acceptance tests) in place. Demo users
+// (alice/bob/carol) are identity, not band-scoped, so they're reused, not
+// recreated.
 //
 // Two bands, not one, as of the permissions hardening round: alice/bob
 // have swapped roles between them, and carol only exists in the second —
@@ -13,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createVoice, generateInviteCode, getDefaultVoiceId, sha256Hex, yDocToSnapshot } from '@bandstand/core';
 import * as Y from 'yjs';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 import { db } from '../db/client';
 import { attachments, bandDocs, bandMembers, bands, invites, users } from '../db/schema/index';
@@ -70,10 +75,12 @@ async function ensureUser(email: string, name: string): Promise<string> {
 }
 
 async function main() {
-  const [existingBand] = await db.select().from(bands).where(eq(bands.slug, DEMO_BAND_SLUG));
-  if (existingBand) {
-    console.log(`Already seeded — band "${DEMO_BAND_SLUG}" exists. Nothing to do.`);
-    process.exit(0);
+  const deleted = await db
+    .delete(bands)
+    .where(inArray(bands.slug, [DEMO_BAND_SLUG, SECOND_BAND_SLUG]))
+    .returning({ slug: bands.slug });
+  if (deleted.length > 0) {
+    console.log(`Reset ${deleted.length} existing demo band(s) (${deleted.map((b) => b.slug).join(', ')}) before reseeding.`);
   }
 
   const userIds = await Promise.all(DEMO_USERS.map((u) => ensureUser(u.email, u.name)));
