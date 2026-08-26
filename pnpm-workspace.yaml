@@ -2,6 +2,16 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Dependabot-flagged transitive vulnerabilities with no direct upstream fix
+# yet at the top-level dependency's current major (tsup pins esbuild
+# ^0.27.0, drizzle-kit's deprecated @esbuild-kit/esm-loader pins esbuild
+# 0.18.20, @capacitor/ios's xcode dep pins uuid 7.0.3) — forced to patched
+# versions here since none of these are used in a way that depends on the
+# exact pinned version's behavior.
+overrides:
+  esbuild: ^0.28.2
+  uuid: ^11.1.1
+
 # pnpm 10+ blocks native postinstall scripts by default. This stack pulls in
 # esbuild (via Vite/tsup/tsx) and @tailwindcss/oxide (Tailwind v4's Rust
 # engine) transitively, both of which need their native build step approved
