@@ -7,5 +7,6 @@ export * from './invites';
 export * from './bandDocs';
 export * from './attachments';
 export * from './userPrefs';
+export * from './voiceAnnotationLayers';
 export * from './auth';
 export * from './relations';

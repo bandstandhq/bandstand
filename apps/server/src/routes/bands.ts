@@ -8,6 +8,7 @@ import type { AuthVariables, BandVariables } from '../lib/bandAuthz';
 import { requireAuth, requireBandRole } from '../lib/bandAuthz';
 import { hocuspocusServer } from '../lib/hocuspocus';
 import { isUniqueViolation } from '../lib/pgErrors';
+import { annotationsRoute } from './annotations';
 import { filesRoute } from './files';
 import { inviteManagementRoute } from './invites';
 import { membersRoute } from './members';
@@ -92,5 +93,6 @@ bandScoped.route('/invites', inviteManagementRoute);
 bandScoped.route('/songs', songsRoute);
 bandScoped.route('/setlists', setlistsRoute);
 bandScoped.route('/files', filesRoute);
+bandScoped.route('/annotations', annotationsRoute);
 
 bandsRoute.route('/:bandId', bandScoped);

@@ -79,3 +79,18 @@ export const annotationLayerSchema = z.object({
 });
 
 export type AnnotationLayer = z.infer<typeof annotationLayerSchema>;
+
+export const createAnnotationLayerInputSchema = z.object({
+  name: z.string().min(1),
+});
+
+// `expectedUpdatedAt` is the updatedAt the client's edit was based on — the
+// server applies the update only if it still matches, forking a
+// "(Konfliktkopie)" layer instead of overwriting when it doesn't (the same
+// person editing offline on two devices before either reconnects is a real
+// case, not a theoretical one — see docs/adr/0010-anchor-sync.md's sibling
+// design note in the Teil B plan).
+export const updateAnnotationLayerInputSchema = z.object({
+  objects: z.array(annotationObjectSchema),
+  expectedUpdatedAt: z.string(),
+});
