@@ -28,6 +28,7 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['file:detach', true, true, false],
   ['assignment:editOthers', true, true, false],
   ['anchor:edit', true, true, false],
+  ['annotation:moderateShared', true, true, false],
 ];
 
 const ROLES: BandRole[] = ['owner', 'admin', 'member'];

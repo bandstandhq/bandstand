@@ -9,3 +9,4 @@ export * from './userPrefs';
 export * from './stagePosition';
 export * from './stageAwareness';
 export * from './anchor';
+export * from './annotation';
