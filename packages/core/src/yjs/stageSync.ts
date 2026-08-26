@@ -224,3 +224,47 @@ export function determineSyncLevel(input: {
 
   return allIdenticalFiles ? 'page' : 'song';
 }
+
+const PAGE_SYNC_PREFIX = 'page:';
+
+/**
+ * The "page" fallback level's wire representation: a page number sent *as*
+ * an anchor id, never as a field of its own (decision 3 in the Teil B
+ * plan) — this is what keeps the Awareness payload single-shaped, so the
+ * "no visual-position field" schema test holds regardless of which fallback
+ * level is active. Only meaningful when `determineSyncLevel` returns
+ * `'page'` — every present voice is confirmed identical at that point, so
+ * a page number means the same thing to everyone without any per-voice
+ * calibration.
+ */
+function buildPageSyncAnchorId(originalIndex: number): string {
+  return `${PAGE_SYNC_PREFIX}${originalIndex}`;
+}
+
+function parsePageSyncAnchorId(anchorId: string): number | undefined {
+  const match = /^page:(\d+)$/.exec(anchorId);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** Whether an incoming `anchorId` is a page-sync pseudo-anchor rather than a real one — callers branch their apply/fallback logic on this before touching `resolveKnownAnchor` (a page-sync id is never "unknown," it's resolved directly). */
+export function isPageSyncAnchorId(anchorId: string): boolean {
+  return parsePageSyncAnchorId(anchorId) !== undefined;
+}
+
+/** Builds this device's page-sync broadcast position — page-granular, `fraction` always 0 (no calibration exists to interpolate against at this level). `undefined` if the given page isn't part of `files` at all. */
+export function computePageSyncPosition(files: FileRef[], fileIndex: number, page: number): StagePosition | undefined {
+  const flat = flattenVoiceFiles(files).find((p) => p.fileIndex === fileIndex && p.pageNumberInFile === page);
+  return flat ? { anchorId: buildPageSyncAnchorId(flat.originalIndex), fraction: 0 } : undefined;
+}
+
+/** Inverse: resolves a page-sync anchor id to a rendered position in *this* (identical) voice. `undefined` for anything that isn't a page-sync id, or a page index out of range. */
+export function applyPageSyncPosition(
+  files: FileRef[],
+  displayRecipe: DisplayRecipe | undefined,
+  anchorId: string,
+): ResolvedPage | undefined {
+  const originalIndex = parsePageSyncAnchorId(anchorId);
+  if (originalIndex === undefined) return undefined;
+  const page = flattenVoiceFiles(files)[originalIndex];
+  return page ? findRenderedPositionForSourcePage(files, displayRecipe, page.fileIndex, page.pageNumberInFile) : undefined;
+}

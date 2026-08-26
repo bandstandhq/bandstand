@@ -4,13 +4,17 @@ import {
   anchorsKey,
   applyAnchorToChordProPosition,
   applyAnchorToFilesPosition,
+  applyPageSyncPosition,
   buildBreakItem,
   buildFinaleItem,
   buildSongItem,
   computeCurrentAnchorInChordPro,
   computeCurrentAnchorInFiles,
+  computePageSyncPosition,
   createInitialStagePosition,
+  determineSyncLevel,
   getAssignedVoiceId,
+  isPageSyncAnchorId,
   itemsKey,
   matchAnchorsToChordProSections,
   moveSetlistItem,
@@ -21,6 +25,7 @@ import {
 } from '@bandstand/core';
 import type {
   Anchor,
+  BandMember,
   ContentVisibility,
   SetlistItem,
   Song,
@@ -28,6 +33,7 @@ import type {
   SongNote,
   StageAwarenessState,
   StagePosition,
+  SyncLevel,
   TextSize,
   Theme,
   Voice,
@@ -600,15 +606,17 @@ export function StageMode() {
   useWakeLock(true);
 
   // Which voice each member sees can be assigned per-song (see
-  // docs/adr/0008-multi-voice-songs.md); the member's own instruments are
-  // only the fallback guess when no explicit assignment exists.
-  const [myInstruments, setMyInstruments] = useState<string[]>([]);
+  // docs/adr/0008-multi-voice-songs.md); a member's own instruments are
+  // only the fallback guess when no explicit assignment exists. Fetched
+  // once for every member, not just the local one — the sync-level
+  // indicator (docs/adr/0010-anchor-sync.md) needs to resolve *present
+  // peers'* voices too, to check whether everyone's on the identical file.
+  const [members, setMembers] = useState<BandMember[]>([]);
   useEffect(() => {
     if (!bandId) return;
-    apiClient.listBandMembers(bandId).then((members) => {
-      setMyInstruments(members.find((m) => m.userId === localUserId)?.instruments ?? []);
-    });
-  }, [bandId, localUserId]);
+    apiClient.listBandMembers(bandId).then(setMembers);
+  }, [bandId]);
+  const myInstruments = members.find((m) => m.userId === localUserId)?.instruments ?? [];
   const songs = useYMap<Song>(doc?.getMap('songs'));
   // Raw Yjs values, not run through voiceSchema — see the matching comment
   // in SongEditor.tsx for why that parse has to happen here explicitly.
@@ -637,7 +645,7 @@ export function StageMode() {
   const virtualElapsedMsRef = useRef(0);
   const liveTransposeRef = useRef(0);
 
-  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const memberNames = Object.fromEntries(members.map((member) => [member.userId, member.name]));
   const [peerStates, setPeerStates] = useState<StageAwarenessState[]>([]);
   const [following, setFollowing] = useState<string | null>(null);
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);
@@ -648,6 +656,11 @@ export function StageMode() {
   // An imperative "jump to this rendered position" for Follow Mode applying
   // a peer's anchor to a `files` voice — see PdfVoiceViewer's own prop docs.
   const [jumpToRenderedPosition, setJumpToRenderedPosition] = useState<number | undefined>(undefined);
+  // A dezent (non-blocking) hint shown when a followed peer's anchor isn't
+  // known to this voice and we walked back to the nearest one that is — "no
+  // error, no dialog" per the spec. Auto-dismisses itself.
+  const [unknownAnchorHint, setUnknownAnchorHint] = useState<string | null>(null);
+  const hintTimeoutRef = useRef<number | undefined>(undefined);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
   const [showEditSetlist, setShowEditSetlist] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -698,13 +711,6 @@ export function StageMode() {
     return () => setLiveTranspose(0);
   }, []);
 
-  useEffect(() => {
-    if (!bandId) return;
-    apiClient.listBandMembers(bandId).then((members) => {
-      setMemberNames(Object.fromEntries(members.map((member) => [member.userId, member.name])));
-    });
-  }, [bandId]);
-
   function handleSettingsChange(patch: Partial<{ theme: Theme; textSize: TextSize; boldText: boolean; chordColor: string; contentVisibility: ContentVisibility }>) {
     if (patch.theme !== undefined) setTheme(patch.theme);
     if (patch.textSize !== undefined) setTextSize(patch.textSize);
@@ -747,6 +753,7 @@ export function StageMode() {
   // against this exact model, not a second, possibly-differently-timed one.
   const chordProBody = voice?.kind === 'chordpro' ? voice.body : undefined;
   const baseKey = currentSong?.key ?? 'C';
+  const hasCurrentSong = currentSong !== undefined;
   const model: RenderModel | null = useMemo(() => {
     if (chordProBody === undefined) return null;
     try {
@@ -763,10 +770,32 @@ export function StageMode() {
   }, [chordProBody, effectiveTranspose, baseKey]);
 
   const displayedKey = useMemo(() => {
-    if (!currentSong) return null;
-    const baseKey = normalizeKey(currentSong.key);
-    return effectiveTranspose === 0 ? baseKey : shiftKeyBySemitones(baseKey, effectiveTranspose);
-  }, [currentSong, effectiveTranspose]);
+    if (!hasCurrentSong) return null;
+    const normalizedBaseKey = normalizeKey(baseKey);
+    return effectiveTranspose === 0 ? normalizedBaseKey : shiftKeyBySemitones(normalizedBaseKey, effectiveTranspose);
+  }, [hasCurrentSong, baseKey, effectiveTranspose]);
+
+  // Which sync-fallback rung is active right now (docs/adr/0010-anchor-sync.md)
+  // — purely informational, never gates whether Follow Mode is attempted.
+  // Scoped to peers present on this exact item, not the whole band: someone
+  // on a different song doesn't affect this song's sync level.
+  function resolveVoiceSha256s(userId: string): string[] {
+    if (!doc || !currentSongId) return [];
+    const memberInstruments = members.find((m) => m.userId === userId)?.instruments;
+    const assignedVoiceId = getAssignedVoiceId(doc, currentSongId, userId, memberInstruments);
+    const rawVoice = assignedVoiceId ? rawVoices[assignedVoiceId] : undefined;
+    const assignedVoice = rawVoice ? voiceSchema.parse(rawVoice) : undefined;
+    return assignedVoice?.kind === 'files' ? assignedVoice.files.map((f) => f.sha256) : [];
+  }
+  const presentPeerUserIds = peerStates
+    .filter((state) => state.setlistId === setlistId && state.itemId === currentItem?.id)
+    .map((state) => state.userId);
+  const resolvedVoices = localUserId
+    ? [localUserId, ...presentPeerUserIds].map((userId) => ({ userId, sha256s: resolveVoiceSha256s(userId) }))
+    : [];
+  const syncLevel: SyncLevel | null = currentSongId
+    ? determineSyncLevel({ anchors, resolvedVoices, online: docStatus === 'connected' })
+    : null;
 
   useEffect(() => {
     scrollSpeedRef.current = scrollSpeed;
@@ -874,14 +903,15 @@ export function StageMode() {
         throttled = false;
         if (!el || !awareness) return;
         const section = findCurrentChordProSection(el);
-        const position = section ? computeCurrentAnchorInChordPro(anchors, currentModel.sections, section) : undefined;
+        const position =
+          section && syncLevel === 'anchor' ? computeCurrentAnchorInChordPro(anchors, currentModel.sections, section) : undefined;
         awareness.setLocalStateField('stage', buildStagePayload(uid, sid, iid, position, liveTransposeRef.current));
       }, POSITION_BROADCAST_THROTTLE_MS);
     }
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, localUserId, setlistId, currentItemId, voice?.kind, model, anchors.map((a) => a.id).join(',')]);
+  }, [provider, localUserId, setlistId, currentItemId, voice?.kind, model, syncLevel, anchors.map((a) => a.id).join(',')]);
 
   // `files` voices don't scroll their own page turns through this
   // component's content-area scroll listener (PdfVoiceViewer manages
@@ -892,17 +922,22 @@ export function StageMode() {
     if (!awareness || !localUserId || !setlistId || !currentItemId || voice?.kind !== 'files' || !currentFilesPage) {
       return;
     }
-    const position = computeCurrentAnchorInFiles(anchors, voice.files, voice.anchorMap, {
-      fileIndex: currentFilesPage.fileIndex,
-      page: currentFilesPage.pageNumberInFile,
-      yPct: 0,
-    });
+    const position =
+      syncLevel === 'anchor'
+        ? computeCurrentAnchorInFiles(anchors, voice.files, voice.anchorMap, {
+            fileIndex: currentFilesPage.fileIndex,
+            page: currentFilesPage.pageNumberInFile,
+            yPct: 0,
+          })
+        : syncLevel === 'page'
+          ? computePageSyncPosition(voice.files, currentFilesPage.fileIndex, currentFilesPage.pageNumberInFile)
+          : undefined;
     awareness.setLocalStateField(
       'stage',
       buildStagePayload(localUserId, setlistId, currentItemId, position, liveTransposeRef.current),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, localUserId, setlistId, currentItemId, voice, currentFilesPage, anchors.map((a) => a.id).join(',')]);
+  }, [provider, localUserId, setlistId, currentItemId, voice, currentFilesPage, syncLevel, anchors.map((a) => a.id).join(',')]);
 
   // A fresh item has no current page yet — otherwise a stale page from the
   // previous song's files voice would linger and broadcast a wrong position.
@@ -969,10 +1004,19 @@ export function StageMode() {
     }
     if (!peer.position) return;
 
-    // A device that receives an anchor its own voice doesn't know walks back
-    // to the nearest earlier known one instead — no error, no dialog (the
-    // visible hint for this lands in a follow-up; the walk-back itself
-    // works here regardless).
+    // A page-sync pseudo-anchor (the "same file, no anchors" fallback
+    // level) is never "unknown" — every present voice was already
+    // confirmed identical for this level to be active at all, so it
+    // resolves directly, no walk-back or hint involved.
+    if (isPageSyncAnchorId(peer.position.anchorId)) {
+      if (voice.kind !== 'files') return;
+      const resolved = applyPageSyncPosition(voice.files, voice.displayRecipe, peer.position.anchorId);
+      if (resolved) setJumpToRenderedPosition(resolved.position);
+      return;
+    }
+
+    // A device that receives a real anchor its own voice doesn't know walks
+    // back to the nearest earlier known one instead — no error, no dialog.
     const knownAnchorIds = new Set(
       voice.kind === 'chordpro'
         ? model
@@ -980,10 +1024,16 @@ export function StageMode() {
           : []
         : Object.keys(voice.anchorMap ?? {}),
     );
-    const resolvedAnchorId = knownAnchorIds.has(peer.position.anchorId)
-      ? peer.position.anchorId
-      : resolveKnownAnchor(anchors, knownAnchorIds, peer.position.anchorId);
+    const isKnown = knownAnchorIds.has(peer.position.anchorId);
+    const resolvedAnchorId = isKnown ? peer.position.anchorId : resolveKnownAnchor(anchors, knownAnchorIds, peer.position.anchorId);
     if (!resolvedAnchorId) return;
+
+    if (!isKnown) {
+      const anchorLabel = anchors.find((a) => a.id === resolvedAnchorId)?.label ?? resolvedAnchorId;
+      setUnknownAnchorHint(t('stageMode.jumpedToNearestAnchor', { label: anchorLabel }));
+      window.clearTimeout(hintTimeoutRef.current);
+      hintTimeoutRef.current = window.setTimeout(() => setUnknownAnchorHint(null), 4000);
+    }
 
     if (voice.kind === 'chordpro' && model) {
       const el = contentAreaRef.current;
@@ -993,7 +1043,7 @@ export function StageMode() {
       const resolved = applyAnchorToFilesPosition(voice.files, voice.displayRecipe, voice.anchorMap, resolvedAnchorId);
       if (resolved) setJumpToRenderedPosition(resolved.position);
     }
-  }, [following, peerStates, currentItem?.id, items, voice, anchors, model]);
+  }, [following, peerStates, currentItem?.id, items, voice, anchors, model, t]);
 
   if (!bandId || !setlistId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
@@ -1039,6 +1089,11 @@ export function StageMode() {
           {items.length > 0 && (
             <span className={`text-sm ${mutedClass}`}>
               {t('stageMode.positionCount', { current: currentIndex + 1, total: items.length })}
+            </span>
+          )}
+          {currentSong && syncLevel && (
+            <span className={`text-xs ${mutedClass}`} title={t(`stageMode.syncLevel_${syncLevel}_hint`)}>
+              {t(`stageMode.syncLevel_${syncLevel}`)}
             </span>
           )}
           {currentSong && <Metronome bpm={currentSong.bpm} isDark={isDark} />}
@@ -1200,6 +1255,14 @@ export function StageMode() {
           onChange={(note) => updateSongNote(currentSongId, note)}
           onClose={() => setShowNotes(false)}
         />
+      )}
+
+      {unknownAnchorHint && (
+        <div
+          className={`absolute left-1/2 top-16 z-10 -translate-x-1/2 rounded-md border px-3 py-1.5 text-xs ${isDark ? 'border-white/20 bg-neutral-900 text-white' : 'border-black/20 bg-white text-black'}`}
+        >
+          {unknownAnchorHint}
+        </div>
       )}
 
       <div

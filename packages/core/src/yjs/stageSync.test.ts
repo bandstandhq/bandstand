@@ -5,9 +5,12 @@ import type { FileRef } from '../files/schema';
 import {
   applyAnchorToChordProPosition,
   applyAnchorToFilesPosition,
+  applyPageSyncPosition,
   computeCurrentAnchorInChordPro,
   computeCurrentAnchorInFiles,
+  computePageSyncPosition,
   determineSyncLevel,
+  isPageSyncAnchorId,
   resolveKnownAnchor,
 } from './stageSync';
 
@@ -197,5 +200,49 @@ describe('determineSyncLevel', () => {
 
   it('is "song" with no resolved voices at all', () => {
     expect(determineSyncLevel({ anchors: [], resolvedVoices: [], online: true })).toBe('song');
+  });
+});
+
+describe('computePageSyncPosition / applyPageSyncPosition', () => {
+  const files = [fileRef('a'.repeat(64), 2), fileRef('b'.repeat(64), 1)];
+
+  it('round-trips a page through a synthetic anchor id back to the same rendered position', () => {
+    const position = computePageSyncPosition(files, 1, 1); // third page overall (originalIndex 2)
+    expect(position).toEqual({ anchorId: 'page:2', fraction: 0 });
+
+    const resolved = applyPageSyncPosition(files, undefined, position!.anchorId);
+    expect(resolved).toMatchObject({ position: 2, fileIndex: 1, pageNumberInFile: 1 });
+  });
+
+  it('survives a reorder, same as a real calibrated anchor does', () => {
+    const position = computePageSyncPosition(files, 0, 1); // originalIndex 0
+    const resolved = applyPageSyncPosition(files, { pageOrder: [2, 0, 1] }, position!.anchorId);
+    expect(resolved?.position).toBe(1);
+  });
+
+  it('is undefined for a page not part of the files', () => {
+    expect(computePageSyncPosition(files, 5, 1)).toBeUndefined();
+  });
+
+  it('is undefined for an anchor id that is not a page-sync id at all', () => {
+    expect(applyPageSyncPosition(files, undefined, 'a-real-anchor-id')).toBeUndefined();
+  });
+
+  it('is undefined for a page-sync id whose page index is out of range', () => {
+    expect(applyPageSyncPosition(files, undefined, 'page:99')).toBeUndefined();
+  });
+});
+
+describe('isPageSyncAnchorId', () => {
+  it('recognizes a page-sync id', () => {
+    expect(isPageSyncAnchorId('page:0')).toBe(true);
+    expect(isPageSyncAnchorId('page:12')).toBe(true);
+  });
+
+  it('rejects a real anchor id, and a malformed page-sync-looking one', () => {
+    expect(isPageSyncAnchorId('intro')).toBe(false);
+    expect(isPageSyncAnchorId('page:')).toBe(false);
+    expect(isPageSyncAnchorId('page:-1')).toBe(false);
+    expect(isPageSyncAnchorId('page:abc')).toBe(false);
   });
 });
