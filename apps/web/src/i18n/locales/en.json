@@ -271,6 +271,17 @@
     "preparing": "Preparing for offline use… ({{done}}/{{total}})",
     "ready": "Ready for the show — everything's cached offline"
   },
+  "songAnchors": {
+    "title": "Anchors",
+    "empty": "No anchors yet — shared positions like \"Chorus\" or \"Bar 33\" that every voice can sync to.",
+    "newPlaceholder": "New anchor (e.g. \"Chorus\")",
+    "add": "Add",
+    "remove": "Remove",
+    "bar": "Bar",
+    "labelFor": "Label for anchor \"{{label}}\"",
+    "barFor": "Bar for anchor \"{{label}}\"",
+    "matchesSection": "Matches a ChordPro section with the same label — no manual calibration needed for that voice"
+  },
   "bandSettings": {
     "back": "Back to dashboard",
     "bandNameLabel": "Band name",
