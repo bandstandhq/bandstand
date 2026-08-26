@@ -133,7 +133,16 @@
     "notes": "Notes",
     "notesFor": "Notes — {{title}}",
     "notesPlaceholder": "Private notes for this song (only you see these)",
-    "checklistPlaceholder": "Add a checklist item…"
+    "checklistPlaceholder": "Add a checklist item…",
+    "syncLevel_anchor": "Anchor sync",
+    "syncLevel_anchor_hint": "This song has anchors — Follow Mode syncs to musical position, even across different voices.",
+    "syncLevel_page": "Page sync",
+    "syncLevel_page_hint": "No anchors yet, but everyone present is reading the identical file — Follow Mode syncs by page.",
+    "syncLevel_song": "Song only",
+    "syncLevel_song_hint": "No anchors and voices differ — Follow Mode only keeps everyone on the same song; scroll for yourself.",
+    "syncLevel_offline": "Offline",
+    "syncLevel_offline_hint": "No connection — nothing syncs right now, but everything here still works.",
+    "jumpedToNearestAnchor": "Jumped to the nearest known anchor ({{label}})"
   },
   "bandSwitcher": {
     "label": "Active band",
