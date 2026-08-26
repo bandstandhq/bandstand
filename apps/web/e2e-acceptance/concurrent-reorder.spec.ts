@@ -4,27 +4,28 @@
 // UI) — this scenario is about whether Yjs's CRDT merge loses either
 // concurrent edit, not about dnd-kit's mouse-event handling. See
 // hocuspocusTestClient.ts.
-import { addSetlistItem, buildBreakItem, itemsKey } from '@bandstand/core';
+import { addSetlistItem, buildBreakItem, createSetlist, itemsKey } from '@bandstand/core';
 import type { SetlistItem } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
-import { DEMO_MEMBER_EMAIL, DEMO_OWNER_EMAIL, DEMO_PASSWORD } from './fixtures';
-import { getBandIdBySlug, getSetlistIdByName, withDb } from './testDb';
+import { createThrowawayBand, DEMO_MEMBER_EMAIL, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand } from './fixtures';
+import { addBandMember, getUserIdByEmail, withDb } from './testDb';
 
 test('two concurrent setlist edits merge without losing either', async () => {
-  const bandId = await withDb((client) => getBandIdBySlug(client, 'demo-band'));
-  const setlistId = await withDb((client) => getSetlistIdByName(client, bandId, 'Full Band Practice Set'));
-
-  const [aliceToken, bobToken] = await Promise.all([
-    signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD),
-    signInForToken(DEMO_MEMBER_EMAIL, DEMO_PASSWORD),
-  ]);
+  const aliceToken = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const bobToken = await signInForToken(DEMO_MEMBER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(aliceToken, 'concurrent-reorder');
+  await withDb(async (client) => {
+    const bobUserId = await getUserIdByEmail(client, DEMO_MEMBER_EMAIL);
+    await addBandMember(client, bandId, bobUserId);
+  });
 
   const alice = connectTestBandDoc(bandId, aliceToken);
   const bob = connectTestBandDoc(bandId, bobToken);
 
   try {
     await Promise.all([alice.waitForSynced(), bob.waitForSynced()]);
+    const setlistId = createSetlist(alice.doc, 'Concurrent Reorder Test');
 
     const aliceMinutes = 1000 + Math.floor(Math.random() * 1000);
     const bobMinutes = 2000 + Math.floor(Math.random() * 1000);
@@ -56,5 +57,6 @@ test('two concurrent setlist edits merge without losing either', async () => {
   } finally {
     alice.provider.destroy();
     bob.provider.destroy();
+    await deleteThrowawayBand(aliceToken, bandId);
   }
 });
