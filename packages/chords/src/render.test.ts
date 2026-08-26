@@ -32,4 +32,12 @@ describe('buildRenderModel', () => {
     });
     expect(chordsOf(model)).toEqual(['G', 'D']);
   });
+
+  it('exposes a section-delimiter tag\'s label, and null for an unlabeled paragraph', () => {
+    const song = parseChordPro(
+      '{start_of_verse: label="Verse 1"}\n[G]a\n{end_of_verse}\n\n[D]b',
+    );
+    const model = buildRenderModel(song);
+    expect(model.sections.map((s) => s.label)).toEqual(['Verse 1', null]);
+  });
 });

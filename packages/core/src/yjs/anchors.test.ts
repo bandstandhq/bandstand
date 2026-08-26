@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
-import { createAnchor, deleteAnchor, listAnchorsForSong, reorderAnchors, updateAnchor } from './anchors';
+import type { Anchor } from '../schemas/anchor';
+import {
+  createAnchor,
+  deleteAnchor,
+  listAnchorsForSong,
+  matchAnchorsToChordProSections,
+  reorderAnchors,
+  updateAnchor,
+} from './anchors';
 
 describe('anchors CRUD', () => {
   it('creates anchors with increasing order and lists them sorted', () => {
@@ -74,5 +82,43 @@ describe('anchors CRUD', () => {
     reorderAnchors(doc, 's1', [id2, 'nonexistent', id1]);
 
     expect(listAnchorsForSong(doc, 's1').map((a) => a.id)).toEqual([id2, id1]);
+  });
+});
+
+describe('matchAnchorsToChordProSections', () => {
+  const anchors: Anchor[] = [
+    { id: 'a1', label: 'Intro', order: 0 },
+    { id: 'a2', label: 'Chorus', order: 1 },
+    { id: 'a3', label: 'Bridge', order: 2 },
+  ];
+
+  it('matches an anchor to the section with the same label', () => {
+    const sections = [{ label: 'Intro' }, { label: 'Verse 1' }, { label: 'Chorus' }];
+    const result = matchAnchorsToChordProSections(anchors, sections);
+    expect(result.get('a1')).toBe(0);
+    expect(result.get('a2')).toBe(2);
+  });
+
+  it('matches case- and whitespace-insensitively', () => {
+    const sections = [{ label: '  CHORUS  ' }];
+    expect(matchAnchorsToChordProSections(anchors, sections).get('a2')).toBe(0);
+  });
+
+  it('leaves an anchor with no matching section absent from the result', () => {
+    const sections = [{ label: 'Intro' }];
+    const result = matchAnchorsToChordProSections(anchors, sections);
+    expect(result.has('a1')).toBe(true);
+    expect(result.has('a2')).toBe(false);
+    expect(result.has('a3')).toBe(false);
+  });
+
+  it('returns an empty map for an empty anchor list or no labeled sections', () => {
+    expect(matchAnchorsToChordProSections([], [{ label: 'Intro' }]).size).toBe(0);
+    expect(matchAnchorsToChordProSections(anchors, [{ label: null }, { label: null }]).size).toBe(0);
+  });
+
+  it('matches the first occurrence when multiple sections share a label', () => {
+    const sections = [{ label: 'Verse' }, { label: 'Chorus' }, { label: 'Chorus' }];
+    expect(matchAnchorsToChordProSections(anchors, sections).get('a2')).toBe(1);
   });
 });
