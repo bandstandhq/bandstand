@@ -20,6 +20,7 @@ import {
   moveSetlistItem,
   removeSetlistItem,
   resolveKnownAnchor,
+  setVoiceAnchorPosition,
   stageAwarenessSchema,
   voiceSchema,
 } from '@bandstand/core';
@@ -374,6 +375,121 @@ function FollowPanel({
   );
 }
 
+/**
+ * Lernmodus (docs/adr/0010-anchor-sync.md): the leader half (announce an
+ * anchor by tapping it) and the learner half (pick who to learn from, then
+ * confirm/discard the page proposals the app quietly recorded) in one
+ * panel — a rehearsal is exactly the setting where the same person plays
+ * both roles across a session.
+ */
+function LernmodusPanel({
+  isDark,
+  anchors,
+  onAnnounce,
+  peers,
+  learningFromUserId,
+  onSetLearningFrom,
+  proposals,
+  onAccept,
+  onDiscard,
+  onClose,
+}: {
+  isDark: boolean;
+  anchors: Anchor[];
+  onAnnounce: (anchorId: string) => void;
+  peers: { userId: string; name: string }[];
+  learningFromUserId: string | null;
+  onSetLearningFrom: (userId: string | null) => void;
+  proposals: Record<string, { pageNumberInFile: number }>;
+  onAccept: (anchorId: string) => void;
+  onDiscard: (anchorId: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
+  const rowClass = isDark ? 'border-white/10' : 'border-black/10';
+  const fieldClass = isDark ? 'border-white/20 bg-transparent text-white' : 'border-black/20 bg-transparent text-black';
+  const buttonBase = 'rounded-md border px-2 py-1 text-xs';
+  const hoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
+  const proposalEntries = Object.entries(proposals);
+
+  return (
+    <div className={`absolute right-4 top-16 z-10 w-72 space-y-3 rounded-md border p-4 ${panelClass}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{t('stageMode.lernmodus')}</p>
+        <button type="button" onClick={onClose} className="text-xs opacity-70 hover:opacity-100">
+          {t('stageMode.close')}
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-xs opacity-70">{t('stageMode.lernmodusAnnounce')}</p>
+        {anchors.length === 0 ? (
+          <p className="text-xs opacity-50">{t('stageMode.lernmodusNoAnchors')}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {anchors.map((anchor) => (
+              <button
+                key={anchor.id}
+                type="button"
+                onClick={() => onAnnounce(anchor.id)}
+                className={`${buttonBase} border ${rowClass} ${hoverClass}`}
+              >
+                {anchor.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-xs opacity-70" htmlFor="lernmodus-learn-from">
+          {t('stageMode.lernmodusLearnFrom')}
+        </label>
+        <select
+          id="lernmodus-learn-from"
+          value={learningFromUserId ?? ''}
+          onChange={(e) => onSetLearningFrom(e.target.value || null)}
+          className={`h-8 w-full rounded-md border px-2 text-xs ${fieldClass}`}
+        >
+          <option value="">{t('stageMode.lernmodusLearnFromNone')}</option>
+          {peers.map((peer) => (
+            <option key={peer.userId} value={peer.userId}>
+              {peer.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {proposalEntries.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs opacity-70">{t('stageMode.lernmodusProposals')}</p>
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
+            {proposalEntries.map(([anchorId, position]) => (
+              <li key={anchorId} className={`flex items-center justify-between border-b py-1 text-sm ${rowClass}`}>
+                <span className="flex-1 truncate">
+                  {t('stageMode.lernmodusProposal', {
+                    label: anchors.find((a) => a.id === anchorId)?.label ?? anchorId,
+                    page: position.pageNumberInFile,
+                  })}
+                </span>
+                <span className="flex shrink-0 gap-1">
+                  <button type="button" onClick={() => onAccept(anchorId)} className={`${buttonBase} ${hoverClass}`}>
+                    {t('stageMode.lernmodusAccept')}
+                  </button>
+                  <button type="button" onClick={() => onDiscard(anchorId)} className={`${buttonBase} ${hoverClass}`}>
+                    {t('stageMode.lernmodusDiscard')}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function itemLabel(
   t: (key: string, opts?: Record<string, unknown>) => string,
   item: SetlistItem,
@@ -662,6 +778,18 @@ export function StageMode() {
   const [unknownAnchorHint, setUnknownAnchorHint] = useState<string | null>(null);
   const hintTimeoutRef = useRef<number | undefined>(undefined);
   const [showFollowPanel, setShowFollowPanel] = useState(false);
+
+  // Lernmodus (docs/adr/0010-anchor-sync.md): a leader announces anchors by
+  // tapping through them (showAnnouncePanel); anyone else with a `files`
+  // voice can separately "learn" from that leader — turning their own pages
+  // normally while the app quietly records which page was showing each time
+  // a new anchor was announced, as a proposal to confirm individually,
+  // never auto-applied. Deliberately independent of `following`/Follow
+  // Mode: a learner is meant to browse for themselves, not be dragged along.
+  const [learningFromUserId, setLearningFromUserId] = useState<string | null>(null);
+  const [showLernmodusPanel, setShowLernmodusPanel] = useState(false);
+  const [anchorProposals, setAnchorProposals] = useState<Record<string, { fileIndex: number; pageNumberInFile: number }>>({});
+  const lastRecordedAnchorIdRef = useRef<string | null>(null);
   const [showEditSetlist, setShowEditSetlist] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [songNotesMap, setSongNotesMap] = useState<Record<string, SongNote>>({});
@@ -1045,6 +1173,45 @@ export function StageMode() {
     }
   }, [following, peerStates, currentItem?.id, items, voice, anchors, model, t]);
 
+  // Lernmodus's recording half: whenever the leader we're learning from
+  // announces a *new* real anchor (never a page-sync pseudo id — there's
+  // nothing to calibrate there), note whatever page this device's own
+  // `files` voice currently shows as a proposal. Never persisted until the
+  // learner explicitly confirms it in the proposals panel.
+  useEffect(() => {
+    lastRecordedAnchorIdRef.current = null;
+  }, [learningFromUserId, currentItem?.id]);
+
+  useEffect(() => {
+    if (!learningFromUserId || voice?.kind !== 'files' || !currentFilesPage) return;
+    const leader = peerStates.find((state) => state.userId === learningFromUserId && state.itemId === currentItem?.id);
+    const anchorId = leader?.position?.anchorId;
+    if (!anchorId || isPageSyncAnchorId(anchorId) || anchorId === lastRecordedAnchorIdRef.current) return;
+    lastRecordedAnchorIdRef.current = anchorId;
+    const { fileIndex, pageNumberInFile } = currentFilesPage;
+    setAnchorProposals((prev) => ({ ...prev, [anchorId]: { fileIndex, pageNumberInFile } }));
+  }, [learningFromUserId, peerStates, currentItem?.id, voice?.kind, currentFilesPage]);
+
+  function handleAcceptProposal(anchorId: string) {
+    if (!voiceId || voice?.kind !== 'files') return;
+    const proposal = anchorProposals[anchorId];
+    if (!proposal) return;
+    setVoiceAnchorPosition(doc!, voiceId, anchorId, { fileIndex: proposal.fileIndex, page: proposal.pageNumberInFile, yPct: 0 });
+    setAnchorProposals((prev) => {
+      const next = { ...prev };
+      delete next[anchorId];
+      return next;
+    });
+  }
+
+  function handleDiscardProposal(anchorId: string) {
+    setAnchorProposals((prev) => {
+      const next = { ...prev };
+      delete next[anchorId];
+      return next;
+    });
+  }
+
   if (!bandId || !setlistId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
 
@@ -1064,6 +1231,15 @@ export function StageMode() {
 
   function handleExit() {
     navigate(`/bands/${bandId}/setlists/${setlistId}`);
+  }
+
+  function announceAnchor(anchorId: string) {
+    const awareness = provider?.awareness;
+    if (!awareness || !localUserId || !setlistId || !currentItem?.id) return;
+    awareness.setLocalStateField(
+      'stage',
+      buildStagePayload(localUserId, setlistId, currentItem.id, { anchorId, fraction: 0 }, liveTransposeRef.current),
+    );
   }
 
   function adjustScrollSpeed(delta: number) {
@@ -1184,6 +1360,16 @@ export function StageMode() {
               </Button>
             )
           )}
+          {currentSong && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowLernmodusPanel((v) => !v)}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {learningFromUserId ? t('stageMode.lernmodusLearningFrom', { name: memberNames[learningFromUserId] ?? learningFromUserId }) : t('stageMode.lernmodus')}
+            </Button>
+          )}
           {doc && (
             <Button
               type="button"
@@ -1233,6 +1419,21 @@ export function StageMode() {
           peers={followablePeers}
           onFollow={startFollowing}
           onClose={() => setShowFollowPanel(false)}
+        />
+      )}
+
+      {showLernmodusPanel && (
+        <LernmodusPanel
+          isDark={isDark}
+          anchors={anchors}
+          onAnnounce={announceAnchor}
+          peers={followablePeers}
+          learningFromUserId={learningFromUserId}
+          onSetLearningFrom={setLearningFromUserId}
+          proposals={anchorProposals}
+          onAccept={handleAcceptProposal}
+          onDiscard={handleDiscardProposal}
+          onClose={() => setShowLernmodusPanel(false)}
         />
       )}
 

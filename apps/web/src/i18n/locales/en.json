@@ -142,7 +142,17 @@
     "syncLevel_song_hint": "No anchors and voices differ — Follow Mode only keeps everyone on the same song; scroll for yourself.",
     "syncLevel_offline": "Offline",
     "syncLevel_offline_hint": "No connection — nothing syncs right now, but everything here still works.",
-    "jumpedToNearestAnchor": "Jumped to the nearest known anchor ({{label}})"
+    "jumpedToNearestAnchor": "Jumped to the nearest known anchor ({{label}})",
+    "lernmodus": "Lernmodus",
+    "lernmodusLearningFrom": "Learning from {{name}}",
+    "lernmodusAnnounce": "Announce an anchor (tap as you reach it)",
+    "lernmodusNoAnchors": "This song has no anchors yet — add some first.",
+    "lernmodusLearnFrom": "Learn from",
+    "lernmodusLearnFromNone": "No one",
+    "lernmodusProposals": "Proposals — confirm or discard",
+    "lernmodusProposal": "{{label}} → page {{page}}",
+    "lernmodusAccept": "Accept",
+    "lernmodusDiscard": "Discard"
   },
   "bandSwitcher": {
     "label": "Active band",
