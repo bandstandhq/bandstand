@@ -29,6 +29,11 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['assignment:editOthers', true, true, false],
   ['anchor:edit', true, true, false],
   ['annotation:moderateShared', true, true, false],
+  ['event:create', true, true, false],
+  ['event:edit', true, true, false],
+  ['event:delete', true, true, false],
+  ['poll:create', true, true, false],
+  ['poll:close', true, true, false],
 ];
 
 const ROLES: BandRole[] = ['owner', 'admin', 'member'];

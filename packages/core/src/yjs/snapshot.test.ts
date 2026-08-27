@@ -55,6 +55,18 @@ const sampleSnapshot: BandSnapshot = {
       ],
     },
   },
+  events: {
+    'e1': { type: 'rehearsal', title: 'Weekly practice', startsAt: 1_700_000_000_000, allDay: false, status: 'confirmed' },
+  },
+  availability: {
+    'e1:u1': 'yes',
+  },
+  polls: {
+    'p1': { title: 'When works?', options: [{ id: 'o1', startsAt: 1_700_000_000_000 }] },
+  },
+  pollVotes: {
+    'p1:o1:u1': 'maybe',
+  },
 };
 
 describe('yDoc <-> snapshot round-trip', () => {
@@ -105,5 +117,26 @@ describe('yDoc <-> snapshot round-trip', () => {
   it('parses a raw object with no `anchors` key at all — pre-Teil-B snapshots never had one', () => {
     const { anchors: _anchors, ...withoutAnchors } = sampleSnapshot;
     expect(bandSnapshotSchema.parse(withoutAnchors).anchors).toEqual({});
+  });
+
+  it('parses a doc with no events/availability/polls/pollVotes written at all as empty maps (pre-Milestone-3 back-compat)', () => {
+    const doc = new Y.Doc();
+    doc.getMap('songs').set('s1', sampleSnapshot.songs.s1);
+
+    const snapshot = yDocToSnapshot(doc);
+    expect(snapshot.events).toEqual({});
+    expect(snapshot.availability).toEqual({});
+    expect(snapshot.polls).toEqual({});
+    expect(snapshot.pollVotes).toEqual({});
+  });
+
+  it('parses a raw object with none of the Milestone 3 keys at all — pre-Milestone-3 snapshots never had them', () => {
+    const { events: _events, availability: _availability, polls: _polls, pollVotes: _pollVotes, ...withoutCalendar } =
+      sampleSnapshot;
+    const parsed = bandSnapshotSchema.parse(withoutCalendar);
+    expect(parsed.events).toEqual({});
+    expect(parsed.availability).toEqual({});
+    expect(parsed.polls).toEqual({});
+    expect(parsed.pollVotes).toEqual({});
   });
 });
