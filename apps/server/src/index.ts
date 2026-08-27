@@ -5,7 +5,9 @@ import { cors } from 'hono/cors';
 import { auth } from './lib/auth';
 import { hocuspocusServer } from './lib/hocuspocus';
 import { bandsRoute } from './routes/bands';
+import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
+import { icsTokenRoute } from './routes/icsToken';
 import { inviteRedemptionRoute } from './routes/invites';
 import { userPrefsRoute } from './routes/userPrefs';
 
@@ -23,6 +25,8 @@ app.route('/health', health);
 app.route('/bands', bandsRoute);
 app.route('/invites', inviteRedemptionRoute);
 app.route('/me/prefs', userPrefsRoute);
+app.route('/me/ics-token', icsTokenRoute);
+app.route('/calendar', calendarFeedRoute);
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
 const port = Number(process.env.PORT ?? 3001);
