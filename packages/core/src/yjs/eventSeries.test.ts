@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import type { CalendarEvent } from '../schemas/event';
-import { resolveEventOccurrences } from './eventSeries';
+import { findOccurrenceEvent, resolveEventOccurrences } from './eventSeries';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -150,5 +150,35 @@ describe('resolveEventOccurrences', () => {
     const occurrences = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-01-15'));
 
     expect(occurrences.map((o) => o.occurrenceId)).toEqual(['series-1@2026-01-05', 'plain-1', 'series-1@2026-01-12']);
+  });
+});
+
+describe('findOccurrenceEvent', () => {
+  it('looks up a plain event directly', () => {
+    const plain: CalendarEvent = {
+      type: 'gig',
+      title: 'One-off show',
+      startsAt: Date.parse('2026-02-01T20:00:00.000Z'),
+      allDay: false,
+      status: 'confirmed',
+    };
+    expect(findOccurrenceEvent({ e1: plain }, 'e1')).toBe(plain);
+  });
+
+  it('looks up an exception directly, by its own real id', () => {
+    const exception = template({ seriesRule: undefined, occurrenceDate: '2026-01-12', title: 'Extra long' });
+    expect(findOccurrenceEvent({ 'series-1': template(), 'exc-1': exception }, 'exc-1')).toBe(exception);
+  });
+
+  it('resolves a virtual occurrence\'s synthetic id via the series walk', () => {
+    const events = { 'series-1': template() };
+    const found = findOccurrenceEvent(events, 'series-1@2026-01-12');
+    expect(found?.startsAt).toBe(Date.parse('2026-01-12T18:00:00.000Z'));
+    expect(found?.title).toBe('Weekly practice');
+  });
+
+  it('returns undefined for an unknown id', () => {
+    expect(findOccurrenceEvent({}, 'missing')).toBeUndefined();
+    expect(findOccurrenceEvent({}, 'missing@2026-01-12')).toBeUndefined();
   });
 });
