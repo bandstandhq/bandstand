@@ -28,6 +28,16 @@ import { authClient } from '../lib/auth-client';
 type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea' | 'active'>;
 type RepertoireView = 'active' | 'archive';
 
+/** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 /**
  * "Before a gig it's clear where it's stuck" (see docs/adr/0010-anchor-sync.md)
  * — how many members' currently-assigned voice has every song anchor
@@ -206,16 +216,26 @@ export function Repertoire() {
                   <td className="py-2 pr-4">
                     {/* Stretched-link pattern: its containing block is
                         this `relative` <tr>, so it covers the whole row —
-                        the visible "Edit"/"Restore"/"Archive"/"Delete
-                        forever" controls each get `relative` so they stay
-                        on top and independently clickable, per normal
-                        DOM-order stacking within the row. */}
+                        the visible pencil icon and "Restore"/"Archive"/
+                        "Delete forever" controls each get `relative` so
+                        they stay on top and independently clickable, per
+                        normal DOM-order stacking within the row. A row
+                        plays the song (Stage Mode, no setlist) — editing
+                        has its own explicit affordance, the pencil icon,
+                        rather than being the row's default action. */}
                     <Link
-                      to={`/bands/${bandId}/songs/${songId}/edit`}
+                      to={`/bands/${bandId}/songs/${songId}/play`}
                       className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                      aria-label={t('repertoire.editAria', { title: song.title })}
+                      aria-label={t('repertoire.playAria', { title: song.title })}
                     />
                     {song.title}
+                    <Link
+                      to={`/bands/${bandId}/songs/${songId}/edit`}
+                      aria-label={t('repertoire.editAria', { title: song.title })}
+                      className="relative ml-1 inline-flex h-11 w-11 -translate-y-0.5 items-center justify-center align-middle text-muted-foreground hover:text-foreground"
+                    >
+                      <PencilIcon />
+                    </Link>
                   </td>
                   <td className="py-2 pr-4">{song.artist}</td>
                   <td className="py-2 pr-4">{normalizeKey(song.key)}</td>
@@ -224,9 +244,6 @@ export function Repertoire() {
                     {doc && <AnchorReadiness doc={doc} songId={songId} members={members} />}
                   </td>
                   <td className="space-x-3 py-2 text-right">
-                    <Link to={`/bands/${bandId}/songs/${songId}/edit`} className="relative text-sm text-primary hover:underline">
-                      {t('repertoire.edit')}
-                    </Link>
                     {view === 'archive' ? (
                       <>
                         <button
