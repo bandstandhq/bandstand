@@ -56,7 +56,7 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
                 <p>{occ.event.title}</p>
                 <p className="text-xs text-muted-foreground">{formatEventWhen(occ.event)}</p>
               </div>
-              {!hasAnswered && <span className="relative text-xs text-primary">{t('dashboard.needsResponse')}</span>}
+              {!hasAnswered && <span className="text-xs text-primary">{t('dashboard.needsResponse')}</span>}
             </li>
           );
         })}

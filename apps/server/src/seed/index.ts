@@ -16,7 +16,19 @@
 // to manually create bands/members while developing role-gated UI.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createVoice, generateInviteCode, getDefaultVoiceId, sha256Hex, yDocToSnapshot } from '@bandstand/core';
+import {
+  createEvent,
+  createPoll,
+  createRecurringEvent,
+  createVoice,
+  generateInviteCode,
+  getDefaultVoiceId,
+  listPolls,
+  respondAvailability,
+  sha256Hex,
+  votePoll,
+  yDocToSnapshot,
+} from '@bandstand/core';
 import * as Y from 'yjs';
 import { eq, inArray } from 'drizzle-orm';
 import { auth } from '../lib/auth';
@@ -55,6 +67,10 @@ const DEMO_PASSWORD = 'bandstand-demo';
 const DEMO_USERS = [
   { email: 'alice@bandstand.local', name: 'Alice (owner)', role: 'owner' as const },
   { email: 'bob@bandstand.local', name: 'Bob (member)', role: 'member' as const },
+  // Also an admin here (not just in Second Fiddle) so the calendar/poll
+  // admin-gated actions (event:create/delete, poll:create/close) have a
+  // non-owner admin to exercise in the main demo band too.
+  { email: 'carol@bandstand.local', name: 'Carol (admin)', role: 'admin' as const },
 ];
 // In the second band, the same three people have different roles —
 // bob owns it, alice is just a member, and carol (new) is an admin.
@@ -203,6 +219,75 @@ async function main() {
     activeSongIds.map((songId, i) => ({ id: `full-item-${i}`, type: 'song' as const, songId })),
   );
 
+  // Milestone 3: calendar events + an open scheduling poll. Relative to
+  // "now" (never a hardcoded date) so "one event in the past" and "one
+  // still-open poll" stay true no matter when `pnpm seed` actually runs.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const seedNow = Date.now();
+  const [aliceId, bobId] = userIds as [string, string, string];
+
+  createEvent(doc, {
+    type: 'rehearsal',
+    title: "Last week's rehearsal",
+    startsAt: seedNow - 14 * DAY_MS,
+    allDay: false,
+    status: 'confirmed',
+  });
+
+  const seriesId = createRecurringEvent(
+    doc,
+    {
+      type: 'rehearsal',
+      title: 'Weekly rehearsal',
+      startsAt: seedNow + 3 * DAY_MS,
+      allDay: false,
+      status: 'confirmed',
+      location: 'The Practice Space',
+    },
+    { freq: 'weekly', until: new Date(seedNow + 90 * DAY_MS).toISOString().slice(0, 10) },
+  );
+
+  createEvent(doc, {
+    type: 'gig',
+    title: 'Open Mic Night',
+    startsAt: seedNow + 20 * DAY_MS,
+    allDay: false,
+    status: 'confirmed',
+    location: 'The Grinning Goat, 123 Main St',
+    locationGeo: { lat: 52.52, lng: 13.405 },
+    setlistId: 'setlist-open-mic',
+  });
+
+  createEvent(doc, {
+    type: 'gig',
+    title: 'Maybe a wedding gig',
+    startsAt: seedNow + 30 * DAY_MS,
+    allDay: false,
+    status: 'tentative',
+  });
+
+  createEvent(doc, {
+    type: 'other',
+    title: 'Studio day (cancelled)',
+    startsAt: seedNow + 10 * DAY_MS,
+    allDay: false,
+    status: 'cancelled',
+  });
+
+  const firstRehearsalOccurrence = `${seriesId}@${new Date(seedNow + 3 * DAY_MS).toISOString().slice(0, 10)}`;
+  respondAvailability(doc, firstRehearsalOccurrence, aliceId, 'yes');
+  respondAvailability(doc, firstRehearsalOccurrence, bobId, 'maybe');
+  // Carol deliberately doesn't answer — demonstrates the "still open" state.
+
+  const pollId = createPoll(doc, {
+    title: 'When should we rehearse before the gig?',
+    options: [{ startsAt: seedNow + 5 * DAY_MS }, { startsAt: seedNow + 6 * DAY_MS }, { startsAt: seedNow + 7 * DAY_MS }],
+  });
+  const pollOptions = listPolls(doc)[pollId]!.options;
+  votePoll(doc, pollId, pollOptions[0]!.id, aliceId, 'yes');
+  votePoll(doc, pollId, pollOptions[1]!.id, bobId, 'maybe');
+  // Carol deliberately doesn't vote either.
+
   const snapshot = yDocToSnapshot(doc);
   const yjsState = Buffer.from(Y.encodeStateAsUpdate(doc));
 
@@ -214,6 +299,8 @@ async function main() {
   console.log('  "Amazing Grace" has 3 voices: ChordPro, Trumpet in B♭ (1 page), Full Score (2 pages)');
   console.log('  Setlists: 2');
   console.log('  Invites: 1 open, 1 redeemed');
+  console.log('  Events: 5 (one in the past, one a weekly series through +90 days)');
+  console.log('  Polls: 1 open ("When should we rehearse before the gig?"), voted by alice + bob, not carol');
   for (const u of DEMO_USERS) {
     console.log(`  Login: ${u.email} / ${DEMO_PASSWORD} (${u.role})`);
   }

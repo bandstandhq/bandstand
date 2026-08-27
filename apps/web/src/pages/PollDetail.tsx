@@ -181,8 +181,13 @@ export function PollDetail() {
             className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={t('pollDetail.viewEvent')}
           />
-          <p className="relative">{t('pollDetail.resolvedTo')}</p>
-          <p className="relative text-sm text-primary">{t('pollDetail.viewEvent')}</p>
+          {/* Plain text, not independently interactive — no `relative`, so
+              the absolutely-positioned link above stays on top and
+              clickable through it (a `relative` sibling defined later in
+              the DOM would otherwise paint over an earlier absolutely
+              -positioned one, per CSS's stacking-order rules). */}
+          <p>{t('pollDetail.resolvedTo')}</p>
+          <p className="text-sm text-primary">{t('pollDetail.viewEvent')}</p>
         </div>
       ) : (
         <>

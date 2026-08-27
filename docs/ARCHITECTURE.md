@@ -47,6 +47,23 @@ Y.Map "setlists"              → setlistId → { name, eventDate?, updatedAt }
 Y.Array "items:<setlistId>"   → ordered list of { id, type, songId?,
                                                    breakMinutes?,
                                                    overrideKey? }
+Y.Map "events"                → eventId → { type, title, startsAt, endsAt?,
+                                             allDay, location?, locationGeo?,
+                                             notes?, setlistId?, status,
+                                             seriesId?, seriesRule?,
+                                             occurrenceDate? } — a
+                                             recurring series is a template
+                                             plus exception entries, never
+                                             one row per generated date; see
+                                             ADR-0011
+Y.Map "availability"          → "<occurrenceId>:<userId>" → 'yes'|'maybe'|'no'
+                                             — occurrenceId is a real events
+                                             key, or a virtual occurrence's
+                                             synthetic "<templateId>@<date>"
+                                             id (see ADR-0011)
+Y.Map "polls"                 → pollId → { title, notes?, options, closesAt?,
+                                            resolvedEventId? }
+Y.Map "pollVotes"             → "<pollId>:<optionId>:<userId>" → 'yes'|'maybe'|'no'
 ```
 
 A song's ChordPro content lives on a voice, not the song itself — see
@@ -60,6 +77,17 @@ list every voice's own position maps into
 Order within a setlist is carried entirely by the `Y.Array`'s own
 ordering — never by a position/index field on the item — so concurrent
 inserts and reorders merge conflict-free.
+
+Milestone 3 added calendar events, availability, and scheduling polls to
+this same document — see [ADR-0011](adr/0011-calendar-events.md) for the
+recurring-series-as-template design, the synthetic occurrence-id scheme
+`availability` uses, and the amendment it makes to the manipulated-client
+guard below (`availability`/`pollVotes` need a different kind of check
+than whole-key deletion). The read-only ICS subscription feed
+(`GET /calendar/:token.ics`, `apps/server/src/routes/calendarFeed.ts`) is
+the one place band data leaves this document for an unauthenticated,
+token-only HTTP client — it rechecks the token holder's band memberships
+fresh from Postgres on every single request, never from a cache.
 
 ### 2. Stage — ephemeral, never persisted
 

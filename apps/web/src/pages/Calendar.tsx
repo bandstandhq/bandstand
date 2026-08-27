@@ -49,7 +49,7 @@ function EventRow({ bandId, occurrence }: { bandId: string; occurrence: Resolved
         </p>
         <p className="text-xs text-muted-foreground">{formatEventWhen(event)}</p>
       </div>
-      <span className="relative text-sm text-primary">{t('calendarList.open')}</span>
+      <span className="text-sm text-primary">{t('calendarList.open')}</span>
     </li>
   );
 }
@@ -145,7 +145,7 @@ function MonthGrid({
                           className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                           aria-label={t('calendarList.openAria', { name: occ.event.title })}
                         />
-                        <span className="relative">{occ.event.title}</span>
+                        <span>{occ.event.title}</span>
                       </li>
                     ))}
                   </ul>
@@ -329,7 +329,7 @@ function PollRow({ bandId, pollId, poll }: { bandId: string; pollId: string; pol
         {poll.title}
         {poll.resolvedEventId && <span className="ml-2 text-muted-foreground">{t('calendarList.pollClosedLabel')}</span>}
       </span>
-      <span className="relative text-sm text-primary">{t('calendarList.open')}</span>
+      <span className="text-sm text-primary">{t('calendarList.open')}</span>
     </li>
   );
 }

@@ -208,8 +208,11 @@ export function EventDetail() {
             className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={t('eventDetail.openSetlistAria', { name: linkedSetlist.name })}
           />
-          <p className="relative text-sm font-medium text-muted-foreground">{t('eventDetail.linkedSetlist')}</p>
-          <p className="relative">{linkedSetlist.name}</p>
+          {/* Plain text, not independently interactive — no `relative`, so
+              the absolutely-positioned link above stays on top and
+              clickable through it. */}
+          <p className="text-sm font-medium text-muted-foreground">{t('eventDetail.linkedSetlist')}</p>
+          <p>{linkedSetlist.name}</p>
         </div>
       )}
 
