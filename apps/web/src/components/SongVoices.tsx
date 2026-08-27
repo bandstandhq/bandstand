@@ -147,41 +147,39 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
 
       <div>
         <p className="mb-2 text-sm font-medium">{t('songVoices.assignmentsTitle')}</p>
-        <table className="w-full text-sm">
-          <tbody>
-            {members.map((member) => {
-              const isSelf = member.userId === currentUserId;
-              const canEdit = isSelf || canEditOthers;
-              const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
-              const isGuessed = getAssignment(doc, songId, member.userId) === undefined;
+        <ul className="space-y-2 text-sm">
+          {members.map((member) => {
+            const isSelf = member.userId === currentUserId;
+            const canEdit = isSelf || canEditOthers;
+            const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
+            const isGuessed = getAssignment(doc, songId, member.userId) === undefined;
 
-              return (
-                <tr key={member.userId}>
-                  <td className="py-1 pr-4">{member.name}</td>
-                  <td className="py-1">
-                    {canEdit ? (
-                      <select
-                        aria-label={t('songVoices.assignmentFor', { name: member.name })}
-                        value={assignedVoiceId ?? ''}
-                        onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
-                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                      >
-                        {voices.map(({ id, voice }) => (
-                          <option key={id} value={id}>
-                            {voice.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
-                    )}
-                    {isGuessed && <span className="ml-2 text-xs text-muted-foreground">{t('songVoices.guessed')}</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            return (
+              <li key={member.userId} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <span className="wrap-break-word">{member.name}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit ? (
+                    <select
+                      aria-label={t('songVoices.assignmentFor', { name: member.name })}
+                      value={assignedVoiceId ?? ''}
+                      onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
+                      className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-2 text-xs"
+                    >
+                      {voices.map(({ id, voice }) => (
+                        <option key={id} value={id}>
+                          {voice.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
+                  )}
+                  {isGuessed && <span className="text-xs text-muted-foreground">{t('songVoices.guessed')}</span>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </div>
   );

@@ -715,7 +715,19 @@ function NotesPanel({
 export function StageMode() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { bandId, setlistId, itemId } = useParams<{ bandId: string; setlistId: string; itemId: string }>();
+  // Two routes render this component: a setlist item
+  // (/bands/:bandId/setlists/:setlistId/stage/:itemId) or, per the
+  // "click a repertoire row to play it" requirement, a single song with no
+  // setlist at all (/bands/:bandId/songs/:songId/play) — `singleSongMode`
+  // below is which one matched. Never both: the two route patterns are
+  // mutually exclusive.
+  const { bandId, setlistId, itemId, songId } = useParams<{
+    bandId: string;
+    setlistId?: string;
+    itemId?: string;
+    songId?: string;
+  }>();
+  const singleSongMode = Boolean(songId) && !setlistId;
   const { doc, provider, status: docStatus } = useBandDoc(bandId ?? null);
   const { data: session } = authClient.useSession();
   const localUserId = session?.user.id;
@@ -808,6 +820,13 @@ export function StageMode() {
   const lastRecordedAnchorIdRef = useRef<string | null>(null);
   const [showEditSetlist, setShowEditSetlist] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  // Landscape is the real-world way this gets used mid-song (see
+  // docs/... mobile-usability pass) — a phone turned sideways has so little
+  // vertical space that the always-visible header/footer chrome would eat
+  // most of the lyric area. Collapsible via one small always-present toggle
+  // rather than a tap-anywhere gesture, so it never fights PdfVoiceViewer's
+  // own tap-to-turn-page zones inside the content area.
+  const [chromeVisible, setChromeVisible] = useState(true);
   const [songNotesMap, setSongNotesMap] = useState<Record<string, SongNote>>({});
   const songNotesMapRef = useRef(songNotesMap);
   const saveNotesTimeoutRef = useRef<number | undefined>(undefined);
@@ -871,7 +890,14 @@ export function StageMode() {
   let voiceId: string | undefined;
   let currentSong: Song | undefined;
   let currentSongId: string | undefined;
-  if (currentItem?.type === 'song') {
+  if (singleSongMode && songId) {
+    currentSong = songs[songId];
+    currentSongId = songId;
+    label = currentSong ? currentSong.title : songId;
+    voiceId = doc && localUserId ? getAssignedVoiceId(doc, songId, localUserId, myInstruments) : undefined;
+    const rawVoice = voiceId ? rawVoices[voiceId] : undefined;
+    voice = rawVoice ? voiceSchema.parse(rawVoice) : undefined;
+  } else if (currentItem?.type === 'song') {
     currentSong = songs[currentItem.songId];
     currentSongId = currentItem.songId;
     label = currentSong ? currentSong.title : currentItem.songId;
@@ -1228,7 +1254,7 @@ export function StageMode() {
     });
   }
 
-  if (!bandId || !setlistId) return null;
+  if (!bandId || (!setlistId && !songId)) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
 
   function startFollowing(userId: string) {
@@ -1246,7 +1272,8 @@ export function StageMode() {
   }
 
   function handleExit() {
-    navigate(`/bands/${bandId}/setlists/${setlistId}`);
+    if (singleSongMode) navigate(`/bands/${bandId}/repertoire`);
+    else navigate(`/bands/${bandId}/setlists/${setlistId}`);
   }
 
   function announceAnchor(anchorId: string) {
@@ -1272,18 +1299,36 @@ export function StageMode() {
   const mutedClass = isDark ? 'text-white/60' : 'text-black/60';
 
   return (
-    <main className={`fixed inset-0 flex flex-col ${bgClass}`}>
-      <div className="flex items-center justify-between p-4">
+    <main
+      className={`fixed inset-0 flex flex-col ${bgClass}`}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setChromeVisible((v) => !v)}
+        aria-label={chromeVisible ? t('stageMode.hideControls') : t('stageMode.showControls')}
+        className={`absolute left-1/2 top-1 z-20 flex h-8 w-11 -translate-x-1/2 items-center justify-center rounded-full text-xs ${chromeHoverClass} ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}
+      >
+        {chromeVisible ? '▲' : '▼'}
+      </button>
+
+      {chromeVisible && (
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 pt-10">
         <Button type="button" variant="ghost" onClick={handleExit} className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}>
           {t('stageMode.exit')}
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {items.length > 0 && (
             <span className={`text-sm ${mutedClass}`}>
               {t('stageMode.positionCount', { current: currentIndex + 1, total: items.length })}
             </span>
           )}
-          {currentSong && syncLevel && (
+          {!singleSongMode && currentSong && syncLevel && (
             <span
               data-testid="sync-level-indicator"
               className={`text-xs ${mutedClass}`}
@@ -1299,7 +1344,7 @@ export function StageMode() {
                 type="button"
                 onClick={() => adjustLiveTranspose(-1)}
                 aria-label={t('stageMode.transposeDown')}
-                className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${chromeHoverClass}`}
               >
                 −
               </button>
@@ -1311,7 +1356,7 @@ export function StageMode() {
                 type="button"
                 onClick={() => adjustLiveTranspose(1)}
                 aria-label={t('stageMode.transposeUp')}
-                className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${chromeHoverClass}`}
               >
                 +
               </button>
@@ -1325,7 +1370,7 @@ export function StageMode() {
                     type="button"
                     onClick={() => adjustScrollSpeed(-SCROLL_SPEED_STEP)}
                     aria-label={t('stageMode.scrollSlower')}
-                    className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${chromeHoverClass}`}
                   >
                     −
                   </button>
@@ -1334,7 +1379,7 @@ export function StageMode() {
                     type="button"
                     onClick={() => adjustScrollSpeed(SCROLL_SPEED_STEP)}
                     aria-label={t('stageMode.scrollFaster')}
-                    className={`rounded-md px-2 py-1 text-sm ${chromeHoverClass}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-md text-sm ${chromeHoverClass}`}
                   >
                     +
                   </button>
@@ -1380,7 +1425,7 @@ export function StageMode() {
               </Button>
             )
           )}
-          {currentSong && (
+          {!singleSongMode && currentSong && (
             <Button
               type="button"
               variant="ghost"
@@ -1390,7 +1435,7 @@ export function StageMode() {
               {learningFromUserId ? t('stageMode.lernmodusLearningFrom', { name: memberNames[learningFromUserId] ?? learningFromUserId }) : t('stageMode.lernmodus')}
             </Button>
           )}
-          {doc && (
+          {!singleSongMode && doc && (
             <Button
               type="button"
               variant="ghost"
@@ -1398,6 +1443,16 @@ export function StageMode() {
               className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
             >
               {t('stageMode.editSetlist')}
+            </Button>
+          )}
+          {bandId && currentSongId && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => navigate(`/bands/${bandId}/songs/${currentSongId}/edit`)}
+              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            >
+              {t('stageMode.editSong')}
             </Button>
           )}
           {currentSong && (
@@ -1420,6 +1475,7 @@ export function StageMode() {
           </Button>
         </div>
       </div>
+      )}
 
       {showSettings && (
         <SettingsPanel
@@ -1457,7 +1513,7 @@ export function StageMode() {
         />
       )}
 
-      {showEditSetlist && doc && (
+      {showEditSetlist && doc && setlistId && (
         <EditSetlistPanel
           isDark={isDark}
           doc={doc}
@@ -1509,32 +1565,34 @@ export function StageMode() {
         )}
       </div>
 
-      <div className="flex items-center justify-between p-4">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={currentIndex <= 0}
-          onClick={() => {
-            stopFollowing();
-            setRequestedIndex((i) => Math.max(0, i - 1));
-          }}
-          className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
-        >
-          {t('stageMode.previous')}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={currentIndex >= items.length - 1}
-          onClick={() => {
-            stopFollowing();
-            setRequestedIndex((i) => Math.min(items.length - 1, i + 1));
-          }}
-          className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
-        >
-          {t('stageMode.next')}
-        </Button>
-      </div>
+      {!singleSongMode && chromeVisible && (
+        <div className="flex items-center justify-between p-4">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={currentIndex <= 0}
+            onClick={() => {
+              stopFollowing();
+              setRequestedIndex((i) => Math.max(0, i - 1));
+            }}
+            className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
+          >
+            {t('stageMode.previous')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={currentIndex >= items.length - 1}
+            onClick={() => {
+              stopFollowing();
+              setRequestedIndex((i) => Math.min(items.length - 1, i + 1));
+            }}
+            className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass} disabled:opacity-30`}
+          >
+            {t('stageMode.next')}
+          </Button>
+        </div>
+      )}
     </main>
   );
 }

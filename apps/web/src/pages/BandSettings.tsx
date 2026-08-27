@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { RequireBandRole } from '../components/RequireBandRole';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 
@@ -94,18 +95,22 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
 
       <div className="mt-4">
         {canRename ? (
-          <form onSubmit={handleRename} className="flex items-center gap-2">
+          <form onSubmit={handleRename} className="flex flex-wrap items-center gap-2">
             <Input
               id="band-name"
               aria-label={t('bandSettings.bandNameLabel')}
               value={bandName}
               onChange={(e) => setBandName(e.target.value)}
-              className="max-w-sm text-xl font-medium"
+              className="w-full max-w-sm text-xl font-medium sm:w-auto"
             />
             <Button type="submit" size="sm">
               {t('bandSettings.rename.save')}
             </Button>
-            {renameSaved && <span className="text-sm text-muted-foreground">{t('bandSettings.rename.saved')}</span>}
+            {renameSaved && (
+              <span className="text-sm text-muted-foreground">
+                {t('bandSettings.rename.saved')}
+              </span>
+            )}
           </form>
         ) : (
           <h1 className="text-xl font-medium">{myBand?.name}</h1>
@@ -129,7 +134,10 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       {canManageInvites && (
         <section className="mt-8">
           <h2 className="text-lg font-medium">{t('bandSettings.invites.title')}</h2>
-          <CreateInviteForm bandId={bandId} onCreated={(invite) => setInvites((prev) => [invite, ...prev])} />
+          <CreateInviteForm
+            bandId={bandId}
+            onCreated={(invite) => setInvites((prev) => [invite, ...prev])}
+          />
           <InviteList
             bandId={bandId}
             invites={invites}
@@ -144,8 +152,16 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       {canDelete && (
         <section className="mt-8 rounded-md border border-destructive p-4">
           <h2 className="text-lg font-medium text-destructive">{t('bandSettings.danger.title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('bandSettings.danger.description')}</p>
-          <Button variant="destructive" size="sm" className="mt-3" onClick={handleDelete} disabled={deleting}>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('bandSettings.danger.description')}
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="mt-3"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
             {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.delete')}
           </Button>
           {deleteError && <p className="mt-2 text-sm text-destructive">{deleteError}</p>}
@@ -164,8 +180,16 @@ function RoleBadge({ role }: { role: BandRole }) {
         ? t('bandSettings.members.roleAdmin')
         : t('bandSettings.members.roleMember');
   const colorClass =
-    role === 'owner' ? 'bg-primary text-primary-foreground' : role === 'admin' ? 'bg-accent' : 'bg-muted text-muted-foreground';
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>{label}</span>;
+    role === 'owner'
+      ? 'bg-primary text-primary-foreground'
+      : role === 'admin'
+        ? 'bg-accent'
+        : 'bg-muted text-muted-foreground';
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>
+      {label}
+    </span>
+  );
 }
 
 function MemberList({
@@ -184,6 +208,30 @@ function MemberList({
   onLeftBand: () => void;
 }) {
   const { t } = useTranslation();
+  // Renders either the table or its narrow-screen card equivalent, never
+  // both — a CSS-only `hidden sm:table` / `sm:hidden` pair would put every
+  // member's name into the DOM twice, breaking any test (or screen reader)
+  // that looks a member up by name without also picking which variant it
+  // means.
+  const isNarrowScreen = useMediaQuery('(max-width: 639px)');
+
+  if (isNarrowScreen) {
+    return (
+      <ul className="mt-2 space-y-3">
+        {members.map((member) => (
+          <MemberCard
+            key={member.userId}
+            bandId={bandId}
+            member={member}
+            isSelf={member.userId === viewerUserId}
+            viewerRole={viewerRole}
+            onRefresh={onRefresh}
+            onLeftBand={onLeftBand}
+          />
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <table className="mt-2 w-full text-sm">
@@ -213,7 +261,7 @@ function MemberList({
   );
 }
 
-function MemberRow({
+function useMemberActions({
   bandId,
   member,
   isSelf,
@@ -274,59 +322,203 @@ function MemberRow({
 
   const canChangeRole = !isSelf && member.role !== 'owner' && can(viewerRole, 'member:changeRole');
   const canRemove = !isSelf && canRemoveMember(viewerRole, member.role);
-  const canTransfer = !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
+  const canTransfer =
+    !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
   const canLeave = isSelf && viewerRole !== 'owner' && can(viewerRole, 'band:leave');
+
+  return {
+    busy,
+    error,
+    canChangeRole,
+    canRemove,
+    canTransfer,
+    canLeave,
+    handleChangeRole,
+    handleRemove,
+    handleTransfer,
+    handleLeave,
+  };
+}
+
+function MemberActionButtons({
+  member,
+  busy,
+  canChangeRole,
+  canRemove,
+  canTransfer,
+  canLeave,
+  handleChangeRole,
+  handleRemove,
+  handleTransfer,
+  handleLeave,
+  isSelf,
+  viewerRole,
+}: {
+  member: BandMember;
+  busy: boolean;
+  canChangeRole: boolean;
+  canRemove: boolean;
+  canTransfer: boolean;
+  canLeave: boolean;
+  handleChangeRole: (role: 'admin' | 'member') => void;
+  handleRemove: () => void;
+  handleTransfer: () => void;
+  handleLeave: () => void;
+  isSelf: boolean;
+  viewerRole: BandRole;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {canChangeRole && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => handleChangeRole(member.role === 'admin' ? 'member' : 'admin')}
+          className="text-primary hover:underline"
+        >
+          {member.role === 'admin'
+            ? t('bandSettings.members.makeMember')
+            : t('bandSettings.members.makeAdmin')}
+        </button>
+      )}
+      {canTransfer && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={handleTransfer}
+          className="text-primary hover:underline"
+        >
+          {t('bandSettings.members.transferOwnership')}
+        </button>
+      )}
+      {canRemove && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={handleRemove}
+          className="text-destructive hover:underline"
+        >
+          {t('bandSettings.members.remove')}
+        </button>
+      )}
+      {canLeave && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void handleLeave()}
+          className="text-destructive hover:underline"
+        >
+          {t('bandSettings.members.leave')}
+        </button>
+      )}
+      {isSelf && viewerRole === 'owner' && (
+        <span className="text-xs text-muted-foreground">
+          {t('bandSettings.members.ownerMustTransfer')}
+        </span>
+      )}
+    </>
+  );
+}
+
+function MemberCard({
+  bandId,
+  member,
+  isSelf,
+  viewerRole,
+  onRefresh,
+  onLeftBand,
+}: {
+  bandId: string;
+  member: BandMember;
+  isSelf: boolean;
+  viewerRole: BandRole;
+  onRefresh: () => Promise<void>;
+  onLeftBand: () => void;
+}) {
+  const { t } = useTranslation();
+  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh, onLeftBand });
+
+  return (
+    <li className="rounded-md border border-border p-3">
+      <p className="wrap-break-word font-medium">{member.name}</p>
+      <p className="wrap-break-word text-sm text-muted-foreground">{member.email}</p>
+      <div className="mt-1">
+        <RoleBadge role={member.role} />
+      </div>
+      <div className="mt-2 text-sm">
+        <span className="text-xs text-muted-foreground">
+          {t('bandSettings.members.instruments')}:{' '}
+        </span>
+        {isSelf ? (
+          <InstrumentEditor
+            bandId={bandId}
+            instruments={member.instruments}
+            onChanged={onRefresh}
+          />
+        ) : (
+          member.instruments.join(', ')
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <MemberActionButtons member={member} isSelf={isSelf} viewerRole={viewerRole} {...actions} />
+      </div>
+      {actions.error && <p className="mt-1 text-xs text-destructive">{actions.error}</p>}
+    </li>
+  );
+}
+
+function MemberRow({
+  bandId,
+  member,
+  isSelf,
+  viewerRole,
+  onRefresh,
+  onLeftBand,
+}: {
+  bandId: string;
+  member: BandMember;
+  isSelf: boolean;
+  viewerRole: BandRole;
+  onRefresh: () => Promise<void>;
+  onLeftBand: () => void;
+}) {
+  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh, onLeftBand });
 
   return (
     <>
       <tr className="border-t border-border align-top">
-        <td className="py-1 pr-4">{member.name}</td>
-        <td className="py-1 pr-4">{member.email}</td>
+        <td className="py-1 pr-4 wrap-break-word">{member.name}</td>
+        <td className="py-1 pr-4 wrap-break-word">{member.email}</td>
         <td className="py-1 pr-4">
           <RoleBadge role={member.role} />
         </td>
         <td className="py-1 pr-4">
           {isSelf ? (
-            <InstrumentEditor bandId={bandId} instruments={member.instruments} onChanged={onRefresh} />
+            <InstrumentEditor
+              bandId={bandId}
+              instruments={member.instruments}
+              onChanged={onRefresh}
+            />
           ) : (
             member.instruments.join(', ')
           )}
         </td>
-        <td className="space-x-2 whitespace-nowrap py-1 text-right">
-          {canChangeRole && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => handleChangeRole(member.role === 'admin' ? 'member' : 'admin')}
-              className="text-primary hover:underline"
-            >
-              {member.role === 'admin' ? t('bandSettings.members.makeMember') : t('bandSettings.members.makeAdmin')}
-            </button>
-          )}
-          {canTransfer && (
-            <button type="button" disabled={busy} onClick={handleTransfer} className="text-primary hover:underline">
-              {t('bandSettings.members.transferOwnership')}
-            </button>
-          )}
-          {canRemove && (
-            <button type="button" disabled={busy} onClick={handleRemove} className="text-destructive hover:underline">
-              {t('bandSettings.members.remove')}
-            </button>
-          )}
-          {canLeave && (
-            <button type="button" disabled={busy} onClick={() => void handleLeave()} className="text-destructive hover:underline">
-              {t('bandSettings.members.leave')}
-            </button>
-          )}
-          {isSelf && viewerRole === 'owner' && (
-            <span className="text-xs text-muted-foreground">{t('bandSettings.members.ownerMustTransfer')}</span>
-          )}
+        <td className="py-1">
+          <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+            <MemberActionButtons
+              member={member}
+              isSelf={isSelf}
+              viewerRole={viewerRole}
+              {...actions}
+            />
+          </div>
         </td>
       </tr>
-      {error && (
+      {actions.error && (
         <tr>
           <td colSpan={5} className="pb-2 text-xs text-destructive">
-            {error}
+            {actions.error}
           </td>
         </tr>
       )}
@@ -373,7 +565,10 @@ function InstrumentEditor({
       {instruments.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {instruments.map((instrument) => (
-            <span key={instrument} className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs">
+            <span
+              key={instrument}
+              className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs"
+            >
               {instrument}
               <button
                 type="button"
@@ -430,7 +625,13 @@ function InstrumentEditor({
   );
 }
 
-function CreateInviteForm({ bandId, onCreated }: { bandId: string; onCreated: (invite: Invite) => void }) {
+function CreateInviteForm({
+  bandId,
+  onCreated,
+}: {
+  bandId: string;
+  onCreated: (invite: Invite) => void;
+}) {
   const { t } = useTranslation();
   const [label, setLabel] = useState('');
   const [instrument, setInstrument] = useState('');
@@ -462,7 +663,10 @@ function CreateInviteForm({ bandId, onCreated }: { bandId: string; onCreated: (i
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border p-4"
+    >
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground" htmlFor="invite-label">
           {t('bandSettings.invites.noteLabel')}
@@ -521,7 +725,9 @@ function InviteList({
   const { t } = useTranslation();
 
   if (invites.length === 0) {
-    return <p className="mt-2 text-sm text-muted-foreground">{t('bandSettings.invites.noInvites')}</p>;
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">{t('bandSettings.invites.noInvites')}</p>
+    );
   }
 
   const redeemerName = (userId: string | null) =>
@@ -589,14 +795,14 @@ function InviteRow({
   const expiryDate = new Date(invite.expiresAt).toLocaleDateString();
 
   return (
-    <li className="flex items-center gap-4 rounded-md border border-border p-3">
-      {qrDataUrl && <img src={qrDataUrl} alt="" width={64} height={64} />}
-      <div className="flex-1">
-        <p className="font-medium">
+    <li className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center">
+      {qrDataUrl && <img src={qrDataUrl} alt="" width={64} height={64} className="shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <p className="wrap-break-word font-medium">
           {invite.label}
           {invite.instrument ? ` (${invite.instrument})` : ''}
         </p>
-        <p className="font-mono text-sm">{invite.code}</p>
+        <p className="wrap-break-word font-mono text-sm">{invite.code}</p>
         <p className="text-xs text-muted-foreground">
           {status === 'open' && t('bandSettings.invites.expires', { date: expiryDate })}
           {status === 'expired' && t('bandSettings.invites.expiredOn', { date: expiryDate })}

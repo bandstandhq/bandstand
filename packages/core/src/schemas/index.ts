@@ -10,3 +10,6 @@ export * from './stagePosition';
 export * from './stageAwareness';
 export * from './anchor';
 export * from './annotation';
+export * from './availabilityAnswer';
+export * from './event';
+export * from './poll';

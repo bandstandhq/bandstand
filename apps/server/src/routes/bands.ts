@@ -9,9 +9,11 @@ import { requireAuth, requireBandRole } from '../lib/bandAuthz';
 import { hocuspocusServer } from '../lib/hocuspocus';
 import { isUniqueViolation } from '../lib/pgErrors';
 import { annotationsRoute } from './annotations';
+import { eventsRoute } from './events';
 import { filesRoute } from './files';
 import { inviteManagementRoute } from './invites';
 import { membersRoute } from './members';
+import { pollsRoute } from './polls';
 import { setlistsRoute } from './setlists';
 import { songsRoute } from './songs';
 
@@ -94,5 +96,7 @@ bandScoped.route('/songs', songsRoute);
 bandScoped.route('/setlists', setlistsRoute);
 bandScoped.route('/files', filesRoute);
 bandScoped.route('/annotations', annotationsRoute);
+bandScoped.route('/events', eventsRoute);
+bandScoped.route('/polls', pollsRoute);
 
 bandsRoute.route('/:bandId', bandScoped);

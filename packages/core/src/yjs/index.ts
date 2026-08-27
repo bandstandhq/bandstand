@@ -7,3 +7,6 @@ export * from './setlists';
 export * from './offline';
 export * from './anchors';
 export * from './stageSync';
+export * from './events';
+export * from './eventSeries';
+export * from './polls';

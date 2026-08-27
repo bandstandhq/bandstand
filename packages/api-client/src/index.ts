@@ -5,6 +5,7 @@ import type {
   BandMember,
   BandRole,
   ChangeMemberRoleInput,
+  ClosePollInput,
   ConfirmFileInput,
   CreateAnnotationLayerInput,
   CreateBandInput,
@@ -143,6 +144,20 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     deleteSetlist: (bandId: string, setlistId: string) =>
       req<{ ok: true }>(`/bands/${bandId}/setlists/${setlistId}`, { method: 'DELETE' }),
 
+    // `scope: 'series'` dissolves the whole recurring series; omitted
+    // deletes just this one entry — see docs/adr/0011-calendar-events.md.
+    deleteEvent: (bandId: string, eventId: string, scope?: 'series') =>
+      req<{ ok: true }>(`/bands/${bandId}/events/${eventId}${scope ? `?scope=${scope}` : ''}`, { method: 'DELETE' }),
+
+    deletePoll: (bandId: string, pollId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/polls/${pollId}`, { method: 'DELETE' }),
+
+    closePoll: (bandId: string, pollId: string, input: ClosePollInput) =>
+      req<{ ok: true; eventId: string }>(`/bands/${bandId}/polls/${pollId}/close`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+
     checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
 
     createInvite: (bandId: string, input: CreateInviteInput) =>
@@ -160,6 +175,11 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     updateMyPrefs: (input: UpdateUserPrefsInput) =>
       req<UserPrefs>('/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
+
+    // Lazily provisioned on first read — see apps/server/src/routes/icsToken.ts.
+    getIcsToken: () => req<{ token: string }>('/me/ics-token'),
+
+    regenerateIcsToken: () => req<{ token: string }>('/me/ics-token/regenerate', { method: 'POST' }),
 
     // Content-addressed file upload flow — see docs/adr/0007-content-addressed-files.md.
     // The actual bytes never go through this client: presign-upload/download
