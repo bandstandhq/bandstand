@@ -31,7 +31,12 @@ export type Action =
   | 'file:detach'
   | 'assignment:editOthers'
   | 'anchor:edit'
-  | 'annotation:moderateShared';
+  | 'annotation:moderateShared'
+  | 'event:create'
+  | 'event:edit'
+  | 'event:delete'
+  | 'poll:create'
+  | 'poll:close';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -60,6 +65,15 @@ export type Action =
  * someone else published — same shape as `file:detach`. Removing one's own
  * (personal, or previously shared by oneself) needs no matrix entry, same
  * self-always-allowed pattern as `assignment:editOthers`.
+ *
+ * `event:create`/`event:edit`/`event:delete` and `poll:create`/`poll:close`
+ * cover calendar events and scheduling polls (docs/adr/0011-calendar-events.md).
+ * Responding to your own availability or voting on your own behalf in a poll
+ * has no matrix entry at all, same self-always-allowed pattern as
+ * `assignment:editOthers` — but unlike that case, "always for yourself, never
+ * someone else's" is enforced at the CRDT layer (a hocuspocus onChange guard
+ * keyed by userId), not just left unchecked, since there's no REST route in
+ * front of these live doc edits to gate it otherwise.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -86,6 +100,11 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'assignment:editOthers': 'admin',
   'anchor:edit': 'admin',
   'annotation:moderateShared': 'admin',
+  'event:create': 'admin',
+  'event:edit': 'admin',
+  'event:delete': 'admin',
+  'poll:create': 'admin',
+  'poll:close': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */

@@ -6,6 +6,9 @@ import { voiceSchema } from '../schemas/voice';
 import { setlistSchema } from '../schemas/setlist';
 import { setlistItemSchema } from '../schemas/setlistItem';
 import { anchorSchema } from '../schemas/anchor';
+import { availabilityAnswerSchema } from '../schemas/availabilityAnswer';
+import { calendarEventSchema } from '../schemas/event';
+import { pollSchema } from '../schemas/poll';
 
 // Plain-object projection of a band's Yjs document. This is what gets
 // written to Postgres's band_docs.snapshot (jsonb) on every Hocuspocus
@@ -22,6 +25,20 @@ export const bandSnapshotSchema = z.object({
   // Teil B — defaults to empty rather than requiring a migration, same as
   // `assignments` above. See docs/adr/0010-anchor-sync.md.
   anchors: z.record(z.string(), z.array(anchorSchema)).default({}),
+  // Milestone 3 (docs/adr/0011-calendar-events.md) — all four flat, keyed
+  // Y.Maps, absent entirely on any older doc, same `.default({})` pattern as
+  // `assignments`/`anchors` above. No per-entity Y.Array is needed for any
+  // of these (unlike `items`/`anchors`) since none of them are an ordered
+  // list.
+  events: z.record(z.string(), calendarEventSchema).default({}),
+  // `<eventId>:<userId>` -> answer. For a virtual (non-exception) occurrence
+  // of a recurring event, `eventId` here is the synthetic
+  // `${templateEventId}@${isoDate}` id, not the template's own id — see the
+  // ADR's "availability keys by concrete occurrence, not by series" section.
+  availability: z.record(z.string(), availabilityAnswerSchema).default({}),
+  polls: z.record(z.string(), pollSchema).default({}),
+  // `<pollId>:<optionId>:<userId>` -> answer.
+  pollVotes: z.record(z.string(), availabilityAnswerSchema).default({}),
 });
 
 export type BandSnapshot = z.infer<typeof bandSnapshotSchema>;
@@ -42,6 +59,10 @@ export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
   const songs = doc.getMap('songs').toJSON();
   const voices = doc.getMap('voices').toJSON();
   const assignments = doc.getMap('assignments').toJSON();
+  const events = doc.getMap('events').toJSON();
+  const availability = doc.getMap('availability').toJSON();
+  const polls = doc.getMap('polls').toJSON();
+  const pollVotes = doc.getMap('pollVotes').toJSON();
   const rawSetlists = doc.getMap('setlists').toJSON() as Record<string, unknown>;
 
   const setlists: Record<string, unknown> = {};
@@ -58,7 +79,7 @@ export function yDocToSnapshot(doc: Y.Doc): BandSnapshot {
     if (songAnchors.length > 0) anchors[songId] = songAnchors;
   }
 
-  return bandSnapshotSchema.parse({ songs, voices, setlists, assignments, anchors });
+  return bandSnapshotSchema.parse({ songs, voices, setlists, assignments, anchors, events, availability, polls, pollVotes });
 }
 
 /**
@@ -93,6 +114,26 @@ export function snapshotToYDoc(snapshot: BandSnapshot): Y.Doc {
 
   for (const [songId, songAnchors] of Object.entries(parsed.anchors)) {
     if (songAnchors.length > 0) doc.getArray(anchorsKey(songId)).push(songAnchors);
+  }
+
+  const eventsMap = doc.getMap('events');
+  for (const [eventId, event] of Object.entries(parsed.events)) {
+    eventsMap.set(eventId, event);
+  }
+
+  const availabilityMap = doc.getMap('availability');
+  for (const [key, answer] of Object.entries(parsed.availability)) {
+    availabilityMap.set(key, answer);
+  }
+
+  const pollsMap = doc.getMap('polls');
+  for (const [pollId, poll] of Object.entries(parsed.polls)) {
+    pollsMap.set(pollId, poll);
+  }
+
+  const pollVotesMap = doc.getMap('pollVotes');
+  for (const [key, answer] of Object.entries(parsed.pollVotes)) {
+    pollVotesMap.set(key, answer);
   }
 
   return doc;

@@ -26,9 +26,15 @@ owner.
 | Change another member's voice assignment | ✅ | ✅ | — |
 | Edit a song's anchor list | ✅ | ✅ | — |
 | Remove a shared annotation layer someone else published | ✅ | ✅ | — |
+| Create, edit, or delete a calendar event | ✅ | ✅ | — |
+| Create or close a scheduling poll | ✅ | ✅ | — |
+| Respond to your own availability, or vote in a poll ³ | ✅ | ✅ | ✅ |
 
 ¹ An admin can remove a member, but never the owner or another admin.
 ² The owner can only leave after transferring ownership to someone else.
+³ Always for yourself, never someone else's — enforced at the CRDT layer (a server-side guard keyed
+  by userId), not just hidden in the UI, since these are live document edits with no REST route in
+  front of them to check a role against. See [ADR-0011](adr/0011-calendar-events.md).
 
 ## Enforcement
 
