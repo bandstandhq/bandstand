@@ -7,12 +7,19 @@
 import {
   DndContext,
   type DragEndEvent,
-  PointerSensor,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Anchor, BandRole } from '@bandstand/core';
 import {
@@ -57,7 +64,11 @@ function SortableAnchorRow({
       className={`flex items-center gap-2 rounded-md border border-border p-2 text-sm ${isDragging ? 'opacity-50' : ''}`}
     >
       {canEdit && (
-        <span {...attributes} {...listeners} className="cursor-grab text-muted-foreground">
+        <span
+          {...attributes}
+          {...listeners}
+          className="flex h-11 w-11 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
+        >
           ⠿
         </span>
       )}
@@ -87,7 +98,11 @@ function SortableAnchorRow({
             className="h-8 w-20"
             aria-label={t('songAnchors.barFor', { label: anchor.label })}
           />
-          <button type="button" onClick={onDelete} className="text-xs text-muted-foreground hover:underline">
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex h-11 min-w-11 items-center justify-center px-2 text-xs text-muted-foreground hover:underline"
+          >
             {t('songAnchors.remove')}
           </button>
         </>
@@ -116,7 +131,11 @@ export function SongAnchors({ bandId, songId, doc }: { bandId: string; songId: s
     return new Set(matchAnchorsToChordProSections(anchors, sections).keys());
   }, [doc, songId, anchors]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   if (anchors.length === 0 && !canEdit) return null;
 

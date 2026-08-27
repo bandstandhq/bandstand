@@ -61,7 +61,7 @@ export function BandSwitcher() {
         aria-label={t('bandSwitcher.label')}
         value={activeBandId ?? bands[0]!.id}
         onChange={(e) => setActiveBandId(e.target.value)}
-        className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+        className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
       >
         {bands.map((band) => (
           <option key={band.id} value={band.id}>

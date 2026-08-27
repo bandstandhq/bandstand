@@ -166,7 +166,7 @@ export function PollDetail() {
         &larr; {t('pollDetail.back')}
       </Link>
 
-      <h1 className="mt-4 text-xl font-medium">{poll.title}</h1>
+      <h1 className="mt-4 wrap-break-word text-xl font-medium">{poll.title}</h1>
       {poll.notes && (
         <div className="mt-2">
           <h2 className="text-sm font-medium text-muted-foreground">{t('pollDetail.notes')}</h2>
@@ -197,8 +197,8 @@ export function PollDetail() {
               const myAnswer = currentUserId ? votesForPoll[`${option.id}:${currentUserId}`] : undefined;
               return (
                 <li key={option.id} className="rounded-md border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="wrap-break-word font-medium">
                       {formatOptionWhen(option.startsAt, option.endsAt)}
                       {option.id === bestOptionId && (
                         <span className="ml-2 rounded bg-accent px-2 py-0.5 text-xs text-accent-foreground">
@@ -210,7 +210,7 @@ export function PollDetail() {
                       {tally && t('pollDetail.votesCount', { yes: tally.yes, maybe: tally.maybe, no: tally.no })}
                     </span>
                   </div>
-                  <div className="mt-2 flex gap-1">
+                  <div className="mt-2 flex flex-wrap gap-1">
                     {ANSWERS.map((answer) => (
                       <Button
                         key={answer}
@@ -218,6 +218,7 @@ export function PollDetail() {
                         size="sm"
                         variant={myAnswer === answer ? 'default' : 'outline'}
                         onClick={() => handleVote(option.id, answer)}
+                        className="h-11 min-w-11"
                       >
                         {t(ANSWER_LABEL_KEY[answer])}
                       </Button>

@@ -54,10 +54,10 @@ function AvailabilityRow({
 }) {
   const { t } = useTranslation();
   return (
-    <li className="flex items-center justify-between rounded-md border border-border p-2">
-      <span>{member.name}</span>
+    <li className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-center sm:justify-between">
+      <span className="wrap-break-word">{member.name}</span>
       {isSelf && onRespond ? (
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {ANSWERS.map((option) => (
             <Button
               key={option}
@@ -65,6 +65,7 @@ function AvailabilityRow({
               size="sm"
               variant={answer === option ? 'default' : 'outline'}
               onClick={() => onRespond(option)}
+              className="h-11 min-w-11"
             >
               {t(ANSWER_LABEL_KEY[option])}
             </Button>
@@ -171,9 +172,9 @@ export function EventDetail() {
         &larr; {t('eventDetail.back')}
       </Link>
 
-      <div className="mt-4 flex items-center justify-between">
-        <h1 className="text-xl font-medium">{event.title}</h1>
-        <div className="flex gap-2 text-xs">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="wrap-break-word text-xl font-medium">{event.title}</h1>
+        <div className="flex flex-wrap gap-2 text-xs">
           {event.status === 'cancelled' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.cancelledBadge')}</span>}
           {event.status === 'tentative' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.tentativeBadge')}</span>}
           {event.allDay && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.allDayBadge')}</span>}

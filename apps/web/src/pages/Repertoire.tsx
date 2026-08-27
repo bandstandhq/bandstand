@@ -21,6 +21,7 @@ import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
@@ -31,7 +32,16 @@ type RepertoireView = 'active' | 'archive';
 /** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
 function PencilIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
@@ -47,7 +57,15 @@ function PencilIcon() {
  * secondary readiness hint) — refreshes with the rest of the row on the
  * `songs`/`voices`/`assignments` changes Repertoire already re-renders on.
  */
-function AnchorReadiness({ doc, songId, members }: { doc: Y.Doc; songId: string; members: BandMember[] }) {
+function AnchorReadiness({
+  doc,
+  songId,
+  members,
+}: {
+  doc: Y.Doc;
+  songId: string;
+  members: BandMember[];
+}) {
   const { t } = useTranslation();
   const anchors = listAnchorsForSong(doc, songId);
   if (anchors.length === 0 || members.length === 0) return null;
@@ -57,7 +75,8 @@ function AnchorReadiness({ doc, songId, members }: { doc: Y.Doc; songId: string;
     const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
     const voice = voices.find((v) => v.id === assignedVoiceId)?.voice;
     if (!voice) return { member, progress: { done: 0, total: anchors.length } };
-    const sections = voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
+    const sections =
+      voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
     return { member, progress: getAnchorCalibrationProgress(voice, anchors, sections) };
   });
 
@@ -89,6 +108,12 @@ export function Repertoire() {
   const [deleteTarget, setDeleteTarget] = useState<{ songId: string; song: Song } | null>(null);
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user.id;
+  // Renders either the table or its narrow-screen card equivalent, never
+  // both — a CSS-only `hidden sm:table` / `sm:hidden` pair would put every
+  // song title into the DOM twice, breaking any test (or screen reader)
+  // that looks a song up by its accessible name without also picking which
+  // variant it means.
+  const isNarrowScreen = useMediaQuery('(max-width: 639px)');
 
   useEffect(() => {
     if (!bandId) return;
@@ -127,15 +152,46 @@ export function Repertoire() {
     if (doc) restoreSong(doc, songId);
   }
 
+  function renderRowActions(songId: string, song: Song) {
+    return view === 'archive' ? (
+      <>
+        <button
+          type="button"
+          onClick={() => handleRestore(songId)}
+          className="relative text-sm text-primary hover:underline"
+        >
+          {t('repertoire.restore')}
+        </button>
+        {canDeleteForever && (
+          <button
+            type="button"
+            onClick={() => setDeleteTarget({ songId, song })}
+            className="relative text-sm text-destructive hover:underline"
+          >
+            {t('repertoire.deleteForever.action')}
+          </button>
+        )}
+      </>
+    ) : (
+      <button
+        type="button"
+        onClick={() => handleArchive(songId)}
+        className="relative text-sm text-muted-foreground hover:underline"
+      >
+        {t('repertoire.archive')}
+      </button>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
       <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
         &larr; {t('repertoire.back')}
       </Link>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-medium">{t('repertoire.title')}</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {doc && <ExportRepertoire doc={doc} />}
           {doc && (
             <ImportSongs
@@ -197,6 +253,50 @@ export function Repertoire() {
         </p>
       ) : filtered.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">{t('repertoire.noSongs')}</p>
+      ) : isNarrowScreen ? (
+        <ul className="mt-6 space-y-3">
+          {filtered.map(([songId, song]) => (
+            <li key={songId} className="relative rounded-md border border-border p-3">
+              <Link
+                to={`/bands/${bandId}/songs/${songId}/play`}
+                className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                aria-label={t('repertoire.playAria', { title: song.title })}
+              />
+              <div className="flex items-start justify-between gap-2">
+                <p className="wrap-break-word font-medium">{song.title}</p>
+                <Link
+                  to={`/bands/${bandId}/songs/${songId}/edit`}
+                  aria-label={t('repertoire.editAria', { title: song.title })}
+                  className="relative -mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  <PencilIcon />
+                </Link>
+              </div>
+              <p className="wrap-break-word text-sm text-muted-foreground">
+                {song.artist} &middot; {normalizeKey(song.key)} &middot; {song.status}
+              </p>
+              {doc && (
+                <p className="mt-1">
+                  <AnchorReadiness doc={doc} songId={songId} members={members} />
+                </p>
+              )}
+              <div className="relative mt-2 flex gap-4">{renderRowActions(songId, song)}</div>
+              {view === 'active' && song.status === 'idea' && doc && currentUserId && bandId && (
+                <div className="relative mt-2">
+                  <IdeaVoting
+                    bandId={bandId}
+                    doc={doc}
+                    songId={songId}
+                    song={song}
+                    currentUserId={currentUserId}
+                    totalMembers={members.length}
+                    canResolveTie={canResolveTie}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       ) : (
         <table className="mt-6 w-full text-sm">
           <thead>
@@ -215,20 +315,20 @@ export function Repertoire() {
                 <tr className="relative border-t border-border hover:bg-accent/50 focus-within:bg-accent/50">
                   <td className="py-2 pr-4">
                     {/* Stretched-link pattern: its containing block is
-                        this `relative` <tr>, so it covers the whole row —
-                        the visible pencil icon and "Restore"/"Archive"/
-                        "Delete forever" controls each get `relative` so
-                        they stay on top and independently clickable, per
-                        normal DOM-order stacking within the row. A row
-                        plays the song (Stage Mode, no setlist) — editing
-                        has its own explicit affordance, the pencil icon,
-                        rather than being the row's default action. */}
+                          this `relative` <tr>, so it covers the whole row —
+                          the visible pencil icon and "Restore"/"Archive"/
+                          "Delete forever" controls each get `relative` so
+                          they stay on top and independently clickable, per
+                          normal DOM-order stacking within the row. A row
+                          plays the song (Stage Mode, no setlist) — editing
+                          has its own explicit affordance, the pencil icon,
+                          rather than being the row's default action. */}
                     <Link
                       to={`/bands/${bandId}/songs/${songId}/play`}
                       className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       aria-label={t('repertoire.playAria', { title: song.title })}
                     />
-                    {song.title}
+                    <span className="wrap-break-word">{song.title}</span>
                     <Link
                       to={`/bands/${bandId}/songs/${songId}/edit`}
                       aria-label={t('repertoire.editAria', { title: song.title })}
@@ -237,42 +337,13 @@ export function Repertoire() {
                       <PencilIcon />
                     </Link>
                   </td>
-                  <td className="py-2 pr-4">{song.artist}</td>
+                  <td className="py-2 pr-4 wrap-break-word">{song.artist}</td>
                   <td className="py-2 pr-4">{normalizeKey(song.key)}</td>
                   <td className="py-2 pr-4">{song.status}</td>
                   <td className="py-2 pr-4">
                     {doc && <AnchorReadiness doc={doc} songId={songId} members={members} />}
                   </td>
-                  <td className="space-x-3 py-2 text-right">
-                    {view === 'archive' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleRestore(songId)}
-                          className="relative text-sm text-primary hover:underline"
-                        >
-                          {t('repertoire.restore')}
-                        </button>
-                        {canDeleteForever && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget({ songId, song })}
-                            className="relative text-sm text-destructive hover:underline"
-                          >
-                            {t('repertoire.deleteForever.action')}
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleArchive(songId)}
-                        className="relative text-sm text-muted-foreground hover:underline"
-                      >
-                        {t('repertoire.archive')}
-                      </button>
-                    )}
-                  </td>
+                  <td className="space-x-3 py-2 text-right">{renderRowActions(songId, song)}</td>
                 </tr>
                 {view === 'active' && song.status === 'idea' && doc && currentUserId && bandId && (
                   <tr>
@@ -319,7 +390,10 @@ function DeleteSongForeverDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [impact, setImpact] = useState<{ affectedSetlists: string[]; hasPersonalNotes: boolean } | null>(null);
+  const [impact, setImpact] = useState<{
+    affectedSetlists: string[];
+    hasPersonalNotes: boolean;
+  } | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -344,7 +418,11 @@ function DeleteSongForeverDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()} title={t('repertoire.deleteForever.title', { title: song.title })}>
+    <Dialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={t('repertoire.deleteForever.title', { title: song.title })}
+    >
       {!impact && !error ? (
         <p className="text-sm text-muted-foreground">{t('repertoire.deleteForever.loading')}</p>
       ) : (
@@ -352,15 +430,24 @@ function DeleteSongForeverDialog({
           <p>{t('repertoire.deleteForever.warning')}</p>
           {impact && impact.affectedSetlists.length > 0 && (
             <p className="text-destructive">
-              {t('repertoire.deleteForever.affectedSetlists', { setlists: impact.affectedSetlists.join(', ') })}
+              {t('repertoire.deleteForever.affectedSetlists', {
+                setlists: impact.affectedSetlists.join(', '),
+              })}
             </p>
           )}
-          {impact?.hasPersonalNotes && <p className="text-destructive">{t('repertoire.deleteForever.hasNotes')}</p>}
+          {impact?.hasPersonalNotes && (
+            <p className="text-destructive">{t('repertoire.deleteForever.hasNotes')}</p>
+          )}
           <label className="block space-y-1">
             <span className="text-xs text-muted-foreground">
               {t('repertoire.deleteForever.confirmLabel', { title: song.title })}
             </span>
-            <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="w-full" autoFocus />
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="w-full"
+              autoFocus
+            />
           </label>
           {error && <p className="text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -373,7 +460,9 @@ function DeleteSongForeverDialog({
               disabled={confirmText !== song.title || deleting || !impact}
               onClick={() => void handleDelete()}
             >
-              {deleting ? t('repertoire.deleteForever.deleting') : t('repertoire.deleteForever.confirm')}
+              {deleting
+                ? t('repertoire.deleteForever.deleting')
+                : t('repertoire.deleteForever.confirm')}
             </Button>
           </div>
         </div>

@@ -62,7 +62,7 @@ function SetlistCard({
 
   if (variant === 'list') {
     return (
-      <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+      <li className="relative flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
         {/* Stretched-link pattern: this covers the whole row (its
             containing block is the `relative` <li> above, not this <div>)
             so the entire row opens the setlist, while the visible "Open"
@@ -74,11 +74,11 @@ function SetlistCard({
           className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           aria-label={t('setlistList.openAria', { name: setlist.name })}
         />
-        <div>
-          <p>{setlist.name}</p>
+        <div className="min-w-0">
+          <p className="wrap-break-word">{setlist.name}</p>
           <p className="text-xs text-muted-foreground">{statsText}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <Link to={`/bands/${bandId}/setlists/${setlistId}`} className="relative text-sm text-primary hover:underline">
             {t('setlistList.open')}
           </Link>
@@ -189,12 +189,12 @@ export function SetlistList() {
         )}
       </div>
 
-      <form onSubmit={handleCreate} className="mt-4 flex gap-2">
+      <form onSubmit={handleCreate} className="mt-4 flex flex-wrap gap-2">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t('setlistList.newPlaceholder')}
-          className="w-64"
+          className="w-full sm:w-64"
         />
         <Button type="submit" disabled={!name.trim()}>
           {t('setlistList.create')}

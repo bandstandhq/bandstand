@@ -25,7 +25,9 @@ export function Dialog({
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <RadixDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg">
+        <RadixDialog.Content
+          className="fixed inset-0 z-50 flex w-full max-w-full flex-col overflow-y-auto border-border bg-card p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-card-foreground shadow-lg sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[85vh] sm:w-[calc(100%-2rem)] sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border sm:p-6"
+        >
           <RadixDialog.Title className="text-lg font-medium">{title}</RadixDialog.Title>
           {description && (
             <RadixDialog.Description className="mt-1 text-sm text-muted-foreground">
