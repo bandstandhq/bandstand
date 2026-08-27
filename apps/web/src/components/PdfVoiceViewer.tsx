@@ -9,7 +9,9 @@ import { anchorsKey, resolveDisplaySequence, setVoiceAnchorPosition, setVoiceDis
 import {
   DndContext,
   type DragEndEvent,
-  PointerSensor,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -18,6 +20,7 @@ import {
   SortableContext,
   arrayMove,
   horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -513,7 +516,11 @@ export function PdfVoiceViewer({
     [voice.files, recipe],
   );
   const { docs, imageUrls, unavailable } = usePdfDocuments(bandId, voice.files);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const anchors = useYArray<Anchor>(doc.getArray(anchorsKey(voice.songId))).sort((a, b) => a.order - b.order);
   const calibratedAnchorIds = new Set(Object.keys(voice.anchorMap ?? {}));

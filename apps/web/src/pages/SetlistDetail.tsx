@@ -77,7 +77,12 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
       style={style}
       className={`flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm ${isDragging ? 'opacity-50' : ''}`}
     >
-      <span {...listeners} {...attributes} data-testid="pool-drag-handle" className="flex-1 cursor-grab">
+      <span
+        {...listeners}
+        {...attributes}
+        data-testid="pool-drag-handle"
+        className="flex min-h-11 flex-1 cursor-grab items-center py-1"
+      >
         {song.title} <span className="text-muted-foreground">— {song.artist}</span>
       </span>
       {/* Dragging has no keyboard equivalent for "add from an external
@@ -89,7 +94,7 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
       <button
         type="button"
         onClick={onAdd}
-        className="shrink-0 rounded-md px-2 py-1 text-xs text-primary hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-11 shrink-0 items-center rounded-md px-2 text-xs text-primary hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {t('setlistDetail.addToEnd')}
       </button>
@@ -132,11 +137,15 @@ function SortableSetlistItem({
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
         {...attributes}
         {...listeners}
-        className="flex-1 cursor-grab rounded-md px-1 py-1.5 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 flex-1 cursor-grab items-center rounded-md px-1 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {getItemLabel(item, song, t)}
       </Link>
-      <button type="button" onClick={onRemove} className="text-xs text-muted-foreground hover:underline">
+      <button
+        type="button"
+        onClick={onRemove}
+        className="flex h-11 shrink-0 items-center px-2 text-xs text-muted-foreground hover:underline"
+      >
         {t('setlistDetail.remove')}
       </button>
     </li>
@@ -165,7 +174,7 @@ function ReadOnlyItemRow({
     <li className="rounded-md border border-border text-sm">
       <Link
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
-        className="block rounded-md px-2 py-2 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 items-center rounded-md px-2 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {getItemLabel(item, song, t)}
       </Link>

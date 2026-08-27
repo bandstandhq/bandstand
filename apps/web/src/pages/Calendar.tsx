@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
-import { can, createEvent, createPoll, createRecurringEvent, resolveEventOccurrences } from '@bandstand/core';
-import type { BandRole, CalendarEvent, EventType, Poll, ResolvedOccurrence, SeriesRule, Setlist } from '@bandstand/core';
+import {
+  can,
+  createEvent,
+  createPoll,
+  createRecurringEvent,
+  resolveEventOccurrences,
+} from '@bandstand/core';
+import type {
+  BandRole,
+  CalendarEvent,
+  EventType,
+  Poll,
+  ResolvedOccurrence,
+  SeriesRule,
+  Setlist,
+} from '@bandstand/core';
 import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 
@@ -36,20 +51,22 @@ function EventRow({ bandId, occurrence }: { bandId: string; occurrence: Resolved
   const { t } = useTranslation();
   const { event, occurrenceId } = occurrence;
   return (
-    <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+    <li className="relative flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
       <Link
         to={`/bands/${bandId}/calendar/${occurrenceId}`}
         className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         aria-label={t('calendarList.openAria', { name: event.title })}
       />
-      <div>
-        <p>
+      <div className="min-w-0">
+        <p className="wrap-break-word">
           {event.title}
-          {event.status === 'cancelled' && <span className="ml-2 text-muted-foreground">{t('calendarList.cancelledLabel')}</span>}
+          {event.status === 'cancelled' && (
+            <span className="ml-2 text-muted-foreground">{t('calendarList.cancelledLabel')}</span>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">{formatEventWhen(event)}</p>
       </div>
-      <span className="text-sm text-primary">{t('calendarList.open')}</span>
+      <span className="shrink-0 text-sm text-primary">{t('calendarList.open')}</span>
     </li>
   );
 }
@@ -80,6 +97,7 @@ function MonthGrid({
   occurrences: ResolvedOccurrence[];
 }) {
   const { t } = useTranslation();
+  const isNarrowScreen = useMediaQuery('(max-width: 639px)');
   const byDate = useMemo(() => {
     const map = new Map<string, ResolvedOccurrence[]>();
     for (const occ of occurrences) {
@@ -97,64 +115,127 @@ function MonthGrid({
     ...Array.from({ length: leadingBlanks }, () => null),
     ...Array.from(
       { length: daysInMonth },
-      (_, i) => new Date(Date.UTC(firstOfMonth.getUTCFullYear(), firstOfMonth.getUTCMonth(), i + 1)),
+      (_, i) =>
+        new Date(Date.UTC(firstOfMonth.getUTCFullYear(), firstOfMonth.getUTCMonth(), i + 1)),
     ),
   ];
   const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(new Date(Date.UTC(2026, 1, 1 + i))),
+    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+      new Date(Date.UTC(2026, 1, 1 + i)),
+    ),
   );
 
   return (
     <div className="mt-6">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <Button
           type="button"
           variant="ghost"
-          onClick={() => onChangeMonth(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() - 1, 1)))}
+          onClick={() =>
+            onChangeMonth(
+              new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() - 1, 1)),
+            )
+          }
         >
           {t('calendarList.previousMonth')}
         </Button>
-        <p className="font-medium">{new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(monthCursor)}</p>
+        <p className="order-first w-full text-center font-medium sm:order-0 sm:w-auto">
+          {new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
+            monthCursor,
+          )}
+        </p>
         <Button
           type="button"
           variant="ghost"
-          onClick={() => onChangeMonth(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 1)))}
+          onClick={() =>
+            onChangeMonth(
+              new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 1)),
+            )
+          }
         >
           {t('calendarList.nextMonth')}
         </Button>
       </div>
-      <div className="overflow-x-auto">
-        <div className="grid min-w-2xl grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
-          {weekdayLabels.map((label) => (
-            <div key={label} className="p-1">
-              {label}
-            </div>
-          ))}
-        </div>
-        <div className="grid min-w-2xl grid-cols-7 gap-1">
-          {cells.map((date, i) => (
-            <div key={date ? isoDate(date) : `blank-${i}`} className="min-h-24 rounded-md border border-border p-1">
-              {date && (
-                <>
-                  <p className="text-xs text-muted-foreground">{date.getUTCDate()}</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {(byDate.get(isoDate(date)) ?? []).map((occ) => (
-                      <li key={occ.occurrenceId} className="relative truncate rounded px-1 text-xs hover:bg-accent/50">
+      {isNarrowScreen ? (
+        // Seven columns of appointments don't work on a narrow phone — this
+        // month's days-with-events render as an agenda list instead,
+        // reusing the same occurrence data. A single conditional render
+        // (rather than a `hidden sm:block` / `sm:hidden` pair) so an event
+        // title never sits in the DOM twice at once.
+        <>
+          {occurrences.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('calendarList.noEventsThisMonth')}</p>
+          ) : (
+            <ul className="space-y-4">
+              {[...byDate.keys()].sort().map((dateKey) => (
+                <li key={dateKey}>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {new Intl.DateTimeFormat(undefined, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                    }).format(new Date(`${dateKey}T00:00:00.000Z`))}
+                  </p>
+                  <ul className="mt-1 space-y-2">
+                    {(byDate.get(dateKey) ?? []).map((occ) => (
+                      <li
+                        key={occ.occurrenceId}
+                        className="relative min-h-11 rounded-md border border-border p-2 hover:bg-accent/50"
+                      >
                         <Link
                           to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
-                          className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                          className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                           aria-label={t('calendarList.openAria', { name: occ.event.title })}
                         />
-                        <span>{occ.event.title}</span>
+                        <span className="wrap-break-word text-sm">{occ.event.title}</span>
                       </li>
                     ))}
                   </ul>
-                </>
-              )}
-            </div>
-          ))}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
+            {weekdayLabels.map((label) => (
+              <div key={label} className="p-1">
+                {label}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((date, i) => (
+              <div
+                key={date ? isoDate(date) : `blank-${i}`}
+                className="min-h-24 rounded-md border border-border p-1"
+              >
+                {date && (
+                  <>
+                    <p className="text-xs text-muted-foreground">{date.getUTCDate()}</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {(byDate.get(isoDate(date)) ?? []).map((occ) => (
+                        <li
+                          key={occ.occurrenceId}
+                          className="relative truncate rounded px-1 text-xs hover:bg-accent/50"
+                        >
+                          <Link
+                            to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
+                            className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                            aria-label={t('calendarList.openAria', { name: occ.event.title })}
+                          />
+                          <span>{occ.event.title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -195,7 +276,11 @@ function CreateEventForm({
     if (!title.trim() || !startsAt) return;
     const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
     if (Number.isNaN(startMs)) return;
-    const endMs = endsAt ? (allDay ? Date.parse(`${endsAt}T23:59:59.999Z`) : new Date(endsAt).getTime()) : undefined;
+    const endMs = endsAt
+      ? allDay
+        ? Date.parse(`${endsAt}T23:59:59.999Z`)
+        : new Date(endsAt).getTime()
+      : undefined;
 
     const input = {
       type,
@@ -212,7 +297,8 @@ function CreateEventForm({
     if (repeat === 'none') {
       createEvent(doc, input);
     } else {
-      const freq: SeriesRule['freq'] = repeat === 'weekly' ? 'weekly' : repeat === 'biweekly' ? 'biweekly' : 'monthly';
+      const freq: SeriesRule['freq'] =
+        repeat === 'weekly' ? 'weekly' : repeat === 'biweekly' ? 'biweekly' : 'monthly';
       createRecurringEvent(doc, input, { freq, until: repeatUntil || undefined });
     }
     reset();
@@ -221,7 +307,11 @@ function CreateEventForm({
   return (
     <form onSubmit={handleCreate} className="mt-6 space-y-3 rounded-md border border-border p-4">
       <h2 className="font-medium">{t('calendarList.createTitle')}</h2>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.titlePlaceholder')} />
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder={t('calendarList.titlePlaceholder')}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -263,15 +353,23 @@ function CreateEventForm({
         </label>
       </div>
 
-      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('calendarList.location')} />
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.notes')} />
+      <Input
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder={t('calendarList.location')}
+      />
+      <Textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('calendarList.notes')}
+      />
 
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         {t('calendarList.linkedSetlist')}
         <select
           value={setlistId}
           onChange={(e) => setSetlistId(e.target.value)}
-          className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          className="h-10 max-w-48 truncate rounded-md border border-border bg-background px-2 text-sm"
         >
           <option value="">{t('calendarList.noSetlist')}</option>
           {Object.entries(setlists).map(([id, setlist]) => (
@@ -319,17 +417,19 @@ function CreateEventForm({
 function PollRow({ bandId, pollId, poll }: { bandId: string; pollId: string; poll: Poll }) {
   const { t } = useTranslation();
   return (
-    <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+    <li className="relative flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
       <Link
         to={`/bands/${bandId}/polls/${pollId}`}
         className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         aria-label={t('calendarList.openPollAria', { name: poll.title })}
       />
-      <span>
+      <span className="wrap-break-word">
         {poll.title}
-        {poll.resolvedEventId && <span className="ml-2 text-muted-foreground">{t('calendarList.pollClosedLabel')}</span>}
+        {poll.resolvedEventId && (
+          <span className="ml-2 text-muted-foreground">{t('calendarList.pollClosedLabel')}</span>
+        )}
       </span>
-      <span className="text-sm text-primary">{t('calendarList.open')}</span>
+      <span className="shrink-0 text-sm text-primary">{t('calendarList.open')}</span>
     </li>
   );
 }
@@ -356,15 +456,25 @@ function CreatePollForm({ doc }: { doc: import('yjs').Doc }) {
   return (
     <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border p-4">
       <h2 className="font-medium">{t('calendarList.createPollTitle')}</h2>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.pollTitlePlaceholder')} />
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.pollNotesPlaceholder')} />
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder={t('calendarList.pollTitlePlaceholder')}
+      />
+      <Textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('calendarList.pollNotesPlaceholder')}
+      />
       <div className="space-y-2">
         {optionStarts.map((value, index) => (
           <div key={index} className="flex items-center gap-2">
             <input
               type="datetime-local"
               value={value}
-              onChange={(e) => setOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))}
+              onChange={(e) =>
+                setOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
+              }
               className="h-10 rounded-md border border-border bg-background px-2 text-sm"
             />
             {optionStarts.length > 1 && (
@@ -378,7 +488,12 @@ function CreatePollForm({ doc }: { doc: import('yjs').Doc }) {
             )}
           </div>
         ))}
-        <Button type="button" variant="outline" size="sm" onClick={() => setOptionStarts((prev) => [...prev, ''])}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOptionStarts((prev) => [...prev, ''])}
+        >
           {t('calendarList.addOption')}
         </Button>
       </div>
@@ -412,7 +527,8 @@ export function Calendar() {
   }, [bandId]);
 
   const rangeStart = viewMode === 'month' ? startOfMonth(monthCursor).getTime() : now;
-  const rangeEnd = viewMode === 'month' ? endOfMonth(monthCursor).getTime() : now + 1000 * 60 * 60 * 24 * 180;
+  const rangeEnd =
+    viewMode === 'month' ? endOfMonth(monthCursor).getTime() : now + 1000 * 60 * 60 * 24 * 180;
 
   const occurrences = useMemo(
     () => resolveEventOccurrences(events, rangeStart, rangeEnd),
@@ -430,15 +546,24 @@ export function Calendar() {
         &larr; {t('calendarList.back')}
       </Link>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-medium">{t('calendarList.title')}</h1>
-        <Button type="button" variant="outline" onClick={() => setViewMode(viewMode === 'month' ? 'list' : 'month')}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setViewMode(viewMode === 'month' ? 'list' : 'month')}
+        >
           {viewMode === 'month' ? t('calendarList.listView') : t('calendarList.monthView')}
         </Button>
       </div>
 
       {viewMode === 'month' ? (
-        <MonthGrid bandId={bandId} monthCursor={monthCursor} onChangeMonth={setMonthCursor} occurrences={occurrences} />
+        <MonthGrid
+          bandId={bandId}
+          monthCursor={monthCursor}
+          onChangeMonth={setMonthCursor}
+          occurrences={occurrences}
+        />
       ) : (
         <ListView bandId={bandId} occurrences={occurrences} />
       )}

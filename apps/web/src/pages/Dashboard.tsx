@@ -45,18 +45,20 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
           return (
             <li
               key={occ.occurrenceId}
-              className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50"
+              className="relative flex items-center justify-between gap-3 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50"
             >
               <Link
                 to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
                 className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 aria-label={t('dashboard.openEventAria', { name: occ.event.title })}
               />
-              <div>
-                <p>{occ.event.title}</p>
+              <div className="min-w-0">
+                <p className="wrap-break-word">{occ.event.title}</p>
                 <p className="text-xs text-muted-foreground">{formatEventWhen(occ.event)}</p>
               </div>
-              {!hasAnswered && <span className="text-xs text-primary">{t('dashboard.needsResponse')}</span>}
+              {!hasAnswered && (
+                <span className="shrink-0 text-xs text-primary">{t('dashboard.needsResponse')}</span>
+              )}
             </li>
           );
         })}
@@ -146,9 +148,9 @@ export function Dashboard() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-medium">{t('dashboard.title')}</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <BandSwitcher />
           {activeBandId && (
             <>

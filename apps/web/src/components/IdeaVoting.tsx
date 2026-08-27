@@ -61,6 +61,7 @@ export function IdeaVoting({
         variant={myVote === 'up' ? 'default' : 'outline'}
         size="sm"
         onClick={() => vote('up')}
+        className="h-11 min-w-11"
       >
         {t('ideaVoting.up')} {tally.upCount}
       </Button>
@@ -69,6 +70,7 @@ export function IdeaVoting({
         variant={myVote === 'down' ? 'default' : 'outline'}
         size="sm"
         onClick={() => vote('down')}
+        className="h-11 min-w-11"
       >
         {t('ideaVoting.down')} {tally.downCount}
       </Button>

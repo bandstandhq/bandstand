@@ -105,6 +105,8 @@
   },
   "stageMode": {
     "exit": "Exit",
+    "hideControls": "Hide controls",
+    "showControls": "Show controls",
     "previous": "Previous",
     "next": "Next",
     "breakMinutes": "Break — {{minutes}} min",
@@ -417,6 +419,7 @@
     "listView": "List view",
     "monthView": "Month view",
     "noEvents": "No upcoming events.",
+    "noEventsThisMonth": "No events this month.",
     "open": "Open",
     "openAria": "Open {{name}}",
     "previousMonth": "Previous month",
