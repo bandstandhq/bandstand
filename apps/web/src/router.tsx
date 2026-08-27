@@ -5,6 +5,7 @@ import { BandSettings } from './pages/BandSettings';
 import { Calendar } from './pages/Calendar';
 import { Dashboard } from './pages/Dashboard';
 import { EventDetail } from './pages/EventDetail';
+import { PollDetail } from './pages/PollDetail';
 import { JoinBand } from './pages/JoinBand';
 import { Login } from './pages/Login';
 import { Repertoire } from './pages/Repertoire';
@@ -98,6 +99,14 @@ export function AppRouter() {
           element={
             <RequireAuth>
               <EventDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/bands/:bandId/polls/:pollId"
+          element={
+            <RequireAuth>
+              <PollDetail />
             </RequireAuth>
           }
         />

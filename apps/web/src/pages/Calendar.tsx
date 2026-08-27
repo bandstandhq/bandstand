@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { can, createEvent, createRecurringEvent, resolveEventOccurrences } from '@bandstand/core';
-import type { BandRole, CalendarEvent, EventType, ResolvedOccurrence, SeriesRule, Setlist } from '@bandstand/core';
+import { can, createEvent, createPoll, createRecurringEvent, resolveEventOccurrences } from '@bandstand/core';
+import type { BandRole, CalendarEvent, EventType, Poll, ResolvedOccurrence, SeriesRule, Setlist } from '@bandstand/core';
 import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -316,12 +316,86 @@ function CreateEventForm({
   );
 }
 
+function PollRow({ bandId, pollId, poll }: { bandId: string; pollId: string; poll: Poll }) {
+  const { t } = useTranslation();
+  return (
+    <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+      <Link
+        to={`/bands/${bandId}/polls/${pollId}`}
+        className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        aria-label={t('calendarList.openPollAria', { name: poll.title })}
+      />
+      <span>
+        {poll.title}
+        {poll.resolvedEventId && <span className="ml-2 text-muted-foreground">{t('calendarList.pollClosedLabel')}</span>}
+      </span>
+      <span className="relative text-sm text-primary">{t('calendarList.open')}</span>
+    </li>
+  );
+}
+
+function CreatePollForm({ doc }: { doc: import('yjs').Doc }) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [optionStarts, setOptionStarts] = useState<string[]>(['']);
+
+  function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    const options = optionStarts
+      .filter((s) => s)
+      .map((s) => ({ startsAt: new Date(s).getTime() }))
+      .filter((o) => !Number.isNaN(o.startsAt));
+    if (!title.trim() || options.length === 0) return;
+    createPoll(doc, { title: title.trim(), notes: notes.trim() || undefined, options });
+    setTitle('');
+    setNotes('');
+    setOptionStarts(['']);
+  }
+
+  return (
+    <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border p-4">
+      <h2 className="font-medium">{t('calendarList.createPollTitle')}</h2>
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.pollTitlePlaceholder')} />
+      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.pollNotesPlaceholder')} />
+      <div className="space-y-2">
+        {optionStarts.map((value, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))}
+              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            />
+            {optionStarts.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setOptionStarts((prev) => prev.filter((_, i) => i !== index))}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                {t('calendarList.removeOption')}
+              </button>
+            )}
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => setOptionStarts((prev) => [...prev, ''])}>
+          {t('calendarList.addOption')}
+        </Button>
+      </div>
+      <Button type="submit" disabled={!title.trim() || optionStarts.every((s) => !s)}>
+        {t('calendarList.createPoll')}
+      </Button>
+    </form>
+  );
+}
+
 export function Calendar() {
   const { t } = useTranslation();
   const { bandId } = useParams<{ bandId: string }>();
   const { doc, status } = useBandDoc(bandId ?? null);
   const events = useYMap<CalendarEvent>(doc?.getMap('events'));
   const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
+  const polls = useYMap<Poll>(doc?.getMap('polls'));
   const [viewMode, setViewMode] = useState<ViewMode>('list'); // never persisted — always opens in list view
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
@@ -347,6 +421,8 @@ export function Calendar() {
   if (!bandId) return null;
   if (status === 'forbidden') return <BandAccessDenied />;
   const canCreate = viewerRole ? can(viewerRole, 'event:create') : false;
+  const canCreatePoll = viewerRole ? can(viewerRole, 'poll:create') : false;
+  const pollEntries = Object.entries(polls);
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
@@ -368,6 +444,20 @@ export function Calendar() {
       )}
 
       {canCreate && doc && <CreateEventForm doc={doc} setlists={setlists} />}
+
+      <div className="mt-8">
+        <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
+        {pollEntries.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">{t('calendarList.noPolls')}</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {pollEntries.map(([pollId, poll]) => (
+              <PollRow key={pollId} bandId={bandId} pollId={pollId} poll={poll} />
+            ))}
+          </ul>
+        )}
+        {canCreatePoll && doc && <CreatePollForm doc={doc} />}
+      </div>
     </main>
   );
 }

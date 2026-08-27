@@ -429,7 +429,17 @@
     "repeatMonthly": "Monthly",
     "repeatUntil": "Repeat until (optional)",
     "create": "Create event",
-    "cancelledLabel": "(cancelled)"
+    "cancelledLabel": "(cancelled)",
+    "pollsTitle": "Scheduling polls",
+    "noPolls": "No polls yet.",
+    "openPollAria": "Open {{name}}",
+    "pollClosedLabel": "(closed)",
+    "createPollTitle": "New poll",
+    "pollTitlePlaceholder": "Poll title",
+    "pollNotesPlaceholder": "Notes (optional)",
+    "addOption": "Add option",
+    "removeOption": "Remove",
+    "createPoll": "Create poll"
   },
   "eventDetail": {
     "back": "Back to calendar",
@@ -453,5 +463,25 @@
     "confirmDeleteSeries": "Delete the entire recurring series \"{{name}}\"? This removes every occurrence and can't be undone.",
     "cancelOccurrence": "Cancel this date",
     "confirmCancelOccurrence": "Cancel this occurrence of \"{{name}}\"? The rest of the series is unaffected."
+  },
+  "pollDetail": {
+    "back": "Back to calendar",
+    "notFound": "Poll not found.",
+    "notes": "Notes",
+    "bestFit": "Best fit",
+    "votesCount": "{{yes}} yes, {{maybe}} maybe, {{no}} no",
+    "resolvedTo": "This poll is closed.",
+    "viewEvent": "View the event",
+    "closeSectionTitle": "Close this poll",
+    "closeOptionLabel": "Winning option",
+    "eventTitleLabel": "Event title",
+    "eventTypeLabel": "Type",
+    "location": "Location (optional)",
+    "notesLabel": "Notes (optional)",
+    "confirmClose": "Close",
+    "closing": "Closing…",
+    "delete": "Delete poll",
+    "deleting": "Deleting…",
+    "confirmDelete": "Delete \"{{name}}\"? This can't be undone."
   }
 }
