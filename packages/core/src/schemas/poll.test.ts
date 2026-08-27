@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { pollOptionSchema, pollSchema } from './poll';
+import { closePollInputSchema, pollOptionSchema, pollSchema } from './poll';
 
 describe('pollOptionSchema', () => {
   it('accepts an option with just a start time', () => {
@@ -44,5 +44,36 @@ describe('pollSchema', () => {
 
   it('rejects an empty title', () => {
     expect(() => pollSchema.parse({ title: '', options: baseOptions() })).toThrow();
+  });
+});
+
+describe('closePollInputSchema', () => {
+  it('accepts a minimal close request', () => {
+    expect(() =>
+      closePollInputSchema.parse({ optionId: 'opt-1', title: 'Agreed rehearsal', type: 'rehearsal' }),
+    ).not.toThrow();
+  });
+
+  it('accepts an optional location/notes', () => {
+    expect(() =>
+      closePollInputSchema.parse({
+        optionId: 'opt-1',
+        title: 'Agreed gig',
+        type: 'gig',
+        location: 'The Venue',
+        notes: 'Load in at 6pm',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects an unknown field (strict)', () => {
+    expect(() =>
+      closePollInputSchema.parse({ optionId: 'opt-1', title: 'x', type: 'gig', extra: 'nope' }),
+    ).toThrow();
+  });
+
+  it('rejects a missing optionId or title', () => {
+    expect(() => closePollInputSchema.parse({ title: 'x', type: 'gig' })).toThrow();
+    expect(() => closePollInputSchema.parse({ optionId: 'opt-1', type: 'gig' })).toThrow();
   });
 });

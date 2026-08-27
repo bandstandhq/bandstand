@@ -27,3 +27,13 @@ export const pollSchema = z.object({
 });
 
 export type Poll = z.infer<typeof pollSchema>;
+
+/** Body of `POST /bands/:bandId/polls/:pollId/close` — which option wins, becoming the real event the poll resolves into. */
+export const closePollInputSchema = z.strictObject({
+  optionId: z.string().min(1),
+  title: z.string().min(1),
+  type: z.enum(['gig', 'rehearsal', 'other']),
+  location: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type ClosePollInput = z.infer<typeof closePollInputSchema>;

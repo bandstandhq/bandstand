@@ -40,11 +40,27 @@ import { isForeignKeyViolation } from './pgErrors';
 const GUARDED_MAPS = ['songs', 'voices', 'setlists'] as const;
 type GuardedMapName = (typeof GUARDED_MAPS)[number];
 
+// availability:respond/poll:vote (docs/PERMISSIONS.md, docs/adr/0011-calendar-events.md)
+// have no matrix entry at all — every member may write to these maps, but
+// only under their own `:<userId>` key, never anyone else's, and there's no
+// REST route in front of these live doc edits to check that. This is a
+// different kind of guard from GUARDED_MAPS above: it isn't "was a key
+// deleted," it's "does every touched key's trailing `:<userId>` segment
+// match the actor who touched it" — insert, update, and delete are all
+// checked, not just deletion.
+const OWNERSHIP_GUARDED_MAPS = ['availability', 'pollVotes'] as const;
+type OwnershipGuardedMapName = (typeof OWNERSHIP_GUARDED_MAPS)[number];
+
+function keyOwnerUserId(compositeKey: string): string {
+  return compositeKey.slice(compositeKey.lastIndexOf(':') + 1);
+}
+
 interface GuardSnapshot {
   maps: Record<GuardedMapName, Record<string, unknown>>;
   // itemsKey(setlistId) -> that setlist's items, only for setlists present
   // in `maps.setlists` at snapshot time.
   items: Record<string, unknown[]>;
+  ownershipMaps: Record<OwnershipGuardedMapName, Record<string, unknown>>;
 }
 
 // Keyed by bandId (Hocuspocus's documentName). Module-level and
@@ -61,7 +77,10 @@ function snapshotGuardState(document: { getMap: (name: string) => { toJSON(): Re
     items[itemsKey(setlistId)] = document.getArray(itemsKey(setlistId)).toJSON();
   }
 
-  return { maps, items };
+  const ownershipMaps = {} as GuardSnapshot['ownershipMaps'];
+  for (const name of OWNERSHIP_GUARDED_MAPS) ownershipMaps[name] = document.getMap(name).toJSON();
+
+  return { maps, items, ownershipMaps };
 }
 
 // @hocuspocus/server reads a thrown error's `.reason` and sends it to the
@@ -115,7 +134,9 @@ export const hocuspocusServer = new Server({
 
     const isRealClientWrite = isTransactionOrigin(transactionOrigin) && transactionOrigin.source === 'connection';
     if (previous && isRealClientWrite) {
+      const actor = context as { userId?: string; bandRole?: string } | undefined;
       const reverted: { mapName: GuardedMapName; key: string }[] = [];
+      const revertedOwnership: { mapName: OwnershipGuardedMapName; key: string }[] = [];
 
       document.transact(() => {
         for (const mapName of GUARDED_MAPS) {
@@ -131,12 +152,40 @@ export const hocuspocusServer = new Server({
             document.getArray(arrayKey).push(items);
           }
         }
+
+        // Ownership guard: any availability/pollVotes key this write
+        // touched (added, changed, or removed) whose owner segment isn't
+        // the acting user's own id gets restored to exactly what it was.
+        for (const mapName of OWNERSHIP_GUARDED_MAPS) {
+          const before = previous.ownershipMaps[mapName];
+          const after = current.ownershipMaps[mapName];
+          const touchedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+          for (const key of touchedKeys) {
+            if (before[key] === after[key]) continue;
+            if (actor?.userId && keyOwnerUserId(key) === actor.userId) continue;
+
+            if (key in before) document.getMap(mapName).set(key, before[key]);
+            else document.getMap(mapName).delete(key);
+            revertedOwnership.push({ mapName, key });
+          }
+        }
       }, { source: 'local' });
 
       for (const { mapName, key } of reverted) {
-        const actor = context as { userId?: string; bandRole?: string } | undefined;
         console.warn('[hocuspocus] reverted an unauthorized deletion attempt', {
           event: 'permission-guard.reverted',
+          bandId: documentName,
+          mapName,
+          key,
+          actingUserId: actor?.userId,
+          actingRole: actor?.bandRole,
+        });
+      }
+
+      for (const { mapName, key } of revertedOwnership) {
+        console.warn("[hocuspocus] reverted an attempt to write another member's answer", {
+          event: 'permission-guard.reverted-ownership',
           bandId: documentName,
           mapName,
           key,
