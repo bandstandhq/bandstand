@@ -57,7 +57,15 @@
     "deleteLocalDataDone": "Local data deleted.",
     "upcomingTitle": "Next up",
     "openEventAria": "Open {{name}}",
-    "needsResponse": "Needs your answer"
+    "needsResponse": "Needs your answer",
+    "icsTitle": "Subscribe to your calendar",
+    "icsDescription": "Add this link to your phone or computer's calendar app to see every band's events alongside your own — it updates automatically.",
+    "icsWarning": "Anyone with this link can read every event — including its location — across all of your bands, until you regenerate it. Keep it private.",
+    "icsCopy": "Copy link",
+    "icsCopied": "Copied!",
+    "icsRegenerate": "Regenerate link",
+    "icsRegenerating": "Regenerating…",
+    "icsRegenerateConfirm": "Generate a new link? The current one will stop working immediately, including for any calendar app already subscribed to it."
   },
   "bandAccess": {
     "denied": "You're not a member of this band, so its content isn't available here."

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type AvailabilityAnswer, type CalendarEvent, resolveEventOccurrences } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
@@ -9,7 +9,8 @@ import { BandSwitcher } from '../components/BandSwitcher';
 import { OfflineReadiness } from '../components/OfflineReadiness';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
-import { authClient } from '../lib/auth-client';
+import { apiClient } from '../lib/api-client';
+import { authClient, getDefaultServerUrl } from '../lib/auth-client';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
 
@@ -60,6 +61,65 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Personal, not band-scoped — spans every band the signed-in user is in,
+ * regardless of which one is currently active. See
+ * docs/adr/0011-calendar-events.md for why membership is rechecked fresh on
+ * every fetch of the feed itself rather than trusted from this token.
+ */
+function CalendarSubscribePanel() {
+  const { t } = useTranslation();
+  const [token, setToken] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    apiClient.getIcsToken().then((r) => setToken(r.token));
+  }, []);
+
+  async function handleRegenerate() {
+    if (!window.confirm(t('dashboard.icsRegenerateConfirm'))) return;
+    setRegenerating(true);
+    try {
+      const { token: newToken } = await apiClient.regenerateIcsToken();
+      setToken(newToken);
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function handleCopy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied by browser permission policy — the
+      // URL is still visible and selectable, so this isn't fatal.
+    }
+  }
+
+  if (!token) return null;
+  const url = `${getDefaultServerUrl()}/calendar/${token}.ics`;
+
+  return (
+    <div className="mt-8 rounded-md border border-border p-4">
+      <h2 className="font-medium">{t('dashboard.icsTitle')}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.icsDescription')}</p>
+      <p className="mt-2 break-all rounded bg-muted p-2 text-xs">{url}</p>
+      <p className="mt-2 text-xs text-destructive">{t('dashboard.icsWarning')}</p>
+      <div className="mt-3 flex gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => void handleCopy(url)}>
+          {copied ? t('dashboard.icsCopied') : t('dashboard.icsCopy')}
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={regenerating} onClick={() => void handleRegenerate()}>
+          {regenerating ? t('dashboard.icsRegenerating') : t('dashboard.icsRegenerate')}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -132,6 +192,7 @@ export function Dashboard() {
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>
       )}
+      <CalendarSubscribePanel />
     </main>
   );
 }

@@ -176,6 +176,11 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     updateMyPrefs: (input: UpdateUserPrefsInput) =>
       req<UserPrefs>('/me/prefs', { method: 'PATCH', body: JSON.stringify(input) }),
 
+    // Lazily provisioned on first read — see apps/server/src/routes/icsToken.ts.
+    getIcsToken: () => req<{ token: string }>('/me/ics-token'),
+
+    regenerateIcsToken: () => req<{ token: string }>('/me/ics-token/regenerate', { method: 'POST' }),
+
     // Content-addressed file upload flow — see docs/adr/0007-content-addressed-files.md.
     // The actual bytes never go through this client: presign-upload/download
     // return a URL the caller PUTs/GETs directly against the object store.
