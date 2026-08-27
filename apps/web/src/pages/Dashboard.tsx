@@ -10,6 +10,7 @@ import { useYMap } from '../hooks/useYMap';
 import { authClient } from '../lib/auth-client';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
+import { useThemeStore } from '../stores/theme';
 
 export function Dashboard() {
   const { t } = useTranslation();
@@ -17,7 +18,9 @@ export function Dashboard() {
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const { doc, status } = useBandDoc(activeBandId);
   const songs = useYMap(doc?.getMap('songs'));
-
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  
   // No anonymous check here — RequireAuth (router.tsx) already guarantees a
   // session before this component ever mounts.
   if (status === 'forbidden') {
@@ -52,6 +55,9 @@ export function Dashboard() {
           )}
           <Button variant="ghost" onClick={handleDeleteLocalData}>
             {t('dashboard.deleteLocalData')}
+          </Button>
+          <Button variant="outline" onClick={toggleTheme}>
+            {theme === 'dark' ? t('dashboard.themeLight') : t('dashboard.themeDark')}
           </Button>
           <Button variant="outline" onClick={() => authClient.signOut()}>
             {t('dashboard.logout')}
