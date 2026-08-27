@@ -1,0 +1,373 @@
+// SPDX-License-Identifier: Apache-2.0
+import { can, createEvent, createRecurringEvent, resolveEventOccurrences } from '@bandstand/core';
+import type { BandRole, CalendarEvent, EventType, ResolvedOccurrence, SeriesRule, Setlist } from '@bandstand/core';
+import { Button, Input, Textarea } from '@bandstand/ui';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link, useParams } from 'react-router';
+import { BandAccessDenied } from '../components/BandAccessDenied';
+import { useBandDoc } from '../hooks/useBandDoc';
+import { useYMap } from '../hooks/useYMap';
+import { apiClient } from '../lib/api-client';
+
+type ViewMode = 'list' | 'month';
+type RepeatOption = 'none' | 'weekly' | 'biweekly' | 'monthly';
+
+function startOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatEventWhen(event: CalendarEvent): string {
+  const start = new Date(event.startsAt);
+  return event.allDay
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(start)
+    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(start);
+}
+
+function EventRow({ bandId, occurrence }: { bandId: string; occurrence: ResolvedOccurrence }) {
+  const { t } = useTranslation();
+  const { event, occurrenceId } = occurrence;
+  return (
+    <li className="relative flex items-center justify-between rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
+      <Link
+        to={`/bands/${bandId}/calendar/${occurrenceId}`}
+        className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        aria-label={t('calendarList.openAria', { name: event.title })}
+      />
+      <div>
+        <p>
+          {event.title}
+          {event.status === 'cancelled' && <span className="ml-2 text-muted-foreground">{t('calendarList.cancelledLabel')}</span>}
+        </p>
+        <p className="text-xs text-muted-foreground">{formatEventWhen(event)}</p>
+      </div>
+      <span className="relative text-sm text-primary">{t('calendarList.open')}</span>
+    </li>
+  );
+}
+
+function ListView({ bandId, occurrences }: { bandId: string; occurrences: ResolvedOccurrence[] }) {
+  const { t } = useTranslation();
+  if (occurrences.length === 0) {
+    return <p className="mt-6 text-sm text-muted-foreground">{t('calendarList.noEvents')}</p>;
+  }
+  return (
+    <ul className="mt-6 space-y-2">
+      {occurrences.map((occ) => (
+        <EventRow key={occ.occurrenceId} bandId={bandId} occurrence={occ} />
+      ))}
+    </ul>
+  );
+}
+
+function MonthGrid({
+  bandId,
+  monthCursor,
+  onChangeMonth,
+  occurrences,
+}: {
+  bandId: string;
+  monthCursor: Date;
+  onChangeMonth: (d: Date) => void;
+  occurrences: ResolvedOccurrence[];
+}) {
+  const { t } = useTranslation();
+  const byDate = useMemo(() => {
+    const map = new Map<string, ResolvedOccurrence[]>();
+    for (const occ of occurrences) {
+      const list = map.get(occ.date) ?? [];
+      list.push(occ);
+      map.set(occ.date, list);
+    }
+    return map;
+  }, [occurrences]);
+
+  const firstOfMonth = startOfMonth(monthCursor);
+  const daysInMonth = endOfMonth(monthCursor).getUTCDate();
+  const leadingBlanks = firstOfMonth.getUTCDay();
+  const cells: (Date | null)[] = [
+    ...Array.from({ length: leadingBlanks }, () => null),
+    ...Array.from(
+      { length: daysInMonth },
+      (_, i) => new Date(Date.UTC(firstOfMonth.getUTCFullYear(), firstOfMonth.getUTCMonth(), i + 1)),
+    ),
+  ];
+  const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(new Date(Date.UTC(2026, 1, 1 + i))),
+  );
+
+  return (
+    <div className="mt-6">
+      <div className="mb-3 flex items-center justify-between">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onChangeMonth(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() - 1, 1)))}
+        >
+          {t('calendarList.previousMonth')}
+        </Button>
+        <p className="font-medium">{new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(monthCursor)}</p>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onChangeMonth(new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 1)))}
+        >
+          {t('calendarList.nextMonth')}
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="grid min-w-2xl grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
+          {weekdayLabels.map((label) => (
+            <div key={label} className="p-1">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="grid min-w-2xl grid-cols-7 gap-1">
+          {cells.map((date, i) => (
+            <div key={date ? isoDate(date) : `blank-${i}`} className="min-h-24 rounded-md border border-border p-1">
+              {date && (
+                <>
+                  <p className="text-xs text-muted-foreground">{date.getUTCDate()}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {(byDate.get(isoDate(date)) ?? []).map((occ) => (
+                      <li key={occ.occurrenceId} className="relative truncate rounded px-1 text-xs hover:bg-accent/50">
+                        <Link
+                          to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
+                          className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                          aria-label={t('calendarList.openAria', { name: occ.event.title })}
+                        />
+                        <span className="relative">{occ.event.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateEventForm({
+  doc,
+  setlists,
+}: {
+  doc: import('yjs').Doc;
+  setlists: Record<string, Setlist>;
+}) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState<EventType>('rehearsal');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
+  const [allDay, setAllDay] = useState(false);
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+  const [setlistId, setSetlistId] = useState('');
+  const [repeat, setRepeat] = useState<RepeatOption>('none');
+  const [repeatUntil, setRepeatUntil] = useState('');
+
+  function reset() {
+    setTitle('');
+    setStartsAt('');
+    setEndsAt('');
+    setAllDay(false);
+    setLocation('');
+    setNotes('');
+    setSetlistId('');
+    setRepeat('none');
+    setRepeatUntil('');
+  }
+
+  function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    if (!title.trim() || !startsAt) return;
+    const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
+    if (Number.isNaN(startMs)) return;
+    const endMs = endsAt ? (allDay ? Date.parse(`${endsAt}T23:59:59.999Z`) : new Date(endsAt).getTime()) : undefined;
+
+    const input = {
+      type,
+      title: title.trim(),
+      startsAt: startMs,
+      endsAt: endMs !== undefined && !Number.isNaN(endMs) ? endMs : undefined,
+      allDay,
+      location: location.trim() || undefined,
+      notes: notes.trim() || undefined,
+      setlistId: setlistId || undefined,
+      status: 'confirmed' as const,
+    };
+
+    if (repeat === 'none') {
+      createEvent(doc, input);
+    } else {
+      const freq: SeriesRule['freq'] = repeat === 'weekly' ? 'weekly' : repeat === 'biweekly' ? 'biweekly' : 'monthly';
+      createRecurringEvent(doc, input, { freq, until: repeatUntil || undefined });
+    }
+    reset();
+  }
+
+  return (
+    <form onSubmit={handleCreate} className="mt-6 space-y-3 rounded-md border border-border p-4">
+      <h2 className="font-medium">{t('calendarList.createTitle')}</h2>
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.titlePlaceholder')} />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.type')}
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as EventType)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="gig">{t('calendarList.typeGig')}</option>
+            <option value="rehearsal">{t('calendarList.typeRehearsal')}</option>
+            <option value="other">{t('calendarList.typeOther')}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+          {t('calendarList.allDay')}
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.startsAt')}
+          <input
+            type={allDay ? 'date' : 'datetime-local'}
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.endsAt')}
+          <input
+            type={allDay ? 'date' : 'datetime-local'}
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </label>
+      </div>
+
+      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('calendarList.location')} />
+      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.notes')} />
+
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        {t('calendarList.linkedSetlist')}
+        <select
+          value={setlistId}
+          onChange={(e) => setSetlistId(e.target.value)}
+          className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="">{t('calendarList.noSetlist')}</option>
+          {Object.entries(setlists).map(([id, setlist]) => (
+            <option key={id} value={id}>
+              {setlist.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.repeats')}
+          <select
+            value={repeat}
+            onChange={(e) => setRepeat(e.target.value as RepeatOption)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="none">{t('calendarList.repeatNone')}</option>
+            <option value="weekly">{t('calendarList.repeatWeekly')}</option>
+            <option value="biweekly">{t('calendarList.repeatBiweekly')}</option>
+            <option value="monthly">{t('calendarList.repeatMonthly')}</option>
+          </select>
+        </label>
+        {repeat !== 'none' && (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.repeatUntil')}
+            <input
+              type="date"
+              value={repeatUntil}
+              onChange={(e) => setRepeatUntil(e.target.value)}
+              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            />
+          </label>
+        )}
+      </div>
+
+      <Button type="submit" disabled={!title.trim() || !startsAt}>
+        {t('calendarList.create')}
+      </Button>
+    </form>
+  );
+}
+
+export function Calendar() {
+  const { t } = useTranslation();
+  const { bandId } = useParams<{ bandId: string }>();
+  const { doc, status } = useBandDoc(bandId ?? null);
+  const events = useYMap<CalendarEvent>(doc?.getMap('events'));
+  const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
+  const [viewMode, setViewMode] = useState<ViewMode>('list'); // never persisted — always opens in list view
+  const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
+  const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
+  // Captured once at mount, not read fresh on every render — Date.now() is
+  // an impure call React's render purity rules disallow directly in the
+  // component body.
+  const [now] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!bandId) return;
+    apiClient.listMyBands().then((bands) => {
+      setViewerRole(bands.find((b) => b.id === bandId)?.role ?? null);
+    });
+  }, [bandId]);
+
+  const rangeStart = viewMode === 'month' ? startOfMonth(monthCursor).getTime() : now;
+  const rangeEnd = viewMode === 'month' ? endOfMonth(monthCursor).getTime() : now + 1000 * 60 * 60 * 24 * 180;
+
+  const occurrences = useMemo(
+    () => resolveEventOccurrences(events, rangeStart, rangeEnd),
+    [events, rangeStart, rangeEnd],
+  );
+  if (!bandId) return null;
+  if (status === 'forbidden') return <BandAccessDenied />;
+  const canCreate = viewerRole ? can(viewerRole, 'event:create') : false;
+
+  return (
+    <main className="min-h-screen bg-background p-6 text-foreground">
+      <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
+        &larr; {t('calendarList.back')}
+      </Link>
+
+      <div className="mt-4 flex items-center justify-between">
+        <h1 className="text-xl font-medium">{t('calendarList.title')}</h1>
+        <Button type="button" variant="outline" onClick={() => setViewMode(viewMode === 'month' ? 'list' : 'month')}>
+          {viewMode === 'month' ? t('calendarList.listView') : t('calendarList.monthView')}
+        </Button>
+      </div>
+
+      {viewMode === 'month' ? (
+        <MonthGrid bandId={bandId} monthCursor={monthCursor} onChangeMonth={setMonthCursor} occurrences={occurrences} />
+      ) : (
+        <ListView bandId={bandId} occurrences={occurrences} />
+      )}
+
+      {canCreate && doc && <CreateEventForm doc={doc} setlists={setlists} />}
+    </main>
+  );
+}

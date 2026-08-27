@@ -174,6 +174,37 @@ describe('createApiClient', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
+  it('deleteEvent omits the query string by default and adds ?scope=series when asked', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    const client = createApiClient('http://api.example');
+    await client.deleteEvent('band-1', 'event-1');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/events/event-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+
+    mockFetchOnce({ ok: true, body: { ok: true } });
+    await client.deleteEvent('band-1', 'event-1', 'series');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/events/event-1?scope=series',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('requests the right URL/method/body for closePoll', async () => {
+    mockFetchOnce({ ok: true, body: { ok: true, eventId: 'event-1' } });
+    const client = createApiClient('http://api.example');
+    await client.closePoll('band-1', 'poll-1', { optionId: 'opt-1', title: 'Agreed rehearsal', type: 'rehearsal' });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/polls/poll-1/close',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ optionId: 'opt-1', title: 'Agreed rehearsal', type: 'rehearsal' }),
+      }),
+    );
+  });
+
   it('falls back to a generic message when the error body is unparseable', async () => {
     vi.stubGlobal(
       'fetch',

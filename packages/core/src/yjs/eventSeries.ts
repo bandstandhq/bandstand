@@ -122,3 +122,26 @@ export function resolveEventOccurrences(
 
   return results.sort((a, b) => a.event.startsAt - b.event.startsAt);
 }
+
+/**
+ * Resolves a single occurrence id (a real `events` key, or a virtual
+ * occurrence's synthetic `${templateId}@<date>` id) back to its effective
+ * event data — for a detail page that only has the id from its own URL.
+ * A real entry is a direct lookup; a virtual one is resolved by narrowing
+ * `resolveEventOccurrences` to just that one date, so it goes through
+ * exactly the same exception-matching logic as everywhere else rather than
+ * a second, parallel implementation of it.
+ */
+export function findOccurrenceEvent(events: Record<string, CalendarEvent>, occurrenceId: string): CalendarEvent | undefined {
+  const direct = events[occurrenceId];
+  if (direct) return direct;
+
+  const atIndex = occurrenceId.lastIndexOf('@');
+  if (atIndex === -1) return undefined;
+  const date = occurrenceId.slice(atIndex + 1);
+  const dayStart = Date.parse(`${date}T00:00:00.000Z`);
+  const dayEnd = Date.parse(`${date}T23:59:59.999Z`);
+  if (Number.isNaN(dayStart)) return undefined;
+
+  return resolveEventOccurrences(events, dayStart, dayEnd).find((o) => o.occurrenceId === occurrenceId)?.event;
+}
