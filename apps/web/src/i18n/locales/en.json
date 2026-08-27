@@ -54,7 +54,10 @@
     "calendar": "Calendar",
     "deleteLocalData": "Delete local data",
     "deleteLocalDataConfirm": "This removes every band's offline cache from this device (your account and bands are unaffected). Continue?",
-    "deleteLocalDataDone": "Local data deleted."
+    "deleteLocalDataDone": "Local data deleted.",
+    "upcomingTitle": "Next up",
+    "openEventAria": "Open {{name}}",
+    "needsResponse": "Needs your answer"
   },
   "bandAccess": {
     "denied": "You're not a member of this band, so its content isn't available here."
