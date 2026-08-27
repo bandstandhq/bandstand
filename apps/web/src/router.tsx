@@ -63,6 +63,14 @@ export function AppRouter() {
           }
         />
         <Route
+          path="/bands/:bandId/songs/:songId/play"
+          element={
+            <RequireAuth>
+              <StageMode />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/bands/:bandId/setlists"
           element={
             <RequireAuth>

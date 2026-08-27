@@ -141,6 +141,7 @@
     "transposeDown": "Transpose down",
     "transposeUp": "Transpose up",
     "editSetlist": "Edit setlist",
+    "editSong": "Edit song",
     "moveUp": "Move up",
     "moveDown": "Move down",
     "removeItem": "Remove",
@@ -202,8 +203,8 @@
     "noSongsAtAll": "No songs yet.",
     "noArchivedSongs": "No archived songs.",
     "newSong": "New song",
-    "edit": "Edit",
     "editAria": "Edit {{title}}",
+    "playAria": "Play {{title}}",
     "deleteForever": {
       "action": "Delete forever",
       "title": "Permanently delete \"{{title}}\"?",
