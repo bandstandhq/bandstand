@@ -12,10 +12,16 @@ import { db } from '../db/client';
 import { pushSubscriptions, userPrefs } from '../db/schema/index';
 import type { AuthVariables } from '../lib/bandAuthz';
 import { requireAuth } from '../lib/bandAuthz';
+import { getVapidConfig, hasVapidKeys } from '../push/config';
 
 export const pushRoute = new Hono<{ Variables: AuthVariables }>();
 
 pushRoute.use('*', requireAuth);
+
+/** `null` when the self-hoster hasn't run `pnpm push:keys` yet — the web app hides the whole feature in that case. */
+pushRoute.get('/public-key', (c) => {
+  return c.json({ publicKey: hasVapidKeys() ? getVapidConfig().publicKey : null });
+});
 
 /**
  * Idempotent by `endpoint` — re-subscribing the same device (a fresh
@@ -42,7 +48,7 @@ pushRoute.post('/subscribe', async (c) => {
       set: { userId, p256dh: input.keys.p256dh, auth: input.keys.auth, deviceLabel: input.deviceLabel },
     });
 
-  return c.body(null, 204);
+  return c.json({ ok: true });
 });
 
 /** Only the subscription's own owner can remove it. */
@@ -54,7 +60,7 @@ pushRoute.delete('/subscribe/:endpoint', async (c) => {
     .delete(pushSubscriptions)
     .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId)));
 
-  return c.body(null, 204);
+  return c.json({ ok: true });
 });
 
 /**

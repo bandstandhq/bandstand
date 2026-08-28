@@ -13,4 +13,5 @@ export * from './annotation';
 export * from './availabilityAnswer';
 export * from './event';
 export * from './poll';
+export * from './pushPayload';
 export * from './pushSubscription';
