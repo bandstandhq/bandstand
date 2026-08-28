@@ -9,7 +9,9 @@ import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
 import { icsTokenRoute } from './routes/icsToken';
 import { inviteRedemptionRoute } from './routes/invites';
+import { pushRoute } from './routes/push';
 import { userPrefsRoute } from './routes/userPrefs';
+import { warnOnceIfMissing } from './push/config';
 
 const app = new Hono();
 
@@ -27,9 +29,12 @@ app.route('/invites', inviteRedemptionRoute);
 app.route('/me/prefs', userPrefsRoute);
 app.route('/me/ics-token', icsTokenRoute);
 app.route('/calendar', calendarFeedRoute);
+app.route('/push', pushRoute);
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
 const port = Number(process.env.PORT ?? 3001);
+
+warnOnceIfMissing();
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Bandstand API listening on http://localhost:${info.port}`);

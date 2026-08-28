@@ -13,6 +13,7 @@
     "dev": "pnpm ensure-env && pnpm dev:infra && pnpm db:migrate && turbo run dev --filter=@bandstand/web --filter=@bandstand/server",
     "seed": "pnpm --filter @bandstand/server seed",
     "blobs:gc": "pnpm --filter @bandstand/server blobs:gc",
+    "push:keys": "pnpm --filter @bandstand/server push:keys",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

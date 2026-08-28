@@ -25,4 +25,14 @@ export const userPrefs = pgTable('user_prefs', {
   // synced to bandmates (that's the whole reason this lives here and not
   // in the band's Yjs doc); validated in packages/core's userPrefsSchema.
   songNotes: jsonb('song_notes').notNull().default({}),
+  // { eventCreated, eventChanged, pollCreated, missingResponseReminder,
+  // upcomingEventReminder }, all false by default (see docs/adr/0012-web-
+  // push.md) — validated in packages/core's pushTriggersSchema.
+  pushTriggers: jsonb('push_triggers').notNull().default({
+    eventCreated: false,
+    eventChanged: false,
+    pollCreated: false,
+    missingResponseReminder: false,
+    upcomingEventReminder: false,
+  }),
 });
