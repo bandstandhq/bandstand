@@ -46,6 +46,8 @@
     "offline": "Offline",
     "songCount": "{{count}} song in the band doc",
     "songCount_other": "{{count}} songs in the band doc",
+    "themeDark": "Dark theme",
+    "themeLight": "Light theme",
     "logout": "Log out",
     "noBandSelected": "Select or create a band to get started.",
     "bandSettings": "Band settings",

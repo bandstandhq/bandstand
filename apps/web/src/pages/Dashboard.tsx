@@ -13,6 +13,7 @@ import { apiClient } from '../lib/api-client';
 import { authClient, getDefaultServerUrl } from '../lib/auth-client';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
+import { useThemeStore } from '../stores/theme';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
 
@@ -132,7 +133,9 @@ export function Dashboard() {
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const { doc, status } = useBandDoc(activeBandId);
   const songs = useYMap(doc?.getMap('songs'));
-
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  
   // No anonymous check here — RequireAuth (router.tsx) already guarantees a
   // session before this component ever mounts.
   if (status === 'forbidden') {
@@ -170,6 +173,9 @@ export function Dashboard() {
           )}
           <Button variant="ghost" onClick={handleDeleteLocalData}>
             {t('dashboard.deleteLocalData')}
+          </Button>
+          <Button variant="outline" type="button" aria-pressed={theme === 'dark'} onClick={toggleTheme}>
+            {theme === 'dark' ? t('dashboard.themeLight') : t('dashboard.themeDark')}
           </Button>
           <Button variant="outline" onClick={() => authClient.signOut()}>
             {t('dashboard.logout')}
