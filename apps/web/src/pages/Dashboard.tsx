@@ -174,7 +174,7 @@ export function Dashboard() {
           <Button variant="ghost" onClick={handleDeleteLocalData}>
             {t('dashboard.deleteLocalData')}
           </Button>
-          <Button variant="outline" onClick={toggleTheme}>
+          <Button variant="outline" type="button" aria-pressed={theme === 'dark'} onClick={toggleTheme}>
             {theme === 'dark' ? t('dashboard.themeLight') : t('dashboard.themeDark')}
           </Button>
           <Button variant="outline" onClick={() => authClient.signOut()}>
