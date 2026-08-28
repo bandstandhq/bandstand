@@ -10,10 +10,16 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // `injectManifest` (a real src/sw.ts we own) rather than `generateSW`
+      // (a fully auto-generated one) — needed so push/notificationclick
+      // listeners can be added to the service worker (see src/sw.ts).
       // Band data offline support is already handled by y-indexeddb; this
       // service worker's job is narrowly the app shell + static assets so
       // the app still loads (and shows already-synced bands) with no network.
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
       },
       manifest: {

@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BandSwitcher } from '../components/BandSwitcher';
 import { OfflineReadiness } from '../components/OfflineReadiness';
+import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -201,6 +202,7 @@ export function Dashboard() {
         <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>
       )}
       <CalendarSubscribePanel />
+      <PushNotificationsPanel />
     </main>
   );
 }

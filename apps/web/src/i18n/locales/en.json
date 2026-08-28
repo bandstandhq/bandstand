@@ -69,6 +69,19 @@
     "icsRegenerating": "Regenerating…",
     "icsRegenerateConfirm": "Generate a new link? The current one will stop working immediately, including for any calendar app already subscribed to it."
   },
+  "pushNotifications": {
+    "title": "Push notifications",
+    "description": "Get notified on this device for the moments you pick below.",
+    "enableOnThisDevice": "Enable on this device",
+    "disableOnThisDevice": "Disable on this device",
+    "permissionDenied": "Notifications are blocked for this site in your browser settings.",
+    "trigger_eventCreated": "A new event is created",
+    "trigger_eventChanged": "An event you're invited to changes or is cancelled",
+    "trigger_pollCreated": "A new scheduling poll is created",
+    "trigger_missingResponseReminder": "Reminder: you haven't answered an upcoming event",
+    "trigger_upcomingEventReminder": "Reminder shortly before an upcoming event",
+    "iosCaveat": "On iPhone/iPad, push notifications only work after adding Bandstand to your Home Screen (Safari 16.4+) — Settings app notifications alone won't reach it."
+  },
   "bandAccess": {
     "denied": "You're not a member of this band, so its content isn't available here."
   },

@@ -61,13 +61,13 @@ describe('push subscribe/unsubscribe/prefs (integration)', () => {
       keys: { p256dh: 'p256dh-value', auth: 'auth-value' },
       deviceLabel: 'Test device',
     });
-    expect(subRes.status).toBe(204);
+    expect(subRes.status).toBe(200);
 
     const [row] = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
     expect(row).toMatchObject({ userId, p256dh: 'p256dh-value', auth: 'auth-value', deviceLabel: 'Test device' });
 
     const unsubRes = await unsubscribe(token, endpoint);
-    expect(unsubRes.status).toBe(204);
+    expect(unsubRes.status).toBe(200);
 
     const [afterDelete] = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
     expect(afterDelete).toBeUndefined();
@@ -80,7 +80,7 @@ describe('push subscribe/unsubscribe/prefs (integration)', () => {
 
     await subscribe(token, { endpoint, keys: { p256dh: 'first', auth: 'first' } });
     const res = await subscribe(token, { endpoint, keys: { p256dh: 'second', auth: 'second' } });
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(200);
 
     const rows = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
     expect(rows).toHaveLength(1);

@@ -12,9 +12,11 @@ import type {
   CreateInviteInput,
   Invite,
   PresignUploadInput,
+  PushTriggers,
   RedeemInviteInput,
   RenameBandInput,
   ResolveIdeaTieInput,
+  SubscribePushInput,
   UpdateAnnotationLayerInput,
   UpdateMyInstrumentsInput,
   UpdateUserPrefsInput,
@@ -180,6 +182,22 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     getIcsToken: () => req<{ token: string }>('/me/ics-token'),
 
     regenerateIcsToken: () => req<{ token: string }>('/me/ics-token/regenerate', { method: 'POST' }),
+
+    // Web push — see apps/server/src/routes/push.ts. `publicKey` is `null`
+    // when the self-hoster hasn't run `pnpm push:keys` yet.
+    getPushPublicKey: () => req<{ publicKey: string | null }>('/push/public-key'),
+
+    subscribePush: (input: SubscribePushInput) =>
+      req<{ ok: true }>('/push/subscribe', { method: 'POST', body: JSON.stringify(input) }),
+
+    unsubscribePush: (endpoint: string) =>
+      req<{ ok: true }>(`/push/subscribe/${encodeURIComponent(endpoint)}`, { method: 'DELETE' }),
+
+    updatePushPref: (trigger: keyof PushTriggers, enabled: boolean) =>
+      req<{ pushTriggers: PushTriggers }>('/push/prefs', {
+        method: 'PATCH',
+        body: JSON.stringify({ trigger, enabled }),
+      }),
 
     // Content-addressed file upload flow — see docs/adr/0007-content-addressed-files.md.
     // The actual bytes never go through this client: presign-upload/download
