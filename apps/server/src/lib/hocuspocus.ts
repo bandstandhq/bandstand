@@ -10,12 +10,19 @@
 // plugin, then checks that the authenticated user is actually a member of
 // the requested band (documentName === bandId) — closes
 // https://github.com/bandstandhq/bandstand/issues/1.
-import { bandSnapshotSchema, HOCUSPOCUS_AUTH_FAILURE_REASON, itemsKey, yDocToSnapshot } from '@bandstand/core';
+import type { CalendarEvent, Poll } from '@bandstand/core';
+import {
+  bandSnapshotSchema,
+  HOCUSPOCUS_AUTH_FAILURE_REASON,
+  itemsKey,
+  yDocToSnapshot,
+} from '@bandstand/core';
 import { Database } from '@hocuspocus/extension-database';
 import { isTransactionOrigin, Server } from '@hocuspocus/server';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { bandDocs } from '../db/schema/index';
+import { bandDocs, bandMembers } from '../db/schema/index';
+import { sendPushToUsers } from '../push/send';
 import { auth } from './auth';
 import { getBandMembership } from './bandAuthz';
 import { isForeignKeyViolation } from './pgErrors';
@@ -68,7 +75,104 @@ interface GuardSnapshot {
 // server process at a time.
 const lastKnownGuardSnapshot = new Map<string, GuardSnapshot>();
 
-function snapshotGuardState(document: { getMap: (name: string) => { toJSON(): Record<string, unknown> }; getArray: (name: string) => { toJSON(): unknown[] } }): GuardSnapshot {
+// --- Push notifications for event/poll creation and changes ---
+//
+// Unlike song:deleteForever or setlist:delete, an ordinary event/poll
+// create/edit is a plain CRDT write with no REST route in front of it (see
+// routes/events.ts's own comment) — this onChange hook is the only place
+// that ever observes it server-side, so it's also where the corresponding
+// push notification (docs/adr/0012-web-push.md) fires from.
+interface EventsPollsSnapshot {
+  events: Record<string, CalendarEvent>;
+  polls: Record<string, Poll>;
+}
+
+const lastKnownEventsPollsSnapshot = new Map<string, EventsPollsSnapshot>();
+
+function snapshotEventsPolls(document: {
+  getMap: (name: string) => { toJSON(): Record<string, unknown> };
+}): EventsPollsSnapshot {
+  return {
+    events: document.getMap('events').toJSON() as Record<string, CalendarEvent>,
+    polls: document.getMap('polls').toJSON() as Record<string, Poll>,
+  };
+}
+
+/**
+ * A new key in `events` whose `seriesId` doesn't already appear on some
+ * *other* entry from before this change is a genuinely new event (or a
+ * new recurring series' template) — "eventCreated". A new key that shares
+ * a `seriesId` with an entry that already existed is a new exception on an
+ * already-known series (someone edited one date of a recurring booking),
+ * which reads to a user as "eventChanged," not a brand new event.
+ */
+function isNewException(
+  event: CalendarEvent,
+  previousEvents: Record<string, CalendarEvent>,
+): boolean {
+  if (!event.seriesId) return false;
+  return Object.values(previousEvents).some((existing) => existing.seriesId === event.seriesId);
+}
+
+async function notifyEventsAndPolls(
+  bandId: string,
+  actingUserId: string | undefined,
+  current: EventsPollsSnapshot,
+): Promise<void> {
+  const previous = lastKnownEventsPollsSnapshot.get(bandId);
+  lastKnownEventsPollsSnapshot.set(bandId, current);
+  if (!previous) return;
+
+  const created: { id: string; event: CalendarEvent }[] = [];
+  const changed: { id: string; event: CalendarEvent }[] = [];
+  for (const [eventId, event] of Object.entries(current.events)) {
+    const before = previous.events[eventId];
+    if (!before) {
+      (isNewException(event, previous.events) ? changed : created).push({ id: eventId, event });
+    } else if (JSON.stringify(before) !== JSON.stringify(event)) {
+      changed.push({ id: eventId, event });
+    }
+  }
+
+  const pollsCreated = Object.entries(current.polls).filter(([pollId]) => !previous.polls[pollId]);
+
+  if (created.length === 0 && changed.length === 0 && pollsCreated.length === 0) return;
+
+  const members = await db
+    .select({ userId: bandMembers.userId })
+    .from(bandMembers)
+    .where(eq(bandMembers.bandId, bandId));
+  const memberIds = members.map((m) => m.userId);
+
+  await Promise.all([
+    ...created.map(({ id, event }) =>
+      sendPushToUsers(memberIds, actingUserId, 'eventCreated', {
+        title: 'New event',
+        body: event.title,
+        url: `/bands/${bandId}/calendar/${id}`,
+      }),
+    ),
+    ...changed.map(({ id, event }) =>
+      sendPushToUsers(memberIds, actingUserId, 'eventChanged', {
+        title: event.status === 'cancelled' ? 'Event cancelled' : 'Event changed',
+        body: event.title,
+        url: `/bands/${bandId}/calendar/${id}`,
+      }),
+    ),
+    ...pollsCreated.map(([pollId, poll]) =>
+      sendPushToUsers(memberIds, actingUserId, 'pollCreated', {
+        title: 'New scheduling poll',
+        body: poll.title,
+        url: `/bands/${bandId}/polls/${pollId}`,
+      }),
+    ),
+  ]);
+}
+
+function snapshotGuardState(document: {
+  getMap: (name: string) => { toJSON(): Record<string, unknown> };
+  getArray: (name: string) => { toJSON(): unknown[] };
+}): GuardSnapshot {
   const maps = {} as GuardSnapshot['maps'];
   for (const name of GUARDED_MAPS) maps[name] = document.getMap(name).toJSON();
 
@@ -127,50 +231,68 @@ export const hocuspocusServer = new Server({
   // an unloaded band) would slip through undetected.
   async afterLoadDocument({ document, documentName }) {
     lastKnownGuardSnapshot.set(documentName, snapshotGuardState(document));
+    lastKnownEventsPollsSnapshot.set(documentName, snapshotEventsPolls(document));
   },
   async onChange({ document, documentName, transactionOrigin, context }) {
     const previous = lastKnownGuardSnapshot.get(documentName);
     const current = snapshotGuardState(document);
 
-    const isRealClientWrite = isTransactionOrigin(transactionOrigin) && transactionOrigin.source === 'connection';
+    const actor = context as { userId?: string; bandRole?: string } | undefined;
+
+    // Best-effort and fire-and-forget — a push-send failure or delay must
+    // never slow down or break the actual doc sync/persistence this hook
+    // otherwise handles.
+    notifyEventsAndPolls(documentName, actor?.userId, snapshotEventsPolls(document)).catch(
+      (err) => {
+        console.warn('[push] failed to process event/poll change for notifications', {
+          bandId: documentName,
+          error: err,
+        });
+      },
+    );
+
+    const isRealClientWrite =
+      isTransactionOrigin(transactionOrigin) && transactionOrigin.source === 'connection';
     if (previous && isRealClientWrite) {
-      const actor = context as { userId?: string; bandRole?: string } | undefined;
       const reverted: { mapName: GuardedMapName; key: string }[] = [];
       const revertedOwnership: { mapName: OwnershipGuardedMapName; key: string }[] = [];
 
-      document.transact(() => {
-        for (const mapName of GUARDED_MAPS) {
-          for (const [key, value] of Object.entries(previous.maps[mapName])) {
-            if (!(key in current.maps[mapName])) {
-              document.getMap(mapName).set(key, value);
-              reverted.push({ mapName, key });
+      document.transact(
+        () => {
+          for (const mapName of GUARDED_MAPS) {
+            for (const [key, value] of Object.entries(previous.maps[mapName])) {
+              if (!(key in current.maps[mapName])) {
+                document.getMap(mapName).set(key, value);
+                reverted.push({ mapName, key });
+              }
             }
           }
-        }
-        for (const [arrayKey, items] of Object.entries(previous.items)) {
-          if (current.items[arrayKey] === undefined) {
-            document.getArray(arrayKey).push(items);
+          for (const [arrayKey, items] of Object.entries(previous.items)) {
+            if (current.items[arrayKey] === undefined) {
+              document.getArray(arrayKey).push(items);
+            }
           }
-        }
 
-        // Ownership guard: any availability/pollVotes key this write
-        // touched (added, changed, or removed) whose owner segment isn't
-        // the acting user's own id gets restored to exactly what it was.
-        for (const mapName of OWNERSHIP_GUARDED_MAPS) {
-          const before = previous.ownershipMaps[mapName];
-          const after = current.ownershipMaps[mapName];
-          const touchedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+          // Ownership guard: any availability/pollVotes key this write
+          // touched (added, changed, or removed) whose owner segment isn't
+          // the acting user's own id gets restored to exactly what it was.
+          for (const mapName of OWNERSHIP_GUARDED_MAPS) {
+            const before = previous.ownershipMaps[mapName];
+            const after = current.ownershipMaps[mapName];
+            const touchedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-          for (const key of touchedKeys) {
-            if (before[key] === after[key]) continue;
-            if (actor?.userId && keyOwnerUserId(key) === actor.userId) continue;
+            for (const key of touchedKeys) {
+              if (before[key] === after[key]) continue;
+              if (actor?.userId && keyOwnerUserId(key) === actor.userId) continue;
 
-            if (key in before) document.getMap(mapName).set(key, before[key]);
-            else document.getMap(mapName).delete(key);
-            revertedOwnership.push({ mapName, key });
+              if (key in before) document.getMap(mapName).set(key, before[key]);
+              else document.getMap(mapName).delete(key);
+              revertedOwnership.push({ mapName, key });
+            }
           }
-        }
-      }, { source: 'local' });
+        },
+        { source: 'local' },
+      );
 
       for (const { mapName, key } of reverted) {
         console.warn('[hocuspocus] reverted an unauthorized deletion attempt', {

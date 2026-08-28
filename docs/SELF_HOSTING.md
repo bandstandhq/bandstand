@@ -91,6 +91,28 @@ above: those all implement the standard per-bucket `PutBucketCors` API
 settings), which is the opposite of what MinIO needed. Don't assume the
 MinIO recipe transfers — check that provider's own CORS documentation.
 
+### Push notifications
+
+Optional — the server starts and works normally without it, it just never sends a
+notification. See [ADR-0012](adr/0012-web-push.md) for why this is a plain Web Push
+setup (VAPID + each browser's own push service) with no Firebase or other vendor account.
+
+1. Generate a key pair: `pnpm push:keys`. Add the two printed values to your `.env`:
+   ```
+   VAPID_PUBLIC_KEY=...
+   VAPID_PRIVATE_KEY=...
+   VAPID_SUBJECT=mailto:you@your-domain.example
+   ```
+   Don't regenerate these later — every existing subscription silently stops working the
+   moment the key pair changes, since it's what a subscription is cryptographically tied to.
+2. The two time-based reminders (missing-response, upcoming-event) aren't sent by the main
+   server process — they're `pnpm push:due`, meant to run on a schedule you set up yourself:
+   ```cron
+   0 * * * * cd /path/to/bandstand && pnpm push:due >> /var/log/bandstand-push-due.log 2>&1
+   ```
+   Hourly is what the reminder windows are sized around; a longer interval means an
+   occurrence can drift past a reminder's window without ever firing it.
+
 ## Not yet covered here
 
 - TLS/reverse-proxy setup

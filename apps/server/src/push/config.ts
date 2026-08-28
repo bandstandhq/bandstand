@@ -17,9 +17,15 @@ export function getVapidConfig(): { publicKey: string; privateKey: string; subje
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!publicKey || !privateKey) {
-    throw new Error('VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are not set — check hasVapidKeys() before calling this.');
+    throw new Error(
+      'VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are not set — check hasVapidKeys() before calling this.',
+    );
   }
-  return { publicKey, privateKey, subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com' };
+  return {
+    publicKey,
+    privateKey,
+    subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@example.com',
+  };
 }
 
 let warned = false;
