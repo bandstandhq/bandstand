@@ -9,5 +9,6 @@ export * from './attachments';
 export * from './userPrefs';
 export * from './voiceAnnotationLayers';
 export * from './icsFeedTokens';
+export * from './pushSubscriptions';
 export * from './auth';
 export * from './relations';

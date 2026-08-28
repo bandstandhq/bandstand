@@ -33,6 +33,28 @@ export const songNoteSchema = z.object({
 });
 export type SongNote = z.infer<typeof songNoteSchema>;
 
+// The five moments a push notification can fire for — each its own
+// per-user opt-in, all defaulting to `false` (never on by default; see
+// docs/adr/0012-web-push.md). "Changed" covers both an edit and a
+// cancellation of an event this user is invited to; the two reminders are
+// time-based, sent by the `push:due` script rather than a route handler.
+export const pushTriggersSchema = z.object({
+  eventCreated: z.boolean(),
+  eventChanged: z.boolean(),
+  pollCreated: z.boolean(),
+  missingResponseReminder: z.boolean(),
+  upcomingEventReminder: z.boolean(),
+});
+export type PushTriggers = z.infer<typeof pushTriggersSchema>;
+
+export const DEFAULT_PUSH_TRIGGERS: PushTriggers = {
+  eventCreated: false,
+  eventChanged: false,
+  pollCreated: false,
+  missingResponseReminder: false,
+  upcomingEventReminder: false,
+};
+
 export const userPrefsSchema = z.object({
   // Applies to every song for this user; view-only, never written back to
   // the song's stored key (see docs/ARCHITECTURE.md).
@@ -45,6 +67,7 @@ export const userPrefsSchema = z.object({
   contentVisibility: contentVisibilitySchema,
   // Keyed by songId.
   songNotes: z.record(z.string(), songNoteSchema),
+  pushTriggers: pushTriggersSchema,
 });
 export type UserPrefs = z.infer<typeof userPrefsSchema>;
 
@@ -60,4 +83,5 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
   setlistViewMode: 'list',
   contentVisibility: 'both',
   songNotes: {},
+  pushTriggers: DEFAULT_PUSH_TRIGGERS,
 };
