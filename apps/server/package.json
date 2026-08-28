@@ -15,12 +15,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "seed": "tsx --env-file=../../.env src/seed/index.ts",
-    "blobs:gc": "tsx --env-file=../../.env src/blobs/gc.ts"
+    "blobs:gc": "tsx --env-file=../../.env src/blobs/gc.ts",
+    "push:keys": "tsx --env-file=../../.env src/push/generateKeys.ts"
   },
   "devDependencies": {
     "@hocuspocus/provider": "^4.6.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "tsup": "^8.5.1",
@@ -40,6 +42,7 @@
     "hono": "^4.13.3",
     "nodemailer": "^9.0.5",
     "pg": "^8.23.0",
+    "web-push": "^3.6.7",
     "yjs": "^13.6.32"
   }
 }
