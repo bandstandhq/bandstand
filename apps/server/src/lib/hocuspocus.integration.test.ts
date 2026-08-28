@@ -10,9 +10,18 @@ import { HocuspocusProvider } from '@hocuspocus/provider';
 import { eq } from 'drizzle-orm';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../db/client';
-import { bandDocs, bandMembers, bands, users } from '../db/schema/index';
+import {
+  bandDocs,
+  bandMembers,
+  bands,
+  pushSubscriptions,
+  userPrefs,
+  users,
+} from '../db/schema/index';
+import type { PushSender } from '../push/send';
+import { setPushSenderForTesting } from '../push/send';
 import { auth } from './auth';
 import { hocuspocusServer } from './hocuspocus';
 
@@ -29,7 +38,9 @@ type ConnectResult = { status: 'connected' } | { status: 'rejected'; reason: str
 
 function attemptConnect(port: number, bandId: string, token: string): Promise<ConnectResult> {
   return new Promise((resolve) => {
-    const config: ConstructorParameters<typeof HocuspocusProvider>[0] & { WebSocketPolyfill?: unknown } = {
+    const config: ConstructorParameters<typeof HocuspocusProvider>[0] & {
+      WebSocketPolyfill?: unknown;
+    } = {
       url: `ws://localhost:${port}`,
       name: bandId,
       document: new Y.Doc(),
@@ -77,13 +88,18 @@ async function waitForSnapshot(
 }
 
 async function readSnapshot(bandId: string) {
-  const [row] = await db.select({ snapshot: bandDocs.snapshot }).from(bandDocs).where(eq(bandDocs.bandId, bandId));
+  const [row] = await db
+    .select({ snapshot: bandDocs.snapshot })
+    .from(bandDocs)
+    .where(eq(bandDocs.bandId, bandId));
   return row?.snapshot;
 }
 
 function connectSynced(port: number, bandId: string, token: string): Promise<HocuspocusProvider> {
   return new Promise((resolve) => {
-    const config: ConstructorParameters<typeof HocuspocusProvider>[0] & { WebSocketPolyfill?: unknown } = {
+    const config: ConstructorParameters<typeof HocuspocusProvider>[0] & {
+      WebSocketPolyfill?: unknown;
+    } = {
       url: `ws://localhost:${port}`,
       name: bandId,
       document: new Y.Doc(),
@@ -100,8 +116,23 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
   const cleanupBandIds: string[] = [];
   let extraProvider: HocuspocusProvider | undefined;
 
+  const originalVapidPublic = process.env.VAPID_PUBLIC_KEY;
+  const originalVapidPrivate = process.env.VAPID_PRIVATE_KEY;
+
   beforeAll(async () => {
     await hocuspocusServer.listen();
+  });
+
+  beforeEach(() => {
+    process.env.VAPID_PUBLIC_KEY = 'test-public-key';
+    process.env.VAPID_PRIVATE_KEY = 'test-private-key';
+  });
+
+  afterEach(() => {
+    if (originalVapidPublic === undefined) delete process.env.VAPID_PUBLIC_KEY;
+    else process.env.VAPID_PUBLIC_KEY = originalVapidPublic;
+    if (originalVapidPrivate === undefined) delete process.env.VAPID_PRIVATE_KEY;
+    else process.env.VAPID_PRIVATE_KEY = originalVapidPrivate;
   });
 
   afterAll(async () => {
@@ -176,7 +207,9 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
       links: [],
       votes: {},
     });
-    seedDoc.getMap('voices').set(getDefaultVoiceId(songId), { songId, name: 'Default', body: '{title: Guarded Song}' });
+    seedDoc
+      .getMap('voices')
+      .set(getDefaultVoiceId(songId), { songId, name: 'Default', body: '{title: Guarded Song}' });
     await db.insert(bandDocs).values({
       bandId: band.id,
       yjsState: Buffer.from(Y.encodeStateAsUpdate(seedDoc)),
@@ -211,7 +244,10 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     // The revert must actually have persisted server-side too, not just
     // been re-broadcast to this one connection.
-    const [row] = await db.select({ snapshot: bandDocs.snapshot }).from(bandDocs).where(eq(bandDocs.bandId, band.id));
+    const [row] = await db
+      .select({ snapshot: bandDocs.snapshot })
+      .from(bandDocs)
+      .where(eq(bandDocs.bandId, band.id));
     expect(row?.snapshot?.songs[songId]).toMatchObject({ title: 'Guarded Song' });
   }, 15000);
 
@@ -264,7 +300,10 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
     expect(availability.get(victimKey)).toBe('yes');
 
     const restored = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Victim's answer was not restored in time")), 8000);
+      const timeout = setTimeout(
+        () => reject(new Error("Victim's answer was not restored in time")),
+        8000,
+      );
       const onMapChange = () => {
         if (availability.get(victimKey) === 'yes') {
           clearTimeout(timeout);
@@ -332,7 +371,10 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
     const victimKey = `${pollId}:${optionId}:${victim.userId}`;
 
     const restored = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Victim's vote was not restored in time")), 8000);
+      const timeout = setTimeout(
+        () => reject(new Error("Victim's vote was not restored in time")),
+        8000,
+      );
       const onMapChange = () => {
         if (votes.get(victimKey) === 'yes') {
           clearTimeout(timeout);
@@ -350,5 +392,66 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const snapshot = await waitForSnapshot(band.id, (s) => s.pollVotes[victimKey] !== undefined);
     expect(snapshot?.pollVotes[victimKey]).toBe('yes');
+  }, 15000);
+
+  it('a new event pushes to other subscribed members, but never to whoever created it', async () => {
+    const creator = await signUpTestUser();
+    const other = await signUpTestUser();
+    cleanupUserIds.push(creator.userId, other.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Push Notify Band', slug: `push-notify-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    await db.insert(bandMembers).values([
+      { bandId: band.id, userId: creator.userId, role: 'member', instruments: [] },
+      { bandId: band.id, userId: other.userId, role: 'member', instruments: [] },
+    ]);
+    await db.insert(userPrefs).values({
+      userId: other.userId,
+      pushTriggers: {
+        eventCreated: true,
+        eventChanged: false,
+        pollCreated: false,
+        missingResponseReminder: false,
+        upcomingEventReminder: false,
+      },
+    });
+    await db
+      .insert(pushSubscriptions)
+      .values({
+        userId: other.userId,
+        endpoint: `https://push.example.test/${randomUUID()}`,
+        p256dh: 'p',
+        auth: 'a',
+      });
+
+    const fake: PushSender = { sendNotification: vi.fn().mockResolvedValue(undefined) };
+    setPushSenderForTesting(fake);
+
+    const port = hocuspocusServer.configuration.port;
+    if (!port) throw new Error('Hocuspocus server has no port configured');
+    extraProvider = await connectSynced(port, band.id, creator.token);
+
+    extraProvider.document.getMap('events').set(`event-${randomUUID()}`, {
+      type: 'rehearsal',
+      title: 'Freshly Created Rehearsal',
+      startsAt: Date.parse('2026-02-01T18:00:00.000Z'),
+      allDay: false,
+      status: 'confirmed',
+    });
+
+    const deadline = Date.now() + 8000;
+    while (
+      (fake.sendNotification as ReturnType<typeof vi.fn>).mock.calls.length === 0 &&
+      Date.now() < deadline
+    ) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    expect(fake.sendNotification).toHaveBeenCalledTimes(1);
   }, 15000);
 });

@@ -14,6 +14,7 @@
     "seed": "pnpm --filter @bandstand/server seed",
     "blobs:gc": "pnpm --filter @bandstand/server blobs:gc",
     "push:keys": "pnpm --filter @bandstand/server push:keys",
+    "push:due": "pnpm --filter @bandstand/server push:due",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
