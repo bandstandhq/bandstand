@@ -70,3 +70,38 @@ describe('app-wide middleware (integration)', () => {
     expect(res.status).toBe(413);
   });
 });
+
+describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
+  const cleanupUserIds: string[] = [];
+
+  afterAll(async () => {
+    for (const userId of cleanupUserIds) await db.delete(users).where(eq(users.id, userId));
+  });
+
+  it('rejects the 6th signup from the same IP within an hour — registration has no invite gate, so this is the only thing standing between an open /signup and account-farming', async () => {
+    const ip = `203.0.${randomUUID().slice(0, 3)}.1`; // a fresh /24-ish per test run, isolated from other tests hitting this same limiter instance
+    let last: Response | undefined;
+
+    for (let i = 0; i < 6; i++) {
+      last = await app.request('/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+        body: JSON.stringify({
+          email: `signup-rate-${randomUUID()}@bandstand.local`,
+          password: 'test-password-123',
+          name: 'Signup Rate Tester',
+        }),
+      });
+      if (isSuccessResponse(last)) {
+        const body = (await last.clone().json()) as { user?: { id: string } };
+        if (body.user?.id) cleanupUserIds.push(body.user.id);
+      }
+    }
+
+    expect(last!.status).toBe(429);
+  });
+});
+
+function isSuccessResponse(res: Response): boolean {
+  return res.status >= 200 && res.status < 300;
+}
