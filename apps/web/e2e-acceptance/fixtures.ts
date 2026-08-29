@@ -14,7 +14,7 @@ export const DEMO_PASSWORD = 'bandstand-demo';
 export async function login(page: Page, email: string, password = DEMO_PASSWORD) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Log in' }).click();
   await page.waitForURL(/\/dashboard$/);
 }
@@ -26,7 +26,7 @@ export async function signUp(
 ) {
   await page.getByLabel('Name').fill(name);
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: submitLabel }).click();
 }
 
