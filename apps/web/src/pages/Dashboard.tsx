@@ -3,7 +3,7 @@ import { type AvailabilityAnswer, type CalendarEvent, resolveEventOccurrences } 
 import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { OfflineReadiness } from '../components/OfflineReadiness';
@@ -12,7 +12,6 @@ import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient, getDefaultServerUrl } from '../lib/auth-client';
-import { useActiveBandStore } from '../stores/activeBand';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
 
@@ -73,7 +72,7 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
  * docs/adr/0011-calendar-events.md for why membership is rechecked fresh on
  * every fetch of the feed itself rather than trusted from this token.
  */
-function CalendarSubscribePanel() {
+export function CalendarSubscribePanel() {
   const { t } = useTranslation();
   const [token, setToken] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
@@ -126,11 +125,18 @@ function CalendarSubscribePanel() {
   );
 }
 
+/**
+ * Only ever mounted at /bands/:bandId/dashboard (see routes/bandRoutes.ts)
+ * — bandId comes from the route like every other band-scoped page, never
+ * from global state. The bare /dashboard route (DashboardRedirect.tsx)
+ * resolves which band to send you to first; this component doesn't handle
+ * "no band" itself, DashboardRedirect's own empty state does.
+ */
 export function Dashboard() {
   const { t } = useTranslation();
+  const { bandId } = useParams<{ bandId: string }>();
   const { data: session } = authClient.useSession();
-  const activeBandId = useActiveBandStore((s) => s.activeBandId);
-  const { doc, status } = useBandDoc(activeBandId);
+  const { doc, status } = useBandDoc(bandId ?? null);
   const songs = useYMap(doc?.getMap('songs'));
 
   // No anonymous check here — RequireAuth (router.tsx) already guarantees a
@@ -142,24 +148,18 @@ export function Dashboard() {
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
       <AppHeader title={t('dashboard.title')} />
-      {activeBandId ? (
-        <>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {status === 'connected'
-              ? t('dashboard.connected')
-              : status === 'offline'
-                ? t('dashboard.offline')
-                : t('dashboard.connecting')}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('dashboard.songCount', { count: Object.keys(songs).length })}
-          </p>
-          {doc && <OfflineReadiness bandId={activeBandId} doc={doc} />}
-          {doc && session && <UpcomingEvents bandId={activeBandId} doc={doc} currentUserId={session.user.id} />}
-        </>
-      ) : (
-        <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>
-      )}
+      <p className="mt-4 text-sm text-muted-foreground">
+        {status === 'connected'
+          ? t('dashboard.connected')
+          : status === 'offline'
+            ? t('dashboard.offline')
+            : t('dashboard.connecting')}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t('dashboard.songCount', { count: Object.keys(songs).length })}
+      </p>
+      {doc && bandId && <OfflineReadiness bandId={bandId} doc={doc} />}
+      {doc && bandId && session && <UpcomingEvents bandId={bandId} doc={doc} currentUserId={session.user.id} />}
       <CalendarSubscribePanel />
       <PushNotificationsPanel />
     </main>

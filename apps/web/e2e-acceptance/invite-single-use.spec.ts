@@ -35,7 +35,9 @@ test('an invite code redeems exactly once', async ({ page }) => {
     // First redemption succeeds and joins the band.
     await page.goto(`/join/${code}`);
     await signUp(page, { name: 'First redeemer', email: freshEmail('first') }, 'Sign up and join');
-    await page.waitForURL(/\/dashboard$/);
+    // /dashboard forwards on to /bands/:bandId/dashboard once this brand-new
+    // user has the one band they just joined (DashboardRedirect).
+    await page.waitForURL(/\/bands\/.+\/dashboard$/);
     await expect(page.getByRole('link', { name: 'Repertoire' })).toBeVisible();
     await page.getByRole('button', { name: 'Log out' }).click();
     await page.waitForURL(/\/login/);

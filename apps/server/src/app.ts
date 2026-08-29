@@ -105,12 +105,16 @@ app.use(
 );
 
 // Registration is fully open (no invite code needed to create an account
-// at all, only to join a band) — an IP that's just created a handful of
-// accounts in the last hour, or a few dozen today, is exactly the account-
-// farming pattern this catches. No enumeration/uniformity concern here
-// unlike the password-reset limiter above: a plain 429 doesn't reveal
-// anything about who's already registered, so the existing `createRateLimiter`
-// is enough, no custom response shape needed.
-app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: 5 })(clientIp));
-app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 20 })(clientIp));
+// at all, only to join a band) — a genuine account-farming bot is the
+// thing this catches, not a real band. That distinction is exactly why
+// these thresholds are generous rather than tight: several real members
+// signing up together from the same rehearsal-space/home Wi-Fi (one shared
+// NAT address) is completely ordinary usage this must not block — a
+// mass-signup bot still looks nothing like that even at 20/hour. No
+// enumeration/uniformity concern here unlike the password-reset limiter
+// above: a plain 429 doesn't reveal anything about who's already
+// registered, so the existing `createRateLimiter` is enough, no custom
+// response shape needed.
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20 })(clientIp));
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 100 })(clientIp));
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));

@@ -98,7 +98,12 @@ test.describe('mobile usability: no page scrolls horizontally', () => {
         await login(page, DEMO_OWNER_EMAIL);
 
         const staticPages: { path: string; extra?: () => Promise<void> }[] = [
-          { path: '/dashboard' },
+          // Not the bare /dashboard — it only resolves which band to show
+          // and forwards there (DashboardRedirect), and which band it picks
+          // for an owner who's also in the seeded demo bands isn't
+          // deterministic. Going straight to this band's own dashboard is
+          // what actually exercises the long band name in the switcher.
+          { path: `/bands/${bandId}/dashboard` },
           { path: `/bands/${bandId}/repertoire` },
           { path: `/bands/${bandId}/songs/${songId}/edit` },
           { path: `/bands/${bandId}/songs/${songId}/play` },

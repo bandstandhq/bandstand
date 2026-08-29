@@ -16,7 +16,10 @@ export async function login(page: Page, email: string, password = DEMO_PASSWORD)
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Log in' }).click();
-  await page.waitForURL(/\/dashboard$/);
+  // /dashboard itself only resolves which band to show and forwards there
+  // (DashboardRedirect, see routes/bandRouteConfig.ts) — /dashboard$ alone
+  // would match that fleeting intermediate URL for a user with any bands.
+  await page.waitForURL(/\/(bands\/.+\/dashboard|dashboard)$/);
 }
 
 export async function signUp(

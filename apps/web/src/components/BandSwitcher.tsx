@@ -17,8 +17,13 @@ type OpenPanel = 'none' | 'join' | 'create';
  * unreachable, which is exactly the "how do I start a second band?" dead
  * end AppHeader's menu is meant to fix. Both toggles are always available
  * regardless of how many bands the user already has.
+ *
+ * `onBandChange`, if given, is called whenever the selection changes (the
+ * select itself, joining, or creating) with the new band's id — AppHeader
+ * uses it to actually navigate there. This component only ever manages
+ * *which band is remembered*, never where the app navigates.
  */
-export function BandSwitcher() {
+export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string) => void }) {
   const { t } = useTranslation();
   const [bands, setBands] = useState<MyBand[] | null>(null);
   const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
@@ -28,13 +33,20 @@ export function BandSwitcher() {
   function handleJoined(band: Band) {
     setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
     setActiveBandId(band.id);
+    onBandChange?.(band.id);
     setOpenPanel('none');
   }
 
   function handleCreated(band: Band) {
     setBands((prev) => [...(prev ?? []), { ...band, role: 'owner' }]);
     setActiveBandId(band.id);
+    onBandChange?.(band.id);
     setOpenPanel('none');
+  }
+
+  function handleSelect(bandId: string) {
+    setActiveBandId(bandId);
+    onBandChange?.(bandId);
   }
 
   useEffect(() => {
@@ -42,7 +54,14 @@ export function BandSwitcher() {
     apiClient.listMyBands().then((result) => {
       if (cancelled) return;
       setBands(result);
-      if (!activeBandId && result.length > 0) {
+      const validIds = new Set(result.map((b) => b.id));
+      if (activeBandId && !validIds.has(activeBandId)) {
+        // Stale — most commonly a previous user's last-active band still
+        // sitting in persisted client state after a login/logout on this
+        // device. Never trust it just because it's set; only a band the
+        // *current* session is actually in counts.
+        setActiveBandId(result[0]?.id ?? null);
+      } else if (!activeBandId && result.length > 0) {
         setActiveBandId(result[0]!.id);
       }
     });
@@ -50,7 +69,10 @@ export function BandSwitcher() {
       cancelled = true;
     };
     // Deliberately only re-runs on mount: refetching every time
-    // activeBandId changes would just re-fetch the same list.
+    // activeBandId changes would just re-fetch the same list. This never
+    // calls onBandChange — reconciling a stale *remembered* band must not
+    // itself navigate anyone away from whatever page they're legitimately
+    // looking at right now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -63,7 +85,7 @@ export function BandSwitcher() {
           <select
             aria-label={t('bandSwitcher.label')}
             value={activeBandId ?? bands[0]!.id}
-            onChange={(e) => setActiveBandId(e.target.value)}
+            onChange={(e) => handleSelect(e.target.value)}
             className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
           >
             {bands.map((band) => (

@@ -12,11 +12,12 @@
 import { Button, Sheet } from '@bandstand/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { BandSwitcher } from './BandSwitcher';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { authClient } from '../lib/auth-client';
 import { deleteAllLocalBandData } from '../lib/yjs';
+import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
 import { useThemeStore } from '../stores/theme';
 
@@ -105,12 +106,34 @@ function SectionLabel({ children }: { children: ReactNode }) {
 export function AppHeader({ title }: { title: ReactNode }) {
   const { t } = useTranslation();
   const { data: session } = authClient.useSession();
-  const activeBandId = useActiveBandStore((s) => s.activeBandId);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The URL is the source of truth for "which band" on every page this
+  // header appears on (all of them are either a /bands/:bandId/... route or
+  // the bare /dashboard, where there's no current band at all) — never the
+  // store. See the effect below for what the store is still for.
+  const { bandId: currentBandId } = useParams<{ bandId?: string }>();
+  const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const isWide = useMediaQuery('(min-width: 640px)');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  // The store's activeBandId has exactly one remaining job: remembering
+  // which band the bare /dashboard route should redirect to next time
+  // (DashboardRedirect.tsx). Keeping it in sync with wherever the user
+  // actually, currently is — rather than only ever writing it from the
+  // band switcher — means that redirect target is never more stale than
+  // "the last band-scoped page you were on."
+  useEffect(() => {
+    if (currentBandId) setActiveBandId(currentBandId);
+  }, [currentBandId, setActiveBandId]);
+
+  function handleBandChange(newBandId: string) {
+    setMenuOpen(false);
+    navigate(resolveBandSwitchPath(location.pathname, newBandId));
+  }
 
   // Makes the phone/browser back button close the menu instead of leaving
   // the page — Radix's Escape/outside-click/X handling doesn't touch
@@ -180,6 +203,12 @@ export function AppHeader({ title }: { title: ReactNode }) {
 
   function handleSignOut() {
     setMenuOpen(false);
+    // The only band-related client state that outlives a page unmount
+    // (everything else is component-local, reset for free when RequireAuth
+    // redirects to /login) — must not leak into whoever signs in next on
+    // this device. IndexedDB caches deliberately stay (ADR-0006), but
+    // nothing derived from them may still be *displayed* after this.
+    setActiveBandId(null);
     void authClient.signOut();
   }
 
@@ -204,22 +233,22 @@ export function AppHeader({ title }: { title: ReactNode }) {
   );
 
   function navLinks(variant: 'inline' | 'list', onNavigate?: () => void) {
-    if (!activeBandId) return null;
+    if (!currentBandId) return null;
     return (
       <nav
         className={variant === 'inline' ? 'flex flex-wrap items-center gap-4' : 'flex flex-col divide-y divide-border'}
         aria-label={t('appHeader.navLabel')}
       >
-        <NavLink to={`/bands/${activeBandId}/repertoire`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={`/bands/${currentBandId}/repertoire`} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.repertoire')}
         </NavLink>
-        <NavLink to={`/bands/${activeBandId}/setlists`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={`/bands/${currentBandId}/setlists`} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.setlists')}
         </NavLink>
-        <NavLink to={`/bands/${activeBandId}/calendar`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={`/bands/${currentBandId}/calendar`} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.calendar')}
         </NavLink>
-        <NavLink to={`/bands/${activeBandId}/settings`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={`/bands/${currentBandId}/settings`} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.bandSettings')}
         </NavLink>
       </nav>
@@ -231,7 +260,7 @@ export function AppHeader({ title }: { title: ReactNode }) {
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-xl font-medium">{title}</h1>
         <div className="ml-auto flex flex-wrap items-center gap-4">
-          <BandSwitcher />
+          <BandSwitcher onBandChange={handleBandChange} />
           {navLinks('inline')}
           <div className="h-5 w-px bg-border" aria-hidden="true" />
           <div className="flex flex-wrap items-center gap-2">{actionButtons}</div>
@@ -265,10 +294,10 @@ export function AppHeader({ title }: { title: ReactNode }) {
         <div>
           <SectionLabel>{t('appHeader.sectionBand')}</SectionLabel>
           <div className="mt-2">
-            <BandSwitcher />
+            <BandSwitcher onBandChange={handleBandChange} />
           </div>
         </div>
-        {activeBandId && (
+        {currentBandId && (
           <div className="mt-4 border-t border-border pt-4">
             <SectionLabel>{t('appHeader.sectionNav')}</SectionLabel>
             <div className="mt-2">{navLinks('list', () => setMenuOpen(false))}</div>
