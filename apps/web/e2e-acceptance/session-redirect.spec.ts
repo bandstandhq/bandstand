@@ -15,8 +15,11 @@ test('unauthenticated /dashboard redirects to /login, and logging in lands back 
   await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
 
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // Lands on /dashboard itself only for a moment — DashboardRedirect
+  // resolves which band's dashboard to actually show and forwards there
+  // (see routes/bandRouteConfig.ts). Never bounces back to /login.
+  await expect(page).toHaveURL(/\/bands\/.+\/dashboard$/);
   // Confirms it's a real, settled landing — not a moment mid-bounce.
   await page.waitForTimeout(1000);
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/bands\/.+\/dashboard$/);
 });

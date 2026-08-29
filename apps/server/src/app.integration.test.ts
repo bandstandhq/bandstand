@@ -78,11 +78,11 @@ describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
     for (const userId of cleanupUserIds) await db.delete(users).where(eq(users.id, userId));
   });
 
-  it('rejects the 6th signup from the same IP within an hour — registration has no invite gate, so this is the only thing standing between an open /signup and account-farming', async () => {
+  it('rejects the 21st signup from the same IP within an hour — registration has no invite gate, so this is the only thing standing between an open /signup and account-farming', async () => {
     const ip = `203.0.${randomUUID().slice(0, 3)}.1`; // a fresh /24-ish per test run, isolated from other tests hitting this same limiter instance
     let last: Response | undefined;
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 21; i++) {
       last = await app.request('/api/auth/sign-up/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },

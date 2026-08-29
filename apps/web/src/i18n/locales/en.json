@@ -11,6 +11,7 @@
     "password": "Password",
     "forgotPassword": "Forgot password?",
     "submit": "Log in",
+    "submitting": "Logging in…",
     "error": "Couldn't log in with those credentials.",
     "noAccount": "Don't have an account?",
     "signUp": "Sign up"
