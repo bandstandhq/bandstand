@@ -143,8 +143,10 @@ filename, mime, size, uploader — not the file bytes themselves, and not a
 foreign key from a voice (a voice's `files` array stores
 `{sha256, filename, mime, pageCount}` inline in the Yjs document; see
 [ADR-0008](adr/0008-multi-voice-songs.md)). Clients cache fetched blobs via
-the browser/WebView Cache API for offline access once that's wired up
-(Milestone 2 Part A, in progress).
+the browser/WebView Cache API for offline access — every file referenced by
+an upcoming setlist is pre-loaded in the background, with a readiness
+indicator showing progress (Milestone 2 Part A / A4, done; see
+`OfflineReadiness.tsx`).
 
 ## The server URL is configurable, not hardcoded
 

@@ -5,11 +5,14 @@ setlists, and the show itself, in one place instead of scattered across
 paper, PDFs, and group chats.
 
 > **Status:** Milestones 1–3 are functional — bands and invites,
-> repertoire (multi-voice songs, including scanned/PDF parts), setlists,
-> Stage Mode with Follow Mode, calendar events with availability
-> responses, scheduling polls, and push notifications. Not yet released
-> as a versioned build; offline caching for file attachments is still in
-> progress. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the
+> repertoire (multi-voice songs, including scanned/PDF parts with offline
+> caching and a readiness indicator), setlists, Stage Mode with Follow
+> Mode, calendar events with availability responses, scheduling polls,
+> and push notifications. Not yet built: native iOS/Android/desktop apps
+> (`apps/mobile`/`apps/desktop` are config-only wrappers so far), LAN-only
+> self-hosted sync ("host mode"), foot pedal support, and backing tracks.
+> Not yet released as a versioned build or run in a real rehearsal or gig.
+> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the
 > [ADRs](docs/adr/) for the reasoning behind how it's built.
 
 ![Stage Mode: full-screen lyrics and chords, live transpose, auto-scroll](docs/screenshots/stage-mode.png)
