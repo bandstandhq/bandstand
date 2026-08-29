@@ -135,6 +135,25 @@ describe('resolveEventOccurrences', () => {
     expect(lastDate).toBeLessThanOrEqual(rangeStart + 2 * 365 * DAY_MS + DAY_MS);
   });
 
+  it('walks a monthly series forward, one occurrence per calendar month', () => {
+    const events = { 'series-1': template({ startsAt: Date.parse('2026-01-15T18:00:00.000Z'), seriesRule: { freq: 'monthly' } }) };
+
+    const occurrences = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-04-01'));
+
+    expect(occurrences.map((o) => o.date)).toEqual(['2026-01-15', '2026-02-15', '2026-03-15']);
+  });
+
+  it('a monthly series starting on the 31st clamps to the shorter month\'s last day, instead of rolling into the month after', () => {
+    const events = { 'series-1': template({ startsAt: Date.parse('2026-01-31T18:00:00.000Z'), seriesRule: { freq: 'monthly' } }) };
+
+    const occurrences = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-04-01'));
+
+    // Naive `setUTCMonth` arithmetic on a day-31 date lands Feb's occurrence
+    // on Mar 3 (Feb only has 28 days in 2026) — every occurrence here must
+    // stay within the calendar month it was meant for.
+    expect(occurrences.map((o) => o.date)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31']);
+  });
+
   it('sorts the combined result by effective start time', () => {
     const events = {
       'series-1': template(),

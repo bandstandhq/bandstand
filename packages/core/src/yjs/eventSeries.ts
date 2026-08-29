@@ -28,9 +28,22 @@ function toIsoDate(ms: number): string {
 
 function advanceByN(startMs: number, freq: SeriesRule['freq'], n: number): number {
   const date = new Date(startMs);
-  if (freq === 'weekly') date.setUTCDate(date.getUTCDate() + 7 * n);
-  else if (freq === 'biweekly') date.setUTCDate(date.getUTCDate() + 14 * n);
-  else date.setUTCMonth(date.getUTCMonth() + n);
+  if (freq === 'weekly') {
+    date.setUTCDate(date.getUTCDate() + 7 * n);
+  } else if (freq === 'biweekly') {
+    date.setUTCDate(date.getUTCDate() + 14 * n);
+  } else {
+    // setUTCMonth on a date whose day-of-month doesn't exist in the target
+    // month rolls forward into the month after (e.g. Jan 31 + 1 "month"
+    // lands on Mar 3, skipping February's 28 days entirely) — clamping to
+    // the target month's last day instead keeps every occurrence in the
+    // month it was actually meant to land in.
+    const day = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + n);
+    const lastDayOfTargetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(day, lastDayOfTargetMonth));
+  }
   return date.getTime();
 }
 
