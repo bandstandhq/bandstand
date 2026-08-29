@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input } from '@bandstand/ui';
+import { Button, Input, PasswordInput } from '@bandstand/ui';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -57,12 +57,13 @@ export function Login() {
           <label htmlFor="password" className="text-sm text-muted-foreground">
             {t('login.password')}
           </label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             value={password}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+            showLabel={t('common.showPassword')}
+            hideLabel={t('common.hidePassword')}
           />
         </div>
         {error && <p className="text-sm text-destructive">{t('login.error')}</p>}

@@ -12,7 +12,7 @@ test('unauthenticated /dashboard redirects to /login, and logging in lands back 
   await expect(page).toHaveURL(/\/login\?next=/);
 
   await page.getByLabel('Email').fill(DEMO_OWNER_EMAIL);
-  await page.getByLabel('Password').fill(DEMO_PASSWORD);
+  await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
