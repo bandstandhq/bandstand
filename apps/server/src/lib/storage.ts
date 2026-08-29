@@ -13,7 +13,7 @@ assertNotDevPlaceholder('MINIO_ACCESS_KEY', process.env.MINIO_ACCESS_KEY, DEV_PL
 assertNotDevPlaceholder('MINIO_SECRET_KEY', process.env.MINIO_SECRET_KEY, DEV_PLACEHOLDER);
 
 const BUCKET = process.env.MINIO_BUCKET ?? 'bandstand';
-const PRESIGN_EXPIRY_SECONDS = 15 * 60;
+export const PRESIGN_EXPIRY_SECONDS = 15 * 60;
 
 const s3 = new S3Client({
   endpoint: process.env.MINIO_ENDPOINT ?? 'http://localhost:9000',
@@ -39,10 +39,10 @@ export function presignDownload(sha256: string): Promise<string> {
   return getSignedUrl(s3, command, { expiresIn: PRESIGN_EXPIRY_SECONDS });
 }
 
-export async function headObject(sha256: string): Promise<{ size: number } | null> {
+export async function headObject(sha256: string): Promise<{ size: number; lastModified: Date | undefined } | null> {
   try {
     const result = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: blobKey(sha256) }));
-    return { size: result.ContentLength ?? 0 };
+    return { size: result.ContentLength ?? 0, lastModified: result.LastModified };
   } catch (err) {
     if (isNotFoundError(err)) return null;
     throw err;

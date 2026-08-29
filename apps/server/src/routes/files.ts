@@ -18,10 +18,17 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
-import { attachments } from '../db/schema/index';
+import { attachments, pendingUploads } from '../db/schema/index';
 import type { BandVariables } from '../lib/bandAuthz';
 import { requireBandRole } from '../lib/bandAuthz';
-import { deleteObject, getObjectBuffer, presignDownload, presignUpload } from '../lib/storage';
+import {
+  deleteObject,
+  getObjectBuffer,
+  headObject,
+  presignDownload,
+  presignUpload,
+  PRESIGN_EXPIRY_SECONDS,
+} from '../lib/storage';
 
 const MAX_FILE_SIZE_BYTES = Number(process.env.MAX_FILE_SIZE_BYTES ?? DEFAULT_MAX_FILE_SIZE_BYTES);
 
@@ -52,6 +59,25 @@ filesRoute.post('/presign-upload', async (c) => {
   if (!isAllowedFileMimeType(body.mime)) return c.json({ error: 'Unsupported file type' }, 415);
   if (body.size > MAX_FILE_SIZE_BYTES) return c.json({ error: 'File too large' }, 413);
 
+  // Marks that this band, specifically, asked for a presigned PUT for this
+  // hash — /confirm below requires this row (recent enough to still match a
+  // live presigned URL) and requires proof the object was actually
+  // rewritten since. Without it, /confirm only ever checked that *some*
+  // object existed at the content-addressed key — satisfiable by any band
+  // for a hash it never uploaded, since the object store's namespace is
+  // global, not band-scoped. `baselineLastModified` is this object's
+  // current state (or "doesn't exist yet") *before* the upload this call is
+  // about to authorize — see pendingUploads.ts for why /confirm compares
+  // against it instead of this server's own clock.
+  const baseline = await headObject(body.sha256);
+  await db
+    .insert(pendingUploads)
+    .values({ bandId, sha256: body.sha256, presignedAt: new Date(), baselineLastModified: baseline?.lastModified })
+    .onConflictDoUpdate({
+      target: [pendingUploads.bandId, pendingUploads.sha256],
+      set: { presignedAt: new Date(), baselineLastModified: baseline?.lastModified },
+    });
+
   const uploadUrl = await presignUpload(body.sha256, body.mime);
   return c.json({ uploadUrl });
 });
@@ -64,6 +90,39 @@ filesRoute.post('/confirm', async (c) => {
 
   const body = confirmFileInputSchema.parse(await c.req.json());
   const userId = c.get('userId');
+
+  const [pending] = await db
+    .select({ presignedAt: pendingUploads.presignedAt, baselineLastModified: pendingUploads.baselineLastModified })
+    .from(pendingUploads)
+    .where(and(eq(pendingUploads.bandId, bandId), eq(pendingUploads.sha256, body.sha256)));
+
+  // Always consume the pending record, whatever the outcome — it's a
+  // one-time ticket, not a standing grant.
+  await db
+    .delete(pendingUploads)
+    .where(and(eq(pendingUploads.bandId, bandId), eq(pendingUploads.sha256, body.sha256)));
+
+  // Bounded by the presigned URL's own lifetime — a ticket this old could
+  // otherwise sit around indefinitely and later be "cashed in" against
+  // whatever unrelated object happens to land at this hash much later.
+  const presignExpired = !pending || Date.now() - pending.presignedAt.getTime() > PRESIGN_EXPIRY_SECONDS * 1000;
+  if (presignExpired) {
+    return c.json({ error: 'No pending upload for this band and hash — call presign-upload first' }, 403);
+  }
+
+  const head = await headObject(body.sha256);
+  // No clock-skew tolerance needed: both readings are the object store's
+  // own `LastModified`, taken at presign time and now, never this server's
+  // clock — so "strictly newer" is exact, not approximate.
+  const isFreshUpload =
+    head?.lastModified !== undefined &&
+    (pending.baselineLastModified === null || head.lastModified.getTime() > pending.baselineLastModified.getTime());
+  if (!isFreshUpload) {
+    // The object at this hash is exactly as it was before this band's own
+    // presign-upload call — it was written by someone else's earlier
+    // upload, not this request.
+    return c.json({ error: 'No fresh upload found for this band and hash' }, 403);
+  }
 
   const buffer = await getObjectBuffer(body.sha256);
   const actualHash = await sha256Hex(buffer);
