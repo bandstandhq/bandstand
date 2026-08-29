@@ -209,7 +209,7 @@
     "syncLevel_offline": "Offline",
     "syncLevel_offline_hint": "No connection — nothing syncs right now, but everything here still works.",
     "jumpedToNearestAnchor": "Jumped to the nearest known anchor ({{label}})",
-    "lernmodus": "Lernmodus",
+    "lernmodus": "Learn mode",
     "lernmodusLearningFrom": "Learning from {{name}}",
     "lernmodusAnnounce": "Announce an anchor (tap as you reach it)",
     "lernmodusNoAnchors": "This song has no anchors yet — add some first.",
