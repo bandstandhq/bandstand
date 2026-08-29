@@ -4,14 +4,23 @@ A free, open-source workspace for amateur and semi-pro bands — repertoire,
 setlists, and the show itself, in one place instead of scattered across
 paper, PDFs, and group chats.
 
-> **Status:** Milestone 1 underway — bands/invites, repertoire, setlists,
-> and Stage Mode are functional (not yet released as a versioned build).
-> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the
+> **Status:** Milestones 1–3 are functional — bands and invites,
+> repertoire (multi-voice songs, including scanned/PDF parts), setlists,
+> Stage Mode with Follow Mode, calendar events with availability
+> responses, scheduling polls, and push notifications. Not yet released
+> as a versioned build; offline caching for file attachments is still in
+> progress. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the
 > [ADRs](docs/adr/) for the reasoning behind how it's built.
+
+![Stage Mode: full-screen lyrics and chords, live transpose, auto-scroll](docs/screenshots/stage-mode.png)
 
 ![Building a setlist by dragging songs from the repertoire](docs/screenshots/setlist-editor.png)
 
-![Stage Mode: full-screen lyrics and chords, live transpose, auto-scroll](docs/screenshots/stage-mode.png)
+![Repertoire: a band's full song list with key, status, and anchor readiness](docs/screenshots/repertoire.png)
+
+![Checking who's in for a rehearsal — a per-event availability poll every band member answers](docs/screenshots/calendar-availability.png)
+
+![The mobile menu: band switching, navigation, and account actions in one place](docs/screenshots/mobile-menu.png)
 
 ## Why Bandstand
 
