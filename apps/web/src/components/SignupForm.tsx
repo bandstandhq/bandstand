@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input } from '@bandstand/ui';
+import { Button, Input, PasswordInput } from '@bandstand/ui';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '../lib/auth-client';
@@ -60,13 +60,14 @@ export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; 
         <label htmlFor="signup-password" className="text-sm text-muted-foreground">
           {t('signup.password')}
         </label>
-        <Input
+        <PasswordInput
           id="signup-password"
-          type="password"
           required
           minLength={8}
           value={password}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+          showLabel={t('common.showPassword')}
+          hideLabel={t('common.hidePassword')}
         />
       </div>
       {error && <p className="text-sm text-destructive">{t('signup.error')}</p>}
