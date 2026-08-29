@@ -28,7 +28,9 @@ const strokeFields = {
   page: z.number().int().nonnegative(),
   color: z.string().min(1),
   width: z.number().positive(),
-  points: z.array(pointSchema).min(2),
+  // 2000 points is several times what one continuous stroke needs even at a
+  // high stylus sampling rate (60-120 Hz) over multiple seconds.
+  points: z.array(pointSchema).min(2).max(2000),
 };
 
 const penObjectSchema = z.object({ ...strokeFields, type: z.literal('pen') });
@@ -56,7 +58,9 @@ const textObjectSchema = z.object({
   type: z.literal('text'),
   page: z.number().int().nonnegative(),
   position: pointSchema,
-  text: z.string().min(1),
+  // Generous for a multi-line margin note, well beyond a realistic
+  // single annotation comment.
+  text: z.string().min(1).max(2000),
   color: z.string().min(1),
   fontSize: z.number().positive(),
 });
@@ -72,10 +76,16 @@ export const annotationObjectSchema = z.discriminatedUnion('type', [
 
 export type AnnotationObject = z.infer<typeof annotationObjectSchema>;
 
+// 5000 objects covers even a densely annotated ~16-page voice (up to ~300
+// pen/shape/text objects per page — dynamics, breath marks, fingerings —
+// each object carries its own `page` field, so one layer can span a whole
+// multi-page voice) with headroom to spare.
+const MAX_ANNOTATION_OBJECTS = 5000;
+
 export const annotationLayerSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  objects: z.array(annotationObjectSchema),
+  objects: z.array(annotationObjectSchema).max(MAX_ANNOTATION_OBJECTS),
 });
 
 export type AnnotationLayer = z.infer<typeof annotationLayerSchema>;
@@ -93,7 +103,7 @@ export type CreateAnnotationLayerInput = z.infer<typeof createAnnotationLayerInp
 // case, not a theoretical one — see docs/adr/0010-anchor-sync.md's sibling
 // design note in the Teil B plan).
 export const updateAnnotationLayerInputSchema = z.object({
-  objects: z.array(annotationObjectSchema),
+  objects: z.array(annotationObjectSchema).max(MAX_ANNOTATION_OBJECTS),
   expectedUpdatedAt: z.string(),
 });
 

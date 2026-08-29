@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { ZodError } from 'zod';
 import { auth } from './lib/auth';
@@ -21,6 +22,22 @@ app.use(
   cors({
     origin: [process.env.WEB_ORIGIN ?? 'http://localhost:5173'],
     credentials: true,
+  }),
+);
+
+// Real file bytes never reach this server (uploads go straight to the
+// object store via a presigned URL — see routes/files.ts) — every JSON body
+// this API ever legitimately receives is well under a megabyte. 5MB is
+// generous headroom over that, not a real per-endpoint limit, but it caps
+// how much any single request can make the server buffer before anything
+// else runs.
+const MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024;
+
+app.use(
+  '*',
+  bodyLimit({
+    maxSize: MAX_REQUEST_BODY_BYTES,
+    onError: (c) => c.json({ error: 'Request body too large' }, 413),
   }),
 );
 
