@@ -19,7 +19,14 @@ import { betterAuth } from 'better-auth';
 import { bearer, jwt } from 'better-auth/plugins';
 import { db } from '../db/client';
 import * as schema from '../db/schema/index';
+import { assertNotDevPlaceholder } from './envGuard';
 import { sendMail } from './mailer';
+
+// Same convention as storage.ts's MinIO credentials: this is a placeholder
+// value shipped in .env.example, and a self-hoster who never changes it
+// would otherwise sign every session/JWT with a secret published in this
+// repo's own git history.
+assertNotDevPlaceholder('BETTER_AUTH_SECRET', process.env.BETTER_AUTH_SECRET, 'dev-only-secret-change-me');
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',

@@ -2,6 +2,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { ZodError } from 'zod';
 import { auth } from './lib/auth';
 import { hocuspocusServer } from './lib/hocuspocus';
 import { bandsRoute } from './routes/bands';
@@ -22,6 +23,24 @@ app.use(
     credentials: true,
   }),
 );
+
+// A schema.parse(await c.req.json()) failing anywhere is a malformed
+// request, not a server fault — without this, Hono's default handler
+// answers every one of those with a generic 500, indistinguishable from a
+// real crash in logs/monitoring. `details` deliberately carries only path
+// and error code, never the offending `message`/`received` value some Zod
+// issue codes include, so a client probing this endpoint learns what field
+// is wrong but not what value the server would have accepted.
+app.onError((err, c) => {
+  if (err instanceof ZodError) {
+    return c.json(
+      { error: 'Invalid request', details: err.issues.map((issue) => ({ path: issue.path, code: issue.code })) },
+      400,
+    );
+  }
+  console.error(err);
+  return c.text('Internal Server Error', 500);
+});
 
 app.route('/health', health);
 app.route('/bands', bandsRoute);

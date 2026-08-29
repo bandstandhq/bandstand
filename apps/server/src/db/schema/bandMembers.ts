@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { sql } from 'drizzle-orm';
-import { pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { bandRoleEnum } from './enums';
 import { bands } from './bands';
 import { users } from './users';
@@ -24,5 +24,10 @@ export const bandMembers = pgTable(
     // independent of the ownership-transfer endpoint's own transaction
     // getting that invariant right (see apps/server/src/routes/bands.ts).
     uniqueIndex('band_members_one_owner_idx').on(table.bandId).where(sql`${table.role} = 'owner'`),
+    // `userId` is only the non-leading column of the (bandId, userId)
+    // primary key, which doesn't serve a userId-only lookup — needed by
+    // "list my bands" (routes/bands.ts) and the ICS feed's per-request
+    // membership recheck (routes/calendarFeed.ts).
+    index('band_members_user_id_idx').on(table.userId),
   ],
 );

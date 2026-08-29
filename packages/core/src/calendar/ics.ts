@@ -13,7 +13,18 @@ export interface IcsFeedEntry {
 }
 
 function escapeIcsText(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  // A bare `\r` (not part of a `\r\n` pair, which the `\n` replace below
+  // already turns into a literal `\n` marker) is a real line terminator to
+  // many ICS parsers — left unescaped, it lets a crafted title/location
+  // terminate the current property early and inject arbitrary following
+  // lines into the feed.
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\r/g, '\\n')
+    .replace(/\n/g, '\\n');
 }
 
 function formatIcsDateTime(ms: number): string {
