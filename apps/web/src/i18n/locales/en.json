@@ -9,10 +9,30 @@
     "title": "Log in to Bandstand",
     "email": "Email",
     "password": "Password",
+    "forgotPassword": "Forgot password?",
     "submit": "Log in",
     "error": "Couldn't log in with those credentials.",
     "noAccount": "Don't have an account?",
     "signUp": "Sign up"
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "description": "Enter your account's email address and we'll send you a link to reset your password.",
+    "email": "Email",
+    "submit": "Send reset link",
+    "submitting": "Sending…",
+    "sent": "If that email exists in our system, check your inbox for a reset link.",
+    "backToLogin": "Back to log in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "missingToken": "This link is missing its reset token. Request a new one from the forgot-password page.",
+    "newPassword": "New password",
+    "submit": "Set new password",
+    "submitting": "Saving…",
+    "error": "This link is invalid or has expired. Request a new one.",
+    "done": "Your password has been changed.",
+    "goToLogin": "Go to log in"
   },
   "signup": {
     "title": "Create your Bandstand account",

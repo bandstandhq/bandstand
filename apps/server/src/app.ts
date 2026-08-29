@@ -16,6 +16,7 @@ import { ZodError } from 'zod';
 import { auth } from './lib/auth';
 import { parseAllowedOrigins } from './lib/corsOrigins';
 import { assertProductionOriginIsRestricted } from './lib/envGuard';
+import { passwordResetRateLimit } from './lib/passwordResetRateLimit';
 import { bandsRoute } from './routes/bands';
 import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
@@ -83,4 +84,22 @@ app.route('/me/prefs', userPrefsRoute);
 app.route('/me/ics-token', icsTokenRoute);
 app.route('/calendar', calendarFeedRoute);
 app.route('/push', pushRoute);
+
+// Registered on this one literal path, ahead of the catch-all below —
+// Hono runs matching middleware in registration order, so a reject here
+// (an identical-looking success response, see passwordResetRateLimit.ts)
+// short-circuits before better-auth's own handler, and therefore its
+// mailer call, ever runs.
+app.use(
+  '/api/auth/request-password-reset',
+  passwordResetRateLimit({
+    perAccountMax: 3,
+    perAccountWindowMs: 60 * 60 * 1000,
+    perIpMax: 10,
+    perIpWindowMs: 60 * 60 * 1000,
+    globalMax: Number(process.env.MAX_PASSWORD_RESET_EMAILS_PER_HOUR ?? 100),
+    globalWindowMs: 60 * 60 * 1000,
+    dedupeWindowMs: 60 * 1000,
+  }),
+);
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));

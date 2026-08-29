@@ -5,9 +5,11 @@ import { BandSettings } from './pages/BandSettings';
 import { Calendar } from './pages/Calendar';
 import { Dashboard } from './pages/Dashboard';
 import { EventDetail } from './pages/EventDetail';
+import { ForgotPassword } from './pages/ForgotPassword';
 import { PollDetail } from './pages/PollDetail';
 import { JoinBand } from './pages/JoinBand';
 import { Login } from './pages/Login';
+import { ResetPassword } from './pages/ResetPassword';
 import { Repertoire } from './pages/Repertoire';
 import { SetlistDetail } from './pages/SetlistDetail';
 import { SetlistList } from './pages/SetlistList';
@@ -22,6 +24,8 @@ export function AppRouter() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/dashboard"
           element={
