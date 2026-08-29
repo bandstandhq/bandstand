@@ -10,9 +10,11 @@
 // plugin, then checks that the authenticated user is actually a member of
 // the requested band (documentName === bandId) — closes
 // https://github.com/bandstandhq/bandstand/issues/1.
-import type { CalendarEvent, Poll } from '@bandstand/core';
+import type { BandRole, CalendarEvent, Poll } from '@bandstand/core';
 import {
+  anchorsKey,
   bandSnapshotSchema,
+  hasAtLeastRole,
   HOCUSPOCUS_AUTH_FAILURE_REASON,
   itemsKey,
   yDocToSnapshot,
@@ -62,12 +64,37 @@ function keyOwnerUserId(compositeKey: string): string {
   return compositeKey.slice(compositeKey.lastIndexOf(':') + 1);
 }
 
+// event:create/event:edit/poll:create (docs/PERMISSIONS.md) are admin-only
+// in the permissions matrix, but — same root cause as availability/pollVotes
+// above — creating/editing an event or poll is itself a plain CRDT write
+// with no REST route in front of it. Unlike availability/pollVotes, there's
+// no self-scope here at all: any touched key a non-admin actor didn't have
+// the role for gets reverted, added or changed or deleted alike. See
+// docs/adr/0013-crdt-role-enforcement.md.
+const ROLE_GUARDED_MAPS = ['events', 'polls'] as const;
+type RoleGuardedMapName = (typeof ROLE_GUARDED_MAPS)[number];
+
+// assignment:editOthers (docs/PERMISSIONS.md) is admin-only, but a member
+// changing *their own* assignment is always allowed at any role (matrix.ts's
+// own comment: "a member changing their own voice assignment is always
+// allowed, at any role"). This is the one guarded map where both an
+// ownership exception and a role exception apply — a touched key is left
+// alone if the actor is either its own owner or an admin.
+const SELF_OR_ADMIN_GUARDED_MAPS = ['assignments'] as const;
+type SelfOrAdminGuardedMapName = (typeof SELF_OR_ADMIN_GUARDED_MAPS)[number];
+
 interface GuardSnapshot {
   maps: Record<GuardedMapName, Record<string, unknown>>;
   // itemsKey(setlistId) -> that setlist's items, only for setlists present
   // in `maps.setlists` at snapshot time.
   items: Record<string, unknown[]>;
   ownershipMaps: Record<OwnershipGuardedMapName, Record<string, unknown>>;
+  roleGuardedMaps: Record<RoleGuardedMapName, Record<string, unknown>>;
+  // anchorsKey(songId) -> that song's band-wide anchor list, only for songs
+  // present in `maps.songs` at snapshot time — same "only where the parent
+  // key already exists" shape as `items` above.
+  anchorArrays: Record<string, unknown[]>;
+  selfOrAdminMaps: Record<SelfOrAdminGuardedMapName, Record<string, unknown>>;
 }
 
 // Keyed by bandId (Hocuspocus's documentName). Module-level and
@@ -181,10 +208,33 @@ function snapshotGuardState(document: {
     items[itemsKey(setlistId)] = document.getArray(itemsKey(setlistId)).toJSON();
   }
 
+  const anchorArrays: Record<string, unknown[]> = {};
+  for (const songId of Object.keys(maps.songs)) {
+    anchorArrays[anchorsKey(songId)] = document.getArray(anchorsKey(songId)).toJSON();
+  }
+
   const ownershipMaps = {} as GuardSnapshot['ownershipMaps'];
   for (const name of OWNERSHIP_GUARDED_MAPS) ownershipMaps[name] = document.getMap(name).toJSON();
 
-  return { maps, items, ownershipMaps };
+  const roleGuardedMaps = {} as GuardSnapshot['roleGuardedMaps'];
+  for (const name of ROLE_GUARDED_MAPS) roleGuardedMaps[name] = document.getMap(name).toJSON();
+
+  const selfOrAdminMaps = {} as GuardSnapshot['selfOrAdminMaps'];
+  for (const name of SELF_OR_ADMIN_GUARDED_MAPS) selfOrAdminMaps[name] = document.getMap(name).toJSON();
+
+  return { maps, items, ownershipMaps, roleGuardedMaps, anchorArrays, selfOrAdminMaps };
+}
+
+/**
+ * `===` is correct for OWNERSHIP_GUARDED_MAPS's own touched-key check
+ * because availability/pollVotes store plain strings — but `events`/
+ * `polls`/`assignments`/anchor arrays store objects/arrays, and
+ * `Y.Map.toJSON()`/`Y.Array.toJSON()` build a fresh plain value on every
+ * call, so two structurally-identical snapshots are never `===`. Content
+ * comparison is the only correct check for those.
+ */
+function deepEqualJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 // @hocuspocus/server reads a thrown error's `.reason` and sends it to the
@@ -237,7 +287,8 @@ export const hocuspocusServer = new Server({
     const previous = lastKnownGuardSnapshot.get(documentName);
     const current = snapshotGuardState(document);
 
-    const actor = context as { userId?: string; bandRole?: string } | undefined;
+    const actor = context as { userId?: string; bandRole?: BandRole } | undefined;
+    const actorIsAdmin = Boolean(actor?.bandRole && hasAtLeastRole(actor.bandRole, 'admin'));
 
     // Best-effort and fire-and-forget — a push-send failure or delay must
     // never slow down or break the actual doc sync/persistence this hook
@@ -256,6 +307,9 @@ export const hocuspocusServer = new Server({
     if (previous && isRealClientWrite) {
       const reverted: { mapName: GuardedMapName; key: string }[] = [];
       const revertedOwnership: { mapName: OwnershipGuardedMapName; key: string }[] = [];
+      const revertedRole: { mapName: RoleGuardedMapName; key: string }[] = [];
+      const revertedAnchors: { arrayKey: string }[] = [];
+      const revertedSelfOrAdmin: { mapName: SelfOrAdminGuardedMapName; key: string }[] = [];
 
       document.transact(
         () => {
@@ -290,6 +344,63 @@ export const hocuspocusServer = new Server({
               revertedOwnership.push({ mapName, key });
             }
           }
+
+          // Role guard: creating/editing/deleting an event or poll is
+          // admin-only (docs/PERMISSIONS.md) — any touched key from a
+          // non-admin actor is restored, no self-scope exception exists here.
+          if (!actorIsAdmin) {
+            for (const mapName of ROLE_GUARDED_MAPS) {
+              const before = previous.roleGuardedMaps[mapName];
+              const after = current.roleGuardedMaps[mapName];
+              const touchedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+              for (const key of touchedKeys) {
+                if (deepEqualJson(before[key], after[key])) continue;
+
+                if (key in before) document.getMap(mapName).set(key, before[key]);
+                else document.getMap(mapName).delete(key);
+                revertedRole.push({ mapName, key });
+              }
+            }
+
+            // Anchors are band-wide, not self-scoped (matrix.ts's own
+            // comment) — any change to a song's anchor array from a
+            // non-admin actor is reverted wholesale, same whole-array
+            // rewrite `reorderAnchors` itself already uses.
+            const touchedArrayKeys = new Set([
+              ...Object.keys(previous.anchorArrays),
+              ...Object.keys(current.anchorArrays),
+            ]);
+            for (const arrayKey of touchedArrayKeys) {
+              const before = previous.anchorArrays[arrayKey] ?? [];
+              const after = current.anchorArrays[arrayKey] ?? [];
+              if (deepEqualJson(before, after)) continue;
+
+              const array = document.getArray(arrayKey);
+              if (array.length > 0) array.delete(0, array.length);
+              array.push(before);
+              revertedAnchors.push({ arrayKey });
+            }
+          }
+
+          // Self-or-admin guard: a member may always change their own voice
+          // assignment; overriding someone else's needs admin
+          // (assignment:editOthers, docs/PERMISSIONS.md).
+          for (const mapName of SELF_OR_ADMIN_GUARDED_MAPS) {
+            const before = previous.selfOrAdminMaps[mapName];
+            const after = current.selfOrAdminMaps[mapName];
+            const touchedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+            for (const key of touchedKeys) {
+              if (deepEqualJson(before[key], after[key])) continue;
+              if (actor?.userId && keyOwnerUserId(key) === actor.userId) continue;
+              if (actorIsAdmin) continue;
+
+              if (key in before) document.getMap(mapName).set(key, before[key]);
+              else document.getMap(mapName).delete(key);
+              revertedSelfOrAdmin.push({ mapName, key });
+            }
+          }
         },
         { source: 'local' },
       );
@@ -308,6 +419,38 @@ export const hocuspocusServer = new Server({
       for (const { mapName, key } of revertedOwnership) {
         console.warn("[hocuspocus] reverted an attempt to write another member's answer", {
           event: 'permission-guard.reverted-ownership',
+          bandId: documentName,
+          mapName,
+          key,
+          actingUserId: actor?.userId,
+          actingRole: actor?.bandRole,
+        });
+      }
+
+      for (const { mapName, key } of revertedRole) {
+        console.warn('[hocuspocus] reverted a non-admin write to an admin-only map', {
+          event: 'permission-guard.reverted-role',
+          bandId: documentName,
+          mapName,
+          key,
+          actingUserId: actor?.userId,
+          actingRole: actor?.bandRole,
+        });
+      }
+
+      for (const { arrayKey } of revertedAnchors) {
+        console.warn('[hocuspocus] reverted a non-admin edit to a band-wide anchor list', {
+          event: 'permission-guard.reverted-role',
+          bandId: documentName,
+          arrayKey,
+          actingUserId: actor?.userId,
+          actingRole: actor?.bandRole,
+        });
+      }
+
+      for (const { mapName, key } of revertedSelfOrAdmin) {
+        console.warn("[hocuspocus] reverted an attempt to override another member's assignment", {
+          event: 'permission-guard.reverted-self-or-admin',
           bandId: documentName,
           mapName,
           key,

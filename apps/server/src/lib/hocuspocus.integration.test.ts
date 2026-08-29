@@ -5,7 +5,7 @@
 // Hocuspocus server, not just that getBandMembership() returns null in
 // isolation. Closes https://github.com/bandstandhq/bandstand/issues/1.
 import { randomUUID } from 'node:crypto';
-import { getDefaultVoiceId, HOCUSPOCUS_AUTH_FAILURE_REASON, yDocToSnapshot } from '@bandstand/core';
+import { anchorsKey, getDefaultVoiceId, HOCUSPOCUS_AUTH_FAILURE_REASON, yDocToSnapshot } from '@bandstand/core';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { eq } from 'drizzle-orm';
 import WebSocket from 'ws';
@@ -394,6 +394,219 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
     expect(snapshot?.pollVotes[victimKey]).toBe('yes');
   }, 15000);
 
+  // event:create/event:edit (docs/PERMISSIONS.md) are admin-only, but — same
+  // gap as availability/pollVotes — there's no REST route in front of an
+  // ordinary CRDT event write to check that against. This proves the role
+  // guard added in docs/adr/0013-crdt-role-enforcement.md actually enforces
+  // it: a plain member's direct write is reverted, an admin's equivalent
+  // write is left standing.
+  it("reverts a member's direct CRDT creation of a calendar event, but lets an admin's stand", async () => {
+    const member = await signUpTestUser();
+    const admin = await signUpTestUser();
+    cleanupUserIds.push(member.userId, admin.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Role Guard Band', slug: `role-guard-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    await db.insert(bandMembers).values([
+      { bandId: band.id, userId: member.userId, role: 'member', instruments: [] },
+      { bandId: band.id, userId: admin.userId, role: 'admin', instruments: [] },
+    ]);
+
+    const port = hocuspocusServer.configuration.port;
+    if (!port) throw new Error('Hocuspocus server has no port configured');
+
+    const memberProvider = await connectSynced(port, band.id, member.token);
+    const memberEventId = `event-${randomUUID()}`;
+    const memberEvents = memberProvider.document.getMap('events');
+
+    const memberReverted = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Event was not reverted in time')), 8000);
+      const onMapChange = () => {
+        if (!memberEvents.has(memberEventId)) {
+          clearTimeout(timeout);
+          memberEvents.unobserve(onMapChange);
+          resolve();
+        }
+      };
+      memberEvents.observe(onMapChange);
+    });
+
+    // The attack: a plain member creates an event directly over CRDT.
+    memberEvents.set(memberEventId, {
+      type: 'rehearsal',
+      title: 'Unauthorized Rehearsal',
+      startsAt: Date.parse('2026-04-01T18:00:00.000Z'),
+      allDay: false,
+      status: 'confirmed',
+    });
+
+    await memberReverted;
+    expect(memberEvents.has(memberEventId)).toBe(false);
+    memberProvider.destroy();
+
+    const adminProvider = await connectSynced(port, band.id, admin.token);
+    const adminEventId = `event-${randomUUID()}`;
+    adminProvider.document.getMap('events').set(adminEventId, {
+      type: 'rehearsal',
+      title: 'Authorized Rehearsal',
+      startsAt: Date.parse('2026-04-02T18:00:00.000Z'),
+      allDay: false,
+      status: 'confirmed',
+    });
+
+    const snapshot = await waitForSnapshot(band.id, (s) => s.events[adminEventId] !== undefined);
+    expect(snapshot?.events[adminEventId]).toMatchObject({ title: 'Authorized Rehearsal' });
+    expect(snapshot?.events[memberEventId]).toBeUndefined();
+    adminProvider.destroy();
+  }, 15000);
+
+  // anchor:edit (docs/PERMISSIONS.md) is admin-only and band-wide, not
+  // self-scoped — this proves a plain member's direct edit to a song's
+  // anchor array is reverted wholesale, same technique as the other guard
+  // tests: a real member connection, no REST call involved.
+  it("reverts a non-admin member's direct edit to a song's band-wide anchor list", async () => {
+    const member = await signUpTestUser();
+    cleanupUserIds.push(member.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Anchor Guard Band', slug: `anchor-guard-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    await db
+      .insert(bandMembers)
+      .values({ bandId: band.id, userId: member.userId, role: 'member', instruments: [] });
+
+    const songId = `song-${randomUUID()}`;
+    const originalAnchor = { id: `anchor-${randomUUID()}`, order: 0, label: 'Verse 1' };
+    const seedDoc = new Y.Doc();
+    seedDoc.getMap('songs').set(songId, {
+      title: 'Anchored Song',
+      artist: '',
+      key: 'C',
+      bpm: 120,
+      durationSec: 180,
+      status: 'active',
+      bandNotes: '',
+      links: [],
+      votes: {},
+    });
+    seedDoc.getArray(anchorsKey(songId)).push([originalAnchor]);
+    await db.insert(bandDocs).values({
+      bandId: band.id,
+      yjsState: Buffer.from(Y.encodeStateAsUpdate(seedDoc)),
+      snapshot: yDocToSnapshot(seedDoc),
+    });
+
+    const port = hocuspocusServer.configuration.port;
+    if (!port) throw new Error('Hocuspocus server has no port configured');
+    extraProvider = await connectSynced(port, band.id, member.token);
+
+    const anchors = extraProvider.document.getArray(anchorsKey(songId));
+    expect(anchors.toJSON()).toEqual([originalAnchor]);
+
+    const restored = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Anchor list was not restored in time')), 8000);
+      const onArrayChange = () => {
+        const current = anchors.toJSON() as { label: string }[];
+        if (current.length === 1 && current[0]?.label === 'Verse 1') {
+          clearTimeout(timeout);
+          anchors.unobserve(onArrayChange);
+          resolve();
+        }
+      };
+      anchors.observe(onArrayChange);
+    });
+
+    // The attack: a plain member edits the band-wide anchor list directly.
+    extraProvider.document.transact(() => {
+      anchors.delete(0, 1);
+      anchors.push([{ id: `anchor-${randomUUID()}`, order: 0, label: 'Injected' }]);
+    });
+
+    await restored;
+    expect(anchors.toJSON()).toEqual([originalAnchor]);
+
+    const snapshot = await waitForSnapshot(band.id, (s) => s.anchors[songId] !== undefined);
+    expect(snapshot?.anchors[songId]).toEqual([originalAnchor]);
+  }, 15000);
+
+  // assignment:editOthers (docs/PERMISSIONS.md) is admin-only, but a member
+  // changing their *own* assignment is always allowed at any role — this
+  // proves both halves at once: the attacker's own key must stick, the
+  // victim's key must be reverted, over a real live connection.
+  it("lets a member set their own voice assignment but reverts an attempt to override another member's", async () => {
+    const attacker = await signUpTestUser();
+    const victim = await signUpTestUser();
+    cleanupUserIds.push(attacker.userId, victim.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Assignment Guard Band', slug: `assignment-guard-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    await db.insert(bandMembers).values([
+      { bandId: band.id, userId: attacker.userId, role: 'member', instruments: [] },
+      { bandId: band.id, userId: victim.userId, role: 'member', instruments: [] },
+    ]);
+
+    const songId = `song-${randomUUID()}`;
+    const victimKey = `${songId}:${victim.userId}`;
+    const attackerKey = `${songId}:${attacker.userId}`;
+    const seedDoc = new Y.Doc();
+    seedDoc.getMap('assignments').set(victimKey, 'voice-original');
+    await db.insert(bandDocs).values({
+      bandId: band.id,
+      yjsState: Buffer.from(Y.encodeStateAsUpdate(seedDoc)),
+      snapshot: yDocToSnapshot(seedDoc),
+    });
+
+    const port = hocuspocusServer.configuration.port;
+    if (!port) throw new Error('Hocuspocus server has no port configured');
+    extraProvider = await connectSynced(port, band.id, attacker.token);
+
+    const assignments = extraProvider.document.getMap('assignments');
+
+    const restored = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Victim's assignment was not restored in time")),
+        8000,
+      );
+      const onMapChange = () => {
+        if (assignments.get(victimKey) === 'voice-original') {
+          clearTimeout(timeout);
+          assignments.unobserve(onMapChange);
+          resolve();
+        }
+      };
+      assignments.observe(onMapChange);
+    });
+
+    // The attack: overwrite the victim's assignment, and set the attacker's
+    // own — the guard must undo exactly the first and leave the second alone.
+    extraProvider.document.transact(() => {
+      assignments.set(victimKey, 'voice-hijacked');
+      assignments.set(attackerKey, 'voice-own-choice');
+    });
+
+    await restored;
+    expect(assignments.get(victimKey)).toBe('voice-original');
+    expect(assignments.get(attackerKey)).toBe('voice-own-choice');
+
+    const snapshot = await waitForSnapshot(band.id, (s) => s.assignments[attackerKey] !== undefined);
+    expect(snapshot?.assignments[victimKey]).toBe('voice-original');
+    expect(snapshot?.assignments[attackerKey]).toBe('voice-own-choice');
+  }, 15000);
+
   it('a new event pushes to other subscribed members, but never to whoever created it', async () => {
     const creator = await signUpTestUser();
     const other = await signUpTestUser();
@@ -407,7 +620,11 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
     cleanupBandIds.push(band.id);
 
     await db.insert(bandMembers).values([
-      { bandId: band.id, userId: creator.userId, role: 'member', instruments: [] },
+      // event:create is admin-only (docs/PERMISSIONS.md) — a plain member's
+      // direct CRDT write would now be reverted by the role guard below, so
+      // this test (which is about push notifications, not authorization)
+      // needs the creator to actually hold the role the action requires.
+      { bandId: band.id, userId: creator.userId, role: 'admin', instruments: [] },
       { bandId: band.id, userId: other.userId, role: 'member', instruments: [] },
     ]);
     await db.insert(userPrefs).values({
