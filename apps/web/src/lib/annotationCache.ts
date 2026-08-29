@@ -104,7 +104,7 @@ export async function recordLocalEdit(
 /**
  * Sends every layer's queued edit, if any. A conflict (see
  * routes/annotations.ts's conditional update) means the server forked a
- * "(Konfliktkopie)" layer instead of applying this edit — the fork is
+ * "(Conflict Copy)" layer instead of applying this edit — the fork is
  * cached directly (already confirmed, no `pending`), and a full re-sync
  * pulls in the original layer's now-diverged server state too, so nothing
  * is left looking newer locally than it actually is. Still offline or

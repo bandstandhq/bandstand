@@ -98,7 +98,7 @@ export type CreateAnnotationLayerInput = z.infer<typeof createAnnotationLayerInp
 
 // `expectedUpdatedAt` is the updatedAt the client's edit was based on — the
 // server applies the update only if it still matches, forking a
-// "(Konfliktkopie)" layer instead of overwriting when it doesn't (the same
+// "(Conflict Copy)" layer instead of overwriting when it doesn't (the same
 // person editing offline on two devices before either reconnects is a real
 // case, not a theoretical one — see docs/adr/0010-anchor-sync.md's sibling
 // design note in the Teil B plan).

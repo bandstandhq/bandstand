@@ -83,7 +83,7 @@ annotationsRoute.post('/voices/:voiceId', async (c) => {
  * Conditional update: applies only if `expectedUpdatedAt` still matches the
  * stored row. A mismatch means someone/something else (another of this same
  * member's devices) changed it first — rather than overwrite, fork the
- * client's version into a new "(Konfliktkopie)" layer and tell the caller,
+ * client's version into a new "(Conflict Copy)" layer and tell the caller,
  * so neither version is silently lost.
  */
 annotationsRoute.put('/:layerId', async (c) => {
@@ -114,7 +114,7 @@ annotationsRoute.put('/:layerId', async (c) => {
       bandId,
       voiceId: existing.voiceId,
       userId,
-      name: `${existing.name} (Konfliktkopie)`,
+      name: `${existing.name} (Conflict Copy)`,
       objects,
     })
     .returning();

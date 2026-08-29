@@ -5,7 +5,7 @@
 // member editing the underlying voice must never touch this member's own
 // annotation rows (they live in a completely separate table, but this is
 // the actual proof, not an assumption), and (2) a stale conditional update
-// forks a "(Konfliktkopie)" layer instead of silently overwriting.
+// forks a "(Conflict Copy)" layer instead of silently overwriting.
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -114,7 +114,7 @@ describe('voice annotations (integration)', () => {
     expect(forbidden.status).toBe(403);
   });
 
-  it('forks a "(Konfliktkopie)" layer on a stale conditional update instead of overwriting', async () => {
+  it('forks a "(Conflict Copy)" layer on a stale conditional update instead of overwriting', async () => {
     const { band, member } = await setupBand();
     cleanupUserIds.push(member.userId);
     cleanupBandIds.push(band.id);
@@ -139,7 +139,7 @@ describe('voice annotations (integration)', () => {
     expect(staleUpdate.status).toBe(200);
     const staleResult = (await staleUpdate.json()) as { conflict: boolean; layer: { id: string; name: string; objects: unknown[] } };
     expect(staleResult.conflict).toBe(true);
-    expect(staleResult.layer.name).toBe('Tablet session (Konfliktkopie)');
+    expect(staleResult.layer.name).toBe('Tablet session (Conflict Copy)');
     expect(staleResult.layer.id).not.toBe(created.id);
 
     // Neither version was lost: the original row still has the phone's edit...
