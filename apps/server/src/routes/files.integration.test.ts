@@ -8,7 +8,7 @@
 // bucket rather than trusting the client's claim (docs/adr/0007).
 import { randomUUID } from 'node:crypto';
 import { sha256Hex } from '@bandstand/core';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { db } from '../db/client';
 import { attachments, bandMembers, bands, users } from '../db/schema/index';
@@ -152,6 +152,99 @@ describe('band file uploads (integration)', () => {
       size: 999_999_999_999,
     });
     expect(res.status).toBe(413);
+  });
+
+  it('rejects a second band confirming a hash the first band actually uploaded, without a presign-upload call of its own', async () => {
+    const bandA = await setupBand();
+    const bandB = await setupBand();
+    cleanupUserIds.push(bandA.member.userId, bandA.outsider.userId, bandB.member.userId, bandB.outsider.userId);
+    cleanupBandIds.push(bandA.band.id, bandB.band.id);
+
+    const content = Buffer.from(`band A's exclusive content ${randomUUID()}`);
+    const sha256 = await sha256Hex(content);
+
+    const presign = await req(`/${bandA.band.id}/files/presign-upload`, 'POST', bandA.member.token, {
+      sha256,
+      filename: 'exclusive.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    const { uploadUrl } = (await presign.json()) as { uploadUrl: string };
+    await fetch(uploadUrl, { method: 'PUT', body: content, headers: { 'Content-Type': 'application/pdf' } });
+    const confirmA = await req(`/${bandA.band.id}/files/confirm`, 'POST', bandA.member.token, {
+      sha256,
+      filename: 'exclusive.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    expect(confirmA.status).toBe(200);
+
+    // The attack: band B knows the hash (e.g. one of its members is also in
+    // band A) and calls /confirm directly against its own band, without
+    // ever calling presign-upload — the old bug accepted this, since the
+    // object already existed at that content-addressed key.
+    const confirmB = await req(`/${bandB.band.id}/files/confirm`, 'POST', bandB.member.token, {
+      sha256,
+      filename: 'stolen.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    expect(confirmB.status).toBe(403);
+
+    const [ledgerRow] = await db
+      .select()
+      .from(attachments)
+      .where(and(eq(attachments.bandId, bandB.band.id), eq(attachments.sha256, sha256)));
+    expect(ledgerRow).toBeUndefined();
+  });
+
+  it("rejects confirm even after the band's own presign-upload call, when the object predates it", async () => {
+    const bandA = await setupBand();
+    const bandB = await setupBand();
+    cleanupUserIds.push(bandA.member.userId, bandA.outsider.userId, bandB.member.userId, bandB.outsider.userId);
+    cleanupBandIds.push(bandA.band.id, bandB.band.id);
+
+    const content = Buffer.from(`band A's older content ${randomUUID()}`);
+    const sha256 = await sha256Hex(content);
+
+    const presignA = await req(`/${bandA.band.id}/files/presign-upload`, 'POST', bandA.member.token, {
+      sha256,
+      filename: 'older.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    const { uploadUrl } = (await presignA.json()) as { uploadUrl: string };
+    await fetch(uploadUrl, { method: 'PUT', body: content, headers: { 'Content-Type': 'application/pdf' } });
+    await req(`/${bandA.band.id}/files/confirm`, 'POST', bandA.member.token, {
+      sha256,
+      filename: 'older.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+
+    // The attack, refined: band B does call presign-upload for the same
+    // hash first (getting a real "pending" row), but never actually PUTs
+    // anything — the object at that key still predates band B's own
+    // presign call, so /confirm must still reject it.
+    await req(`/${bandB.band.id}/files/presign-upload`, 'POST', bandB.member.token, {
+      sha256,
+      filename: 'stolen.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    const confirmB = await req(`/${bandB.band.id}/files/confirm`, 'POST', bandB.member.token, {
+      sha256,
+      filename: 'stolen.pdf',
+      mime: 'application/pdf',
+      size: content.byteLength,
+    });
+    expect(confirmB.status).toBe(403);
+
+    const [ledgerRow] = await db
+      .select()
+      .from(attachments)
+      .where(and(eq(attachments.bandId, bandB.band.id), eq(attachments.sha256, sha256)));
+    expect(ledgerRow).toBeUndefined();
   });
 
   it('rejects confirm when the uploaded bytes do not match the claimed hash, and removes the object', async () => {
