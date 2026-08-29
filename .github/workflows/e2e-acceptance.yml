@@ -1,7 +1,10 @@
 name: Acceptance tests
 
-# Manual, non-blocking: exercises real multi-user sync (Postgres +
-# Hocuspocus + a production web build) end to end, which is slower and
+# Runs on every push to main (so a regression the acceptance suite would
+# catch is visible without anyone remembering to trigger it by hand — see
+# issue #130) plus on-demand via workflow_dispatch. Deliberately not run on
+# pull_request: it exercises real multi-user sync (Postgres + MinIO +
+# Mailpit + Hocuspocus + a production web build), which is slower and
 # heavier than what's reasonable to require on every PR. checks/e2e/
 # integration in ci.yml stay the required gate for merging. Named generally
 # rather than "stage-mode" — it also covers band-access/membership
@@ -9,6 +12,8 @@ name: Acceptance tests
 # Mode's own acceptance scenarios from the Milestone 1 plan's Step 6.1.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   acceptance:
@@ -27,16 +32,30 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       DATABASE_URL: postgres://bandstand:bandstand@localhost:5432/bandstand
       BETTER_AUTH_SECRET: ci-acceptance-test-secret-do-not-use-in-production
       BETTER_AUTH_URL: http://localhost:3001
       # The web app is served from vite preview's default port, not the dev
       # server's 5173 — the API server's CORS/trustedOrigins check has to
-      # match wherever the browser actually loads pages from.
+      # match wherever the browser actually loads pages from. Also the
+      # origin MinIO's CORS config is set to allow below, for the same
+      # reason (uploads go straight from the browser to MinIO, never
+      # through the API server — see docs/adr/0007-content-addressed-files.md).
       WEB_ORIGIN: http://localhost:4173
       VITE_DEFAULT_SERVER_URL: http://localhost:3001
       VITE_DEFAULT_HOCUSPOCUS_URL: ws://localhost:3002
+      SMTP_HOST: localhost
+      SMTP_PORT: 1025
+      MINIO_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: ci-minio-test
+      MINIO_SECRET_KEY: ci-minio-test-do-not-use-in-production
+      MINIO_BUCKET: bandstand
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -49,6 +68,27 @@ jobs:
       # already overrides every value that matters for these tests.
       - run: pnpm ensure-env
       - run: pnpm --filter @bandstand/server db:migrate
+      # MinIO isn't declared as a `services:` container because its image's
+      # default CMD is bare `minio` (no `server /data`), and job-level
+      # `services:` has no field to override a container's command — same
+      # constraint ci.yml's integration job works around the same way.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio --network host \
+            -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            minio/minio:latest server /data --console-address ":9001"
+          timeout 30 sh -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+      # Also sets CORS, unlike ci.yml's integration job — that job's tests
+      # only ever hit MinIO from the server, never directly from a browser.
+      - name: Create MinIO bucket and allow the web app's origin through CORS
+        run: |
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+            mc alias set local http://localhost:9000 '$MINIO_ACCESS_KEY' '$MINIO_SECRET_KEY' &&
+            mc mb --ignore-existing local/$MINIO_BUCKET &&
+            mc admin config set local api cors_allow_origin='$WEB_ORIGIN' &&
+            mc admin service restart local --json
+          "
       - run: pnpm seed
       - run: pnpm --filter @bandstand/web exec playwright install --with-deps chromium
       - run: pnpm turbo run build --filter=@bandstand/web
