@@ -14,6 +14,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { ZodError } from 'zod';
 import { auth } from './lib/auth';
+import { parseAllowedOrigins } from './lib/corsOrigins';
+import { assertProductionOriginIsRestricted } from './lib/envGuard';
 import { bandsRoute } from './routes/bands';
 import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
@@ -22,12 +24,20 @@ import { inviteRedemptionRoute } from './routes/invites';
 import { pushRoute } from './routes/push';
 import { userPrefsRoute } from './routes/userPrefs';
 
+assertProductionOriginIsRestricted(process.env.WEB_ORIGIN);
+
 export const app = new Hono();
 
+// WEB_ORIGIN is a comma-separated list (parseAllowedOrigins) so local dev
+// can allow both http://localhost:5173 and a LAN address at once, e.g. for
+// testing on a phone (see CONTRIBUTING.md's "Testing on mobile devices"
+// section) — never a wildcard, in any environment. In production,
+// assertProductionOriginIsRestricted (called above) has already aborted
+// startup if this doesn't resolve to exactly one real, non-private origin.
 app.use(
   '*',
   cors({
-    origin: [process.env.WEB_ORIGIN ?? 'http://localhost:5173'],
+    origin: parseAllowedOrigins(process.env.WEB_ORIGIN),
     credentials: true,
   }),
 );

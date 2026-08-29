@@ -19,6 +19,7 @@ import { betterAuth } from 'better-auth';
 import { bearer, jwt } from 'better-auth/plugins';
 import { db } from '../db/client';
 import * as schema from '../db/schema/index';
+import { parseAllowedOrigins } from './corsOrigins';
 import { assertNotDevPlaceholder } from './envGuard';
 import { sendMail } from './mailer';
 
@@ -31,7 +32,13 @@ assertNotDevPlaceholder('BETTER_AUTH_SECRET', process.env.BETTER_AUTH_SECRET, 'd
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [process.env.WEB_ORIGIN ?? 'http://localhost:5173'],
+  // Must track app.ts's CORS origin list exactly — better-auth checks this
+  // itself (Origin/CSRF checks on its own routes) independently of Hono's
+  // own cors() middleware, so a mismatch here would 403 auth requests from
+  // an origin the rest of the API already accepts (this is exactly what
+  // broke local LAN testing before WEB_ORIGIN supported more than one
+  // origin — see CONTRIBUTING.md's "Testing on mobile devices" section).
+  trustedOrigins: parseAllowedOrigins(process.env.WEB_ORIGIN),
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,

@@ -104,6 +104,93 @@ Most features touch layers in this order:
    for flows that genuinely need a real browser (auth redirects, Stage Mode
    sync — see `apps/web/e2e/`).
 
+## Testing on mobile devices
+
+By default everything (`pnpm dev`'s web app and API server, plus MinIO) is
+only reachable from the machine running it. To open the app on a phone on
+the same Wi-Fi/LAN:
+
+1. Find your machine's LAN IP, e.g. `hostname -I` (Linux), `ipconfig
+   getifaddr en0` (macOS), or `ipconfig` (Windows).
+2. In your `.env` (not `.env.example` — this is per-machine and never
+   committed), add that address to `WEB_ORIGIN` as a second,
+   comma-separated entry, e.g.:
+   ```
+   WEB_ORIGIN=http://localhost:5173,http://192.168.1.50:5173
+   ```
+   This is also what allows the browser's presigned upload/download
+   requests straight to MinIO (docs/adr/0007-content-addressed-files.md) —
+   without it those are blocked by MinIO's own CORS check, not just the
+   API's.
+3. Restart infra so MinIO picks up the new CORS origin, then start dev
+   normally:
+   ```
+   pnpm dev:infra:down && pnpm dev
+   ```
+4. If you also want a phone to fetch its own presigned uploads/downloads
+   straight from MinIO (see step 2's note), set `MINIO_ENDPOINT` in your
+   `.env` to that same LAN address too, e.g.
+   `MINIO_ENDPOINT=http://192.168.1.50:9000` — the server embeds this
+   directly into the presigned URLs it hands back, so it has to be an
+   address the phone can reach, not `localhost`.
+5. On the phone, open `http://192.168.1.50:5173` (your actual LAN address).
+   Nothing needs changing on the client side beyond that: it detects
+   whatever host the page was loaded from and talks to the API/WebSocket
+   on that same host (`apps/web/src/lib/networkHost.ts`), so this keeps
+   working after a router change or for any other contributor without
+   editing a committed file — only your own `.env` needs your address.
+
+This is enough to log in, browse, and edit already-existing content — the
+CRDT sync (Hocuspocus) connects over the LAN address exactly as it would
+over `localhost`.
+
+**It is not enough to create anything new (a song, event, poll, setlist,
+voice, or file upload).** Those all call `crypto.randomUUID()` and/or
+`crypto.subtle` (for a file's hash, see `packages/core/src/files/hash.ts`)
+client-side, and browsers restrict both to a *secure context* —
+`https://`, or `http://localhost` itself, but not a plain LAN IP over
+`http://`. Attempting to save a new song over the LAN address fails
+silently with "Couldn't save — check the fields above."; a file upload
+fails the same way before it ever reaches the network. This isn't
+specific to this app's own code — it's the same reason any web app's
+camera/clipboard/crypto APIs need HTTPS on a real device. It also means
+the PWA install prompt, offline mode, and push notifications don't work
+over a plain LAN address either, for the same secure-context reason
+(service workers have the identical restriction).
+
+To test any of that — creating content, uploading a file, the install
+prompt, offline mode, push — tunnel the web app through HTTPS with a tool
+like [cloudflared](https://github.com/cloudflare/cloudflared):
+
+```
+cloudflared tunnel --url http://localhost:5173
+```
+
+This prints a temporary `https://*.trycloudflare.com` URL that proxies to
+your local Vite server. Two things to set up before it'll load at all:
+
+- Vite rejects requests with a `Host` header it doesn't recognize (a LAN IP
+  is allowed automatically, this hostname isn't) — add it to your `.env`:
+  ```
+  VITE_DEV_ALLOWED_HOSTS=.trycloudflare.com
+  ```
+- Restart `pnpm dev` after adding it (Vite only reads this at startup).
+
+Open the printed `https://*.trycloudflare.com` URL on the phone instead of
+the LAN address. Note that this alone only gets the *web app* onto a
+secure context — it does not make the API or Hocuspocus reachable, and
+this project's browser auth is cookie-based, not bearer-token, so signing
+in against a tunneled API on a different domain than the tunneled web app
+doesn't work (the session cookie is blocked as cross-site). In practice
+that makes the single web-only tunnel above the useful case: enough to
+verify the install prompt and service worker registration on a real
+device. Functional testing of writes (new songs, file uploads) still needs
+a real secure context with a working session, which today means
+`http://localhost:5173` on the machine running the server — on a real
+phone, only what step 5 above already covers (viewing and editing existing
+content) is currently testable, until there's bearer-token support for the
+browser client too.
+
 ## Working with long standard-license/policy texts
 
 When a file needs to contain a long, standard, third-party legal or policy
