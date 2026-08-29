@@ -30,6 +30,7 @@ import {
   getDefaultVoiceId,
   setAssignment,
   setVoiceAnchorPosition,
+  setVoiceDisplayRecipe,
   updateVoiceBody,
 } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
@@ -165,6 +166,100 @@ test.describe('anchor-based Stage Mode sync (docs/adr/0010-anchor-sync.md)', () 
         // Alice's Full Score is on page 1; page 2 is calibrated to "Acceptance Chorus".
         await alice.getByRole('button', { name: 'Next' }).first().click();
         await expect(bob.getByText('Chorus marker for acceptance testing').first()).toBeInViewport({ timeout: 5000 });
+      } finally {
+        await aliceContext.close();
+        await bobContext.close();
+      }
+    } finally {
+      await deleteThrowawayBand(aliceToken, bandId);
+      setup.provider.destroy();
+    }
+  });
+
+  test('a calibrated anchor still lands on the correct page after the follower\'s own voice is reordered', async ({
+    browser,
+  }) => {
+    const { aliceToken, bandId, aliceUserId, bobUserId, setup } = await setupThrowawayBandWithBob('anchor-sync-reorder');
+    try {
+      const fullScoreFile = await uploadFileToBand(
+        aliceToken,
+        bandId,
+        FULL_SCORE_PDF,
+        'amazing-grace-full-score.pdf',
+        'application/pdf',
+      );
+      const files = [{ ...fullScoreFile, pageCount: 2 }];
+
+      const songTitle = `Reorder Test ${Date.now()}`;
+      const songId = addSong(setup.doc, {
+        title: songTitle,
+        artist: 'Acceptance Suite',
+        key: 'C',
+        bpm: 100,
+        durationSec: 60,
+        status: 'active',
+        body: '{title: Reorder Test}\n{start_of_verse}\n[C]placeholder[C]\n{end_of_verse}',
+      });
+      // Two independent voices over the same two-page file: the leader's
+      // copy stays in natural order, the follower's copy has its pages
+      // swapped — proving the anchor jump resolves against *the follower's
+      // own* display recipe, not the leader's, and not the raw source page
+      // number (see findRenderedPositionForSourcePage in packages/core).
+      const leaderVoiceId = createVoice(setup.doc, songId, { name: 'Leader Score', kind: 'files', files });
+      const followerVoiceId = createVoice(setup.doc, songId, { name: 'Follower Score', kind: 'files', files });
+
+      const anchorId = createAnchor(setup.doc, songId, { label: 'Reorder Chorus' });
+      // Source page 2 (fileIndex 0, page 2) is calibrated on both copies —
+      // same underlying position, addressed the same way regardless of how
+      // each voice's pages are currently displayed.
+      setVoiceAnchorPosition(setup.doc, leaderVoiceId, anchorId, { fileIndex: 0, page: 2, yPct: 0 });
+      setVoiceAnchorPosition(setup.doc, followerVoiceId, anchorId, { fileIndex: 0, page: 2, yPct: 0 });
+      // Follower's pages reversed: source page 2 (originalIndex 1) now
+      // renders at position 0, source page 1 at position 1 — the opposite
+      // of where they'd naturally fall.
+      setVoiceDisplayRecipe(setup.doc, followerVoiceId, { pageOrder: [1, 0] });
+
+      setAssignment(setup.doc, songId, aliceUserId, leaderVoiceId);
+      setAssignment(setup.doc, songId, bobUserId, followerVoiceId);
+
+      const setlistName = 'Reorder Test Setlist';
+      const setlistId = createSetlist(setup.doc, setlistName);
+      addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+      await flush();
+
+      const aliceContext = await browser.newContext();
+      const bobContext = await browser.newContext();
+      const alice = await aliceContext.newPage();
+      const bob = await bobContext.newPage();
+      try {
+        await login(alice, DEMO_OWNER_EMAIL);
+        await login(bob, DEMO_MEMBER_EMAIL);
+        await gotoStageForSong(alice, bandId, setlistName, songTitle);
+        await gotoStageForSong(bob, bandId, setlistName, songTitle);
+        // The PDF viewer's own Next/Prev row only mounts once the file has
+        // loaded — until then, the only "Next" in the accessible tree is the
+        // (always-disabled, single-item setlist) chrome one below it, and
+        // `.first()` would latch onto that instead. Waiting for the page
+        // indicator first avoids racing PDF load on a loaded machine.
+        await expect(bob.getByText('Page 1 of 2')).toBeVisible({ timeout: 15000 });
+
+        // Bob moves to his own position 1 (source page 1, under the
+        // reversed recipe) before following — establishes a starting point
+        // distinct from where the anchor jump should land him, so the
+        // later assertion actually proves the jump moved him there.
+        await bob.getByRole('button', { name: 'Next' }).first().click();
+        await expect(bob.getByText('Page 2 of 2')).toBeVisible();
+
+        await bob.getByRole('button', { name: 'Follow' }).click();
+        await bob.getByRole('button', { name: /^Alice/ }).click();
+
+        // Alice's own (naturally-ordered) copy: page 1 -> page 2, which is
+        // where "Reorder Chorus" is calibrated on her side too.
+        await alice.getByRole('button', { name: 'Next' }).first().click();
+
+        // The anchor is source page 2 — on Bob's reversed recipe that's
+        // rendered position 0, i.e. "Page 1 of 2", not "Page 2 of 2".
+        await expect(bob.getByText('Page 1 of 2')).toBeVisible({ timeout: 5000 });
       } finally {
         await aliceContext.close();
         await bobContext.close();

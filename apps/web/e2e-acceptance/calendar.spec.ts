@@ -3,7 +3,7 @@
 // See docs/adr/0011-calendar-events.md. Each test owns its own throwaway
 // band (issue #81 — no acceptance spec reads or writes demo-band/
 // second-fiddle's own content).
-import { createEvent, createPoll, listPolls } from '@bandstand/core';
+import { createEvent, createPoll, createRecurringEvent, listPolls } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import {
   createThrowawayBand,
@@ -120,6 +120,48 @@ test('an admin closing a poll creates the winning option as a real event, linked
 
     const poll = listPolls(setup.doc)[pollId];
     expect(poll?.resolvedEventId).toBeTruthy();
+  } finally {
+    await deleteThrowawayBand(ownerToken, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('a monthly recurring event fans out to the same day of the month, month over month, in month view', async ({ page }) => {
+  const ownerToken = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(ownerToken, 'calendar-monthly-series');
+  const setup = connectTestBandDoc(bandId, ownerToken);
+  await setup.waitForSynced();
+
+  const title = `Monthly Series ${Date.now()}`;
+  const now = new Date();
+  // The 5th — safely mid-month, clear of the month-length edge cases
+  // packages/core/src/yjs/eventSeries.test.ts covers at the unit level.
+  const startsAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5, 12, 0, 0);
+  const seriesId = createRecurringEvent(
+    setup.doc,
+    { type: 'rehearsal', title, startsAt, allDay: false, status: 'confirmed' },
+    { freq: 'monthly' },
+  );
+  await flush();
+
+  function occurrenceHref(monthOffset: number) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + monthOffset, 5)).toISOString().slice(0, 10);
+    return `/bands/${bandId}/calendar/${seriesId}@${date}`;
+  }
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/calendar`);
+    await page.getByRole('button', { name: 'Month view' }).click();
+
+    const occurrenceLink = page.getByRole('link', { name: `Open ${title}` });
+    await expect(occurrenceLink).toHaveAttribute('href', occurrenceHref(0));
+
+    await page.getByRole('button', { name: 'Next month' }).click();
+    await expect(occurrenceLink).toHaveAttribute('href', occurrenceHref(1));
+
+    await page.getByRole('button', { name: 'Next month' }).click();
+    await expect(occurrenceLink).toHaveAttribute('href', occurrenceHref(2));
   } finally {
     await deleteThrowawayBand(ownerToken, bandId);
     setup.provider.destroy();

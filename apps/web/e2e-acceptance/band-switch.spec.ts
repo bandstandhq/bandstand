@@ -6,7 +6,7 @@
 // each seeded with content that only exists in one of two throwaway bands,
 // proving the new band's content actually appears and the old band's
 // doesn't (not just that the URL changed).
-import { addSetlistItem, addSong, buildSongItem, createEvent, createSetlist } from '@bandstand/core';
+import { addSetlistItem, addSong, buildSongItem, createEvent, createPoll, createSetlist } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
@@ -19,6 +19,9 @@ test.describe('switching bands updates every band-scoped page immediately', () =
   let ownerToken: string;
   let bandA: { bandId: string; name: string };
   let bandB: { bandId: string; name: string };
+  let setlistIdA: string;
+  let eventIdA: string;
+  let pollIdA: string;
 
   test.beforeAll(async () => {
     ownerToken = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
@@ -36,7 +39,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
       status: 'active',
       body: '{title: Song Only In Band A}\n[C]lyrics',
     });
-    const setlistIdA = createSetlist(setupA.doc, 'Setlist Only In Band A');
+    setlistIdA = createSetlist(setupA.doc, 'Setlist Only In Band A');
     const songForSetlistA = addSong(setupA.doc, {
       title: 'Second Song A',
       artist: 'Acceptance Suite',
@@ -47,12 +50,16 @@ test.describe('switching bands updates every band-scoped page immediately', () =
       body: '',
     });
     addSetlistItem(setupA.doc, setlistIdA, buildSongItem(songForSetlistA));
-    createEvent(setupA.doc, {
+    eventIdA = createEvent(setupA.doc, {
       type: 'rehearsal',
       title: 'Event Only In Band A',
       startsAt: Date.now() + 1000 * 60 * 60 * 24,
       allDay: false,
       status: 'confirmed',
+    });
+    pollIdA = createPoll(setupA.doc, {
+      title: 'Poll Only In Band A',
+      options: [{ startsAt: Date.now() + 1000 * 60 * 60 * 24 }],
     });
     await flush();
     setupA.provider.destroy();
@@ -154,6 +161,35 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     // The Repertoire link (built from the URL's own band id, not stale global state) should now point at band B.
     const href = await page.getByRole('link', { name: 'Repertoire' }).getAttribute('href');
     expect(href).toBe(`/bands/${bandB.bandId}/repertoire`);
+  });
+
+  test('switching away from a specific setlist lands on the new band\'s Setlists overview, not an error', async ({ page }) => {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandA.bandId}/setlists/${setlistIdA}`);
+    await expect(page.getByRole('heading', { name: 'Setlist Only In Band A' })).toBeVisible();
+
+    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/setlists$`));
+    await expect(page.getByText('Setlist Only In Band B')).toBeVisible();
+  });
+
+  test('switching away from a specific event lands on the new band\'s Calendar, not an error', async ({ page }) => {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandA.bandId}/calendar/${eventIdA}`);
+    await expect(page.getByRole('heading', { name: 'Event Only In Band A' })).toBeVisible();
+
+    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/calendar$`));
+    await expect(page.getByText('Event Only In Band B')).toBeVisible();
+  });
+
+  test('switching away from a specific poll lands on the new band\'s Calendar, not an error', async ({ page }) => {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandA.bandId}/polls/${pollIdA}`);
+    await expect(page.getByRole('heading', { name: 'Poll Only In Band A' })).toBeVisible();
+
+    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/calendar$`));
   });
 
   test('switching away from a specific song editor lands on the new band\'s Repertoire, not an error', async ({ page }) => {
