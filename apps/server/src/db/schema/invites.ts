@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { bandRoleEnum } from './enums';
 import { bands } from './bands';
 import { users } from './users';
@@ -50,6 +50,8 @@ export const invites = pgTable(
   (table) => [
     // Case-insensitive uniqueness — redeeming is case-insensitive by spec.
     uniqueIndex('invites_code_upper_idx').on(sql`upper(${table.code})`),
+    // Listing a band's invites (routes/invites.ts) filters on this alone.
+    index('invites_band_id_idx').on(table.bandId),
     // One-directional on purpose: redeemedBy set without redeemedAt would be
     // a genuinely invalid state, but redeemedAt surviving after redeemedBy
     // goes NULL (the redeeming user's account was later deleted — see its

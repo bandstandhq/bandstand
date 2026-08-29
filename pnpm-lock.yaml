@@ -105,6 +105,9 @@ importers:
       yjs:
         specifier: ^13.6.32
         version: 13.6.32
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@hocuspocus/provider':
         specifier: ^4.6.0

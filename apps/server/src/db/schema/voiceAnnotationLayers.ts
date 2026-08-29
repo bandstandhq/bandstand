@@ -40,5 +40,10 @@ export const voiceAnnotationLayers = pgTable(
     // first one on a freshly created layer.
     updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   },
-  (table) => [index('voice_annotation_layers_voice_user_idx').on(table.voiceId, table.userId)],
+  (table) => [
+    index('voice_annotation_layers_voice_user_idx').on(table.voiceId, table.userId),
+    // Filtered on every share/re-share (routes/annotations.ts) — not an FK
+    // (see the comment above), so it gets no automatic index either.
+    index('voice_annotation_layers_source_layer_id_idx').on(table.sourceLayerId),
+  ],
 );

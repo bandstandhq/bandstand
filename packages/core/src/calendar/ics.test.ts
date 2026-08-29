@@ -55,6 +55,24 @@ describe('buildIcsFeed', () => {
     expect(ics).toContain('SUMMARY:The Demo Band: Gig\\; drinks\\, snacks\\nand a raffle');
   });
 
+  it('escapes a bare carriage return so it cannot terminate the property line', () => {
+    // A raw \r (not part of a \r\n pair) is treated as a line terminator by
+    // many real ICS parsers — left unescaped, it would let a crafted title
+    // inject arbitrary following lines into the feed. The injected text
+    // itself contains the literal string "BEGIN:VEVENT", so the assertion
+    // below checks for a real control line (preceded by an actual \r\n),
+    // not just the substring's presence anywhere in the output.
+    const ics = buildIcsFeed([baseEntry({ title: 'Line one\rEND:VEVENT\rBEGIN:VEVENT', location: undefined })]);
+    expect(ics).toContain('SUMMARY:The Demo Band: Line one\\nEND:VEVENT\\nBEGIN:VEVENT');
+    expect(ics.match(/\r\nBEGIN:VEVENT/g)).toHaveLength(1);
+    expect(ics.match(/\r\nEND:VEVENT/g)).toHaveLength(1);
+  });
+
+  it('escapes a Windows-style \\r\\n pair as a single newline marker, not two', () => {
+    const ics = buildIcsFeed([baseEntry({ title: 'Line one\r\nLine two', location: undefined })]);
+    expect(ics).toContain('SUMMARY:The Demo Band: Line one\\nLine two');
+  });
+
   it('includes LOCATION only when given', () => {
     const withLocation = buildIcsFeed([baseEntry({ location: 'The Venue' })]);
     expect(withLocation).toContain('LOCATION:The Venue');
