@@ -6,10 +6,10 @@ import { randomUUID } from 'node:crypto';
 import { generateInviteCode } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandMembers, bands, invites, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { inviteRedemptionRoute } from './invites';
 
 async function signUpTestUser() {
   const email = `invite-race-${randomUUID()}@bandstand.local`;
@@ -21,7 +21,7 @@ async function signUpTestUser() {
 }
 
 function redeem(code: string, token: string) {
-  return inviteRedemptionRoute.request('/redeem', {
+  return app.request('/invites/redeem', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ code }),

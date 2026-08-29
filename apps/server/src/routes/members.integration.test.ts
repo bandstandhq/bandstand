@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Real Postgres, hit through the actual REST routes (bandsRoute, composed
-// exactly as index.ts mounts it) — proving the role checks and the
-// one-owner invariant hold against real data. See
-// docs/adr/0005-permissions.md.
+// Real Postgres, hit through the actual, fully composed app (../app.ts) —
+// proving the role checks and the one-owner invariant hold against real
+// data. See docs/adr/0005-permissions.md.
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 async function signUpTestUser() {
   const email = `members-${randomUUID()}@bandstand.local`;
@@ -22,7 +21,7 @@ async function signUpTestUser() {
 }
 
 function req(path: string, method: string, token: string, body?: unknown) {
-  return bandsRoute.request(path, {
+  return app.request(`/bands${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

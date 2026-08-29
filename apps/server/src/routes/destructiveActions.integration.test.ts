@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Real Postgres + a real band Yjs document persisted to band_docs, exercised
-// through the actual REST routes (bandsRoute, composed exactly as index.ts
-// mounts it) — proving the role check and the withBandDoc write actually
-// apply to real data, not just that can()/canRemoveMember() return the
-// right booleans in isolation (packages/core's matrix.test.ts already
-// covers that). See docs/adr/0005-permissions.md.
+// through the actual, fully composed app (../app.ts) — proving the role
+// check and the withBandDoc write actually apply to real data, not just
+// that can()/canRemoveMember() return the right booleans in isolation
+// (packages/core's matrix.test.ts already covers that). See
+// docs/adr/0005-permissions.md.
 import { randomUUID } from 'node:crypto';
 import { getDefaultVoiceId, yDocToSnapshot } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import * as Y from 'yjs';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandDocs, bandMembers, bands, userPrefs, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 async function signUpTestUser() {
   const email = `destructive-${randomUUID()}@bandstand.local`;
@@ -26,7 +26,7 @@ async function signUpTestUser() {
 }
 
 function req(path: string, method: string, token: string, body?: unknown) {
-  return bandsRoute.request(path, {
+  return app.request(`/bands${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',

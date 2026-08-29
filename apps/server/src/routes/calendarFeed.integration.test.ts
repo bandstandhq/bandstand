@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Real Postgres, exercised through the actual REST routes composed exactly
-// as index.ts mounts them. See docs/adr/0011-calendar-events.md.
+// Real Postgres, exercised through the actual, fully composed app (see
+// ../app.ts) — not a locally reassembled subset of routes, which would
+// drift from index.ts's real mounting/middleware without anyone noticing.
+// See docs/adr/0011-calendar-events.md.
 import { randomUUID } from 'node:crypto';
 import { yDocToSnapshot } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
-import { Hono } from 'hono';
 import * as Y from 'yjs';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandDocs, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
-import { calendarFeedRoute } from './calendarFeed';
-import { icsTokenRoute } from './icsToken';
-
-const app = new Hono();
-app.route('/bands', bandsRoute);
-app.route('/me/ics-token', icsTokenRoute);
-app.route('/calendar', calendarFeedRoute);
 
 async function signUpTestUser() {
   const email = `ics-${randomUUID()}@bandstand.local`;

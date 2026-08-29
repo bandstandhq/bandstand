@@ -6,10 +6,10 @@ import { randomUUID } from 'node:crypto';
 import { DEFAULT_USER_PREFS } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { userPrefsRoute } from './userPrefs';
 
 async function signUpTestUser() {
   const email = `user-prefs-${randomUUID()}@bandstand.local`;
@@ -21,13 +21,13 @@ async function signUpTestUser() {
 }
 
 function getPrefs(token: string) {
-  return userPrefsRoute.request('/', {
+  return app.request('/me/prefs', {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 function patchPrefs(token: string, body: unknown) {
-  return userPrefsRoute.request('/', {
+  return app.request('/me/prefs', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
@@ -72,6 +72,6 @@ describe('GET/PATCH /me/prefs (integration)', () => {
     cleanupUserIds.push(userId);
 
     const res = await patchPrefs(token, { textSize: 'huge' });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
   });
 });
