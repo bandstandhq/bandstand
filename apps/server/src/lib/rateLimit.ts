@@ -3,7 +3,8 @@
 // In-memory sliding-window rate limiter. No Redis in the stack — self-
 // hosting is meant to be one `docker compose up` — so this only works
 // correctly for a single server instance; a horizontally-scaled deployment
-// would need a shared store instead. Documented limitation, not a bug.
+// would need a shared store instead (tracked as a follow-up, not a bug in
+// the current single-instance deployment model this targets).
 import { getConnInfo } from '@hono/node-server/conninfo';
 import type { Context, MiddlewareHandler } from 'hono';
 
@@ -30,21 +31,38 @@ export function clientIp(c: Context): string {
   }
 }
 
-export function createRateLimiter({ windowMs, max }: RateLimitOptions) {
+/**
+ * The sliding-window core, decoupled from Hono's request/response cycle so
+ * it can gate something other than "reject with 429" — e.g.
+ * passwordResetRateLimit.ts needs to fall through to an identical-looking
+ * success response instead, to avoid a rejection being distinguishable
+ * from a real send. A rejected call never records a new timestamp (an
+ * attacker spamming past the limit must not be able to keep extending
+ * their own window indefinitely).
+ */
+export function createRateLimitChecker({ windowMs, max }: RateLimitOptions) {
   const hits = new Map<string, number[]>();
+
+  return function check(key: string): boolean {
+    const now = Date.now();
+    const timestamps = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+
+    if (timestamps.length >= max) return false;
+
+    timestamps.push(now);
+    hits.set(key, timestamps);
+    return true;
+  };
+}
+
+export function createRateLimiter(options: RateLimitOptions) {
+  const check = createRateLimitChecker(options);
 
   return function rateLimit(keyFn: (c: Context) => string): MiddlewareHandler {
     return async (c, next) => {
-      const key = keyFn(c);
-      const now = Date.now();
-      const timestamps = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
-
-      if (timestamps.length >= max) {
+      if (!check(keyFn(c))) {
         return c.json({ error: 'Too many attempts, try again later' }, 429);
       }
-
-      timestamps.push(now);
-      hits.set(key, timestamps);
       await next();
     };
   };

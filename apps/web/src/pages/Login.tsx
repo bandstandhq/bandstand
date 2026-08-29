@@ -54,9 +54,14 @@ export function Login() {
           />
         </div>
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm text-muted-foreground">
-            {t('login.password')}
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm text-muted-foreground">
+              {t('login.password')}
+            </label>
+            <Link to="/forgot-password" className="text-sm text-muted-foreground underline">
+              {t('login.forgotPassword')}
+            </Link>
+          </div>
           <PasswordInput
             id="password"
             required
