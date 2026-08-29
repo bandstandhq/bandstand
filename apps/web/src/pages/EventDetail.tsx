@@ -15,6 +15,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -103,7 +104,8 @@ export function EventDetail() {
   if (!event) {
     return (
       <main className="min-h-screen bg-background p-6 text-foreground">
-        <Link to={`/bands/${bandId}/calendar`} className="text-sm text-muted-foreground hover:underline">
+        <AppHeader title={t('eventDetail.notFound')} />
+        <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
           &larr; {t('eventDetail.back')}
         </Link>
         <p className="mt-6 text-sm text-muted-foreground">{t('eventDetail.notFound')}</p>
@@ -168,12 +170,12 @@ export function EventDetail() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to={`/bands/${bandId}/calendar`} className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={event.title} />
+      <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('eventDetail.back')}
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="wrap-break-word text-xl font-medium">{event.title}</h1>
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <div className="flex flex-wrap gap-2 text-xs">
           {event.status === 'cancelled' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.cancelledBadge')}</span>}
           {event.status === 'tentative' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.tentativeBadge')}</span>}

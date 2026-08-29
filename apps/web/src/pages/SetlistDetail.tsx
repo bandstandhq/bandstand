@@ -32,6 +32,7 @@ import type { ReactNode } from 'react';
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
@@ -284,15 +285,13 @@ export function SetlistDetail() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to={`/bands/${bandId}/setlists`} className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={setlist?.name} />
+      <Link to={`/bands/${bandId}/setlists`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('setlistDetail.back')}
       </Link>
 
       <div className="mt-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-medium">{setlist?.name}</h1>
-          <p className="text-sm text-muted-foreground">{statsText}</p>
-        </div>
+        <p className="text-sm text-muted-foreground">{statsText}</p>
         <Button type="button" variant="outline" onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')}>
           {mode === 'edit' ? t('setlistDetail.doneEditing') : t('setlistDetail.editMode')}
         </Button>

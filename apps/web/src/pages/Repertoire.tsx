@@ -16,6 +16,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import type * as Y from 'yjs';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
@@ -185,12 +186,12 @@ export function Repertoire() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={t('repertoire.title')} />
+      <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('repertoire.back')}
       </Link>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-medium">{t('repertoire.title')}</h1>
         <div className="flex flex-wrap gap-2">
           {doc && <ExportRepertoire doc={doc} />}
           {doc && (
@@ -422,6 +423,7 @@ function DeleteSongForeverDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={t('repertoire.deleteForever.title', { title: song.title })}
+      closeLabel={t('common.close')}
     >
       {!impact && !error ? (
         <p className="text-sm text-muted-foreground">{t('repertoire.deleteForever.loading')}</p>

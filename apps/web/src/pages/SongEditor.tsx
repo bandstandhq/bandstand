@@ -16,6 +16,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { SongAnchors } from '../components/SongAnchors';
 import { SongVoices } from '../components/SongVoices';
@@ -244,11 +245,10 @@ export function SongEditor() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to={`/bands/${bandId}/repertoire`} className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')} />
+      <Link to={`/bands/${bandId}/repertoire`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('songEditor.backNew')}
       </Link>
-
-      <h1 className="mt-4 text-xl font-medium">{isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')}</h1>
 
       {!isNew && songId && doc && (
         <div className="mt-4 space-y-4">

@@ -19,6 +19,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -542,12 +543,12 @@ export function Calendar() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={t('calendarList.title')} />
+      <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('calendarList.back')}
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-medium">{t('calendarList.title')}</h1>
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
         <Button
           type="button"
           variant="outline"
