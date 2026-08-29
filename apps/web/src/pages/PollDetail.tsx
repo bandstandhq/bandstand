@@ -4,6 +4,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -121,7 +122,8 @@ export function PollDetail() {
   if (!poll) {
     return (
       <main className="min-h-screen bg-background p-6 text-foreground">
-        <Link to={`/bands/${bandId}/calendar`} className="text-sm text-muted-foreground hover:underline">
+        <AppHeader title={t('pollDetail.notFound')} />
+        <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
           &larr; {t('pollDetail.back')}
         </Link>
         <p className="mt-6 text-sm text-muted-foreground">{t('pollDetail.notFound')}</p>
@@ -162,11 +164,11 @@ export function PollDetail() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to={`/bands/${bandId}/calendar`} className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={poll.title} />
+      <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('pollDetail.back')}
       </Link>
 
-      <h1 className="mt-4 wrap-break-word text-xl font-medium">{poll.title}</h1>
       {poll.notes && (
         <div className="mt-2">
           <h2 className="text-sm font-medium text-muted-foreground">{t('pollDetail.notes')}</h2>

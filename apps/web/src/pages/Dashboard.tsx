@@ -4,17 +4,15 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { BandSwitcher } from '../components/BandSwitcher';
 import { OfflineReadiness } from '../components/OfflineReadiness';
 import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient, getDefaultServerUrl } from '../lib/auth-client';
-import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
-import { useThemeStore } from '../stores/theme';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
 
@@ -134,55 +132,16 @@ export function Dashboard() {
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const { doc, status } = useBandDoc(activeBandId);
   const songs = useYMap(doc?.getMap('songs'));
-  const theme = useThemeStore((s) => s.theme);
-  const toggleTheme = useThemeStore((s) => s.toggleTheme);
-  
+
   // No anonymous check here — RequireAuth (router.tsx) already guarantees a
   // session before this component ever mounts.
   if (status === 'forbidden') {
     return <BandAccessDenied />;
   }
 
-  async function handleDeleteLocalData() {
-    if (!session) return;
-    if (!window.confirm(t('dashboard.deleteLocalDataConfirm'))) return;
-    await deleteAllLocalBandData(session.user.id);
-    window.alert(t('dashboard.deleteLocalDataDone'));
-  }
-
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-medium">{t('dashboard.title')}</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <BandSwitcher />
-          {activeBandId && (
-            <>
-              <Link to={`/bands/${activeBandId}/repertoire`}>
-                <Button variant="ghost">{t('dashboard.repertoire')}</Button>
-              </Link>
-              <Link to={`/bands/${activeBandId}/setlists`}>
-                <Button variant="ghost">{t('dashboard.setlists')}</Button>
-              </Link>
-              <Link to={`/bands/${activeBandId}/calendar`}>
-                <Button variant="ghost">{t('dashboard.calendar')}</Button>
-              </Link>
-              <Link to={`/bands/${activeBandId}/settings`}>
-                <Button variant="ghost">{t('dashboard.bandSettings')}</Button>
-              </Link>
-            </>
-          )}
-          <Button variant="ghost" onClick={handleDeleteLocalData}>
-            {t('dashboard.deleteLocalData')}
-          </Button>
-          <Button variant="outline" type="button" aria-pressed={theme === 'dark'} onClick={toggleTheme}>
-            {theme === 'dark' ? t('dashboard.themeLight') : t('dashboard.themeDark')}
-          </Button>
-          <Button variant="outline" onClick={() => authClient.signOut()}>
-            {t('dashboard.logout')}
-          </Button>
-        </div>
-      </div>
+      <AppHeader title={t('dashboard.title')} />
       {activeBandId ? (
         <>
           <p className="mt-4 text-sm text-muted-foreground">

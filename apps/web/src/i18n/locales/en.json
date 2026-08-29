@@ -1,6 +1,9 @@
 {
   "common": {
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "close": "Close",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "login": {
     "title": "Log in to Bandstand",
@@ -46,17 +49,7 @@
     "offline": "Offline",
     "songCount": "{{count}} song in the band doc",
     "songCount_other": "{{count}} songs in the band doc",
-    "themeDark": "Dark theme",
-    "themeLight": "Light theme",
-    "logout": "Log out",
     "noBandSelected": "Select or create a band to get started.",
-    "bandSettings": "Band settings",
-    "repertoire": "Repertoire",
-    "setlists": "Setlists",
-    "calendar": "Calendar",
-    "deleteLocalData": "Delete local data",
-    "deleteLocalDataConfirm": "This removes every band's offline cache from this device (your account and bands are unaffected). Continue?",
-    "deleteLocalDataDone": "Local data deleted.",
     "upcomingTitle": "Next up",
     "openEventAria": "Open {{name}}",
     "needsResponse": "Needs your answer",
@@ -68,6 +61,24 @@
     "icsRegenerate": "Regenerate link",
     "icsRegenerating": "Regenerating…",
     "icsRegenerateConfirm": "Generate a new link? The current one will stop working immediately, including for any calendar app already subscribed to it."
+  },
+  "appHeader": {
+    "openMenu": "Open menu",
+    "menuTitle": "Menu",
+    "navLabel": "Band sections",
+    "sectionBand": "Band",
+    "sectionNav": "Navigation",
+    "sectionActions": "Actions",
+    "repertoire": "Repertoire",
+    "setlists": "Setlists",
+    "calendar": "Calendar",
+    "bandSettings": "Band settings",
+    "themeDark": "Dark theme",
+    "themeLight": "Light theme",
+    "logout": "Log out",
+    "deleteLocalData": "Delete local data",
+    "deleteLocalDataConfirm": "This removes every band's offline cache from this device (your account and bands are unaffected). Continue?",
+    "deleteLocalDataDone": "Local data deleted."
   },
   "pushNotifications": {
     "title": "Push notifications",
@@ -193,8 +204,8 @@
     "label": "Active band",
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
+    "createBandToggle": "Create a new band",
     "creating": "Creating…",
-    "or": "or",
     "joinBand": "Join a band"
   },
   "repertoire": {

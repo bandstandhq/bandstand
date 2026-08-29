@@ -8,17 +8,33 @@ import { JoinBandForm } from './JoinBandForm';
 import { apiClient } from '../lib/api-client';
 import { useActiveBandStore } from '../stores/activeBand';
 
+type OpenPanel = 'none' | 'join' | 'create';
+
+/**
+ * The band-area cluster: switch between bands, join one, or create a new
+ * one. "Create a new band" used to only exist for a user with zero bands
+ * (CreateFirstBand's old name) — once you're in any band at all it became
+ * unreachable, which is exactly the "how do I start a second band?" dead
+ * end AppHeader's menu is meant to fix. Both toggles are always available
+ * regardless of how many bands the user already has.
+ */
 export function BandSwitcher() {
   const { t } = useTranslation();
   const [bands, setBands] = useState<MyBand[] | null>(null);
-  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
 
   function handleJoined(band: Band) {
     setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
     setActiveBandId(band.id);
-    setShowJoinForm(false);
+    setOpenPanel('none');
+  }
+
+  function handleCreated(band: Band) {
+    setBands((prev) => [...(prev ?? []), { ...band, role: 'owner' }]);
+    setActiveBandId(band.id);
+    setOpenPanel('none');
   }
 
   useEffect(() => {
@@ -40,47 +56,49 @@ export function BandSwitcher() {
 
   if (bands === null) return null;
 
-  if (bands.length === 0) {
-    return (
-      <div className="flex flex-col gap-2">
-        <CreateFirstBand
-          onCreated={(band) => {
-            setBands([{ ...band, role: 'owner' }]);
-            setActiveBandId(band.id);
-          }}
-        />
-        <p className="text-xs text-muted-foreground">{t('bandSwitcher.or')}</p>
-        <JoinBandForm onJoined={handleJoined} />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-2">
-      <select
-        aria-label={t('bandSwitcher.label')}
-        value={activeBandId ?? bands[0]!.id}
-        onChange={(e) => setActiveBandId(e.target.value)}
-        className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
-      >
-        {bands.map((band) => (
-          <option key={band.id} value={band.id}>
-            {band.name}
-          </option>
-        ))}
-      </select>
-      {showJoinForm ? (
-        <JoinBandForm onJoined={handleJoined} />
-      ) : (
-        <Button variant="ghost" size="sm" onClick={() => setShowJoinForm(true)}>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {bands.length > 0 && (
+          <select
+            aria-label={t('bandSwitcher.label')}
+            value={activeBandId ?? bands[0]!.id}
+            onChange={(e) => setActiveBandId(e.target.value)}
+            className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
+          >
+            {bands.map((band) => (
+              <option key={band.id} value={band.id}>
+                {band.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={openPanel === 'join'}
+          onClick={() => setOpenPanel(openPanel === 'join' ? 'none' : 'join')}
+        >
           {t('bandSwitcher.joinBand')}
         </Button>
-      )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={openPanel === 'create'}
+          onClick={() => setOpenPanel(openPanel === 'create' ? 'none' : 'create')}
+        >
+          {t('bandSwitcher.createBandToggle')}
+        </Button>
+      </div>
+      {openPanel === 'join' && <JoinBandForm onJoined={handleJoined} />}
+      {openPanel === 'create' && <CreateBandForm onCreated={handleCreated} />}
     </div>
   );
 }
 
-function CreateFirstBand({ onCreated }: { onCreated: (band: Band) => void }) {
+function CreateBandForm({ onCreated }: { onCreated: (band: Band) => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -101,14 +119,14 @@ function CreateFirstBand({ onCreated }: { onCreated: (band: Band) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={t('bandSwitcher.newBandPlaceholder')}
         className="w-48"
       />
-      <Button type="submit" disabled={submitting || !name.trim()} size="sm">
+      <Button type="submit" size="sm" disabled={submitting || !name.trim()}>
         {submitting ? t('bandSwitcher.creating') : t('bandSwitcher.createBand')}
       </Button>
       {error && <span className="text-sm text-destructive">{error}</span>}

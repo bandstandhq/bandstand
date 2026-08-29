@@ -5,6 +5,7 @@ import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
+import { AppHeader } from '../components/AppHeader';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useIsWideScreen } from '../hooks/useIsWideScreen';
@@ -176,12 +177,12 @@ export function SetlistList() {
 
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      <Link to="/dashboard" className="text-sm text-muted-foreground hover:underline">
+      <AppHeader title={t('setlistList.title')} />
+      <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('setlistList.back')}
       </Link>
 
-      <div className="mt-4 flex items-center justify-between">
-        <h1 className="text-xl font-medium">{t('setlistList.title')}</h1>
+      <div className="mt-4 flex items-center justify-end">
         {isWideScreen && (
           <Button type="button" variant="outline" onClick={toggleViewMode}>
             {viewMode === 'board' ? t('setlistList.listView') : t('setlistList.boardView')}
