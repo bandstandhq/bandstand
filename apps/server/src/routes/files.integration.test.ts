@@ -10,10 +10,10 @@ import { randomUUID } from 'node:crypto';
 import { sha256Hex } from '@bandstand/core';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { attachments, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 async function signUpTestUser() {
   const email = `files-${randomUUID()}@bandstand.local`;
@@ -25,7 +25,7 @@ async function signUpTestUser() {
 }
 
 function req(path: string, method: string, token: string, body?: unknown) {
-  return bandsRoute.request(path, {
+  return app.request(`/bands${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',

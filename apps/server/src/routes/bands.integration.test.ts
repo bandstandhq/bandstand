@@ -8,10 +8,10 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 async function signUpTestUser() {
   const email = `bands-order-${randomUUID()}@bandstand.local`;
@@ -23,7 +23,7 @@ async function signUpTestUser() {
 }
 
 function listMyBands(token: string) {
-  return bandsRoute.request('/', {
+  return app.request('/bands', {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

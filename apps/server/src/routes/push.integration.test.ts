@@ -7,10 +7,10 @@ import { randomUUID } from 'node:crypto';
 import { DEFAULT_PUSH_TRIGGERS } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { pushSubscriptions, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { pushRoute } from './push';
 
 async function signUpTestUser() {
   const email = `push-${randomUUID()}@bandstand.local`;
@@ -22,7 +22,7 @@ async function signUpTestUser() {
 }
 
 function subscribe(token: string, body: unknown) {
-  return pushRoute.request('/subscribe', {
+  return app.request('/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
@@ -30,14 +30,14 @@ function subscribe(token: string, body: unknown) {
 }
 
 function unsubscribe(token: string, endpoint: string) {
-  return pushRoute.request(`/subscribe/${encodeURIComponent(endpoint)}`, {
+  return app.request(`/push/subscribe/${encodeURIComponent(endpoint)}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 function patchPref(token: string, body: unknown) {
-  return pushRoute.request('/prefs', {
+  return app.request('/push/prefs', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),

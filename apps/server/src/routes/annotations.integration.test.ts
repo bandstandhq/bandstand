@@ -9,10 +9,10 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandMembers, bands, users, voiceAnnotationLayers } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 async function signUpTestUser() {
   const email = `annotations-${randomUUID()}@bandstand.local`;
@@ -24,7 +24,7 @@ async function signUpTestUser() {
 }
 
 function req(path: string, method: string, token: string, body?: unknown) {
-  return bandsRoute.request(path, {
+  return app.request(`/bands${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -235,17 +235,11 @@ describe('voice annotations (integration)', () => {
       fontSize: 12,
     }));
 
-    // Goes through the annotations sub-router directly, like every other
-    // test in this file — that bypasses index.ts's top-level app.onError
-    // (registered only on the full app, not this sub-router), so a schema
-    // validation failure here surfaces as Hono's own generic 500, the same
-    // as userPrefs.integration.test.ts's equivalent case. What's under test
-    // is that the request is rejected at all, not the exact status code.
     const res = await req(`/${band.id}/annotations/${created.id}`, 'PUT', member.token, {
       objects: tooManyObjects,
       expectedUpdatedAt: created.updatedAt,
     });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
 
     const [row] = await db.select().from(voiceAnnotationLayers).where(eq(voiceAnnotationLayers.id, created.id));
     expect(row?.objects).toEqual([]);

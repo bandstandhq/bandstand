@@ -9,10 +9,10 @@ import { yDocToSnapshot } from '@bandstand/core';
 import { eq } from 'drizzle-orm';
 import * as Y from 'yjs';
 import { afterAll, describe, expect, it } from 'vitest';
+import { app } from '../app';
 import { db } from '../db/client';
 import { bandDocs, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
-import { bandsRoute } from './bands';
 
 const TEMPLATE_ID = 'event-series-template';
 const EXCEPTION_ID = 'event-series-exception';
@@ -31,7 +31,7 @@ async function signUpTestUser() {
 }
 
 function req(path: string, method: string, token: string, body?: unknown) {
-  return bandsRoute.request(path, {
+  return app.request(`/bands${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

@@ -217,11 +217,18 @@ Logs/Monitoring aus wie ein echter Serverfehler.
 Liste aus Feldpfad und Fehlertyp — bewusst ohne den empfangenen Wert, den einzelne Zod-Codes sonst
 mitliefern, damit die Antwort keine Anleitung fürs Austesten akzeptierter Werte wird.
 
-**Bekannte Lücke**: Integrationstests, die einen Sub-Router direkt (statt der vollen `app`)
-ansprechen, durchlaufen diesen Handler nicht und sehen weiterhin 500 — siehe
-`userPrefs.integration.test.ts`s und `annotations.integration.test.ts`s entsprechende Fälle. Die
-Korrektur ist im echten Serverbetrieb wirksam, aber bisher nicht gegen den tatsächlichen
-Anfrage-Pfad verifiziert; ein guter Ausgangspunkt fürs nächste Review.
+**Nachtrag (behoben in #124)**: Die ursprüngliche Behebung war unverifiziert — jede
+Integrationstest-Datei sprach ihren jeweiligen Sub-Router direkt an (`bandsRoute.request(...)`
+statt der vollen `app`), umging damit `app.onError` (und ebenso CORS und das Body-Limit aus
+Befund 6) vollständig und testete eine Anwendung, die im echten Betrieb so nie läuft. Die
+Hono-App-Konstruktion wurde aus `index.ts` in ein eigenes, seiteneffektfreies `app.ts` ausgelagert
+(`index.ts` bleibt nur noch für den tatsächlichen Serverstart zuständig), und alle zehn
+Integrationstest-Dateien sprechen jetzt diese echte, vollständig zusammengesetzte `app` an. Zwei
+bestehende Tests (`userPrefs.integration.test.ts`, `annotations.integration.test.ts`) erwarteten
+wegen des Bypasses bislang 500 statt 400 — beide korrigiert, nachdem der reale Pfad die 400er
+tatsächlich liefert. Zwei neue Tests in `app.integration.test.ts` beweisen den Zod-400-Pfad und
+das Body-Limit gezielt gegen die echte `app`; beide wurden vor der Korrektur nachweislich rot
+verifiziert (400/413 durch den jeweiligen Fix ersetzt gegen 500/401 ohne ihn).
 
 ---
 
@@ -287,8 +294,10 @@ Anfrage-Pfad verifiziert; ein guter Ausgangspunkt fürs nächste Review.
   eher in eigene Module aufteilen als eine weitere Zuständigkeit anhängen.
 - Die drei ursprünglich identischen `z.string().length(64)`-Definitionen (Befund 4) wurden bei der
   Behebung bereits zu einer gemeinsamen Konstante zusammengezogen.
-- Befund 8s "bekannte Lücke" oben (Sub-Router-Tests umgehen `app.onError`) ist ein guter, klar
-  umrissener Startpunkt fürs nächste Review, falls das Testsetup einmal überarbeitet wird.
+- Befund 8s Nachtrag (#124) betraf nicht nur diesen einen Fix: Sub-Router-Tests umgingen auch
+  CORS und das Body-Limit aus Befund 6 vollständig. Für künftige app-weite Middleware gilt jetzt
+  durchgängig, dass ein Test gegen die echte `app` (`apps/server/src/app.ts`) laufen muss, nicht
+  gegen einen einzelnen Sub-Router.
 
 ---
 
@@ -307,6 +316,9 @@ Berechtigungsmatrix an mehreren Stellen dokumentiertes Verhalten behauptete ("ad
 serverseitig gar nicht existierte — ein Muster, auf das bei jedem neuen, rein-CRDT-basierten
 Feature erneut zu achten ist.
 
-**Alle acht Befunde sind behoben** (#119, #120, #121, #122 — siehe Status pro Befund). Die einzige
-offene Anschlussarbeit ist Befund 8s dokumentierte Testlücke (Sub-Router-Integrationstests
-umgehen den globalen Error-Handler).
+**Alle acht Befunde sind behoben** (#119, #120, #121, #122, #124 — siehe Status pro Befund), keine
+offene Anschlussarbeit mehr. Befund 8s ursprünglicher Fix war zunächst unverifiziert, weil jede
+Integrationstest-Datei einen Sub-Router statt der echten, vollständig zusammengesetzten `app`
+ansprach — das betraf nicht nur den Error-Handler, sondern auch CORS und das Body-Limit aus
+Befund 6, die auf demselben Weg ebenso ungetestet blieben. #124 hat das für alle zehn
+Integrationstest-Dateien behoben.
