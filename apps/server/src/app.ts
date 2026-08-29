@@ -17,6 +17,7 @@ import { auth } from './lib/auth';
 import { parseAllowedOrigins } from './lib/corsOrigins';
 import { assertProductionOriginIsRestricted } from './lib/envGuard';
 import { passwordResetRateLimit } from './lib/passwordResetRateLimit';
+import { clientIp, createRateLimiter } from './lib/rateLimit';
 import { bandsRoute } from './routes/bands';
 import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
@@ -102,4 +103,14 @@ app.use(
     dedupeWindowMs: 60 * 1000,
   }),
 );
+
+// Registration is fully open (no invite code needed to create an account
+// at all, only to join a band) — an IP that's just created a handful of
+// accounts in the last hour, or a few dozen today, is exactly the account-
+// farming pattern this catches. No enumeration/uniformity concern here
+// unlike the password-reset limiter above: a plain 429 doesn't reveal
+// anything about who's already registered, so the existing `createRateLimiter`
+// is enough, no custom response shape needed.
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: 5 })(clientIp));
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 20 })(clientIp));
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));

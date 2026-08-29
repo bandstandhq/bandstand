@@ -21,7 +21,15 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Mounted at /bands/:bandId/invites — create/list/revoke, owner+admin only. */
 export const inviteManagementRoute = new Hono<{ Variables: BandVariables }>();
 
-inviteManagementRoute.post('/', requireBandRole('admin'), async (c) => {
+// Creation had no limit at all before this — only redemption did (below).
+// Bounded by requireBandRole('admin') already, so the realistic case is a
+// compromised or careless admin account rather than an anonymous attacker,
+// but there's no reason to leave it uncapped: 30/hour is far more than any
+// legitimate band admin issues in a real session, even onboarding a whole
+// new lineup at once.
+const createInviteRateLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
+
+inviteManagementRoute.post('/', createInviteRateLimiter(clientIp), requireBandRole('admin'), async (c) => {
   const body = createInviteInputSchema.parse(await c.req.json());
   const bandId = c.req.param('bandId');
   if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
