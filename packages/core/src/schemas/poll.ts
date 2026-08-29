@@ -17,7 +17,9 @@ export type PollOption = z.infer<typeof pollOptionSchema>;
 
 export const pollSchema = z.object({
   title: z.string().min(1),
-  notes: z.string().optional(),
+  // Generous for a long rehearsal/gig announcement paragraph — same
+  // reasoning as calendarEventSchema's notes field.
+  notes: z.string().max(5000).optional(),
   options: z.array(pollOptionSchema).min(1),
   closesAt: z.number().int().nonnegative().optional(),
   // Set once an admin closes the poll into a real event (see
@@ -34,6 +36,6 @@ export const closePollInputSchema = z.strictObject({
   title: z.string().min(1),
   type: z.enum(['gig', 'rehearsal', 'other']),
   location: z.string().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(5000).optional(),
 });
 export type ClosePollInput = z.infer<typeof closePollInputSchema>;

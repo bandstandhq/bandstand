@@ -18,7 +18,11 @@ const voiceBaseFields = {
 const chordproVoiceSchema = z.object({
   ...voiceBaseFields,
   kind: z.literal('chordpro'),
-  body: z.string(),
+  // A single printed ChordPro page (chords + lyrics + directives) runs
+  // roughly 3,000-4,000 characters, so an eight-page choir piece lands
+  // around 24,000-32,000 — 300,000 comfortably covers even a multi-movement
+  // medley while staying well short of anything that would strain memory.
+  body: z.string().max(300_000),
 });
 
 // A page's position in the flat sequence built by concatenating `files` in

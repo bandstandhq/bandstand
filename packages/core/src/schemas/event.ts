@@ -49,7 +49,8 @@ export const calendarEventSchema = z.object({
   allDay: z.boolean(),
   location: z.string().optional(),
   locationGeo: locationGeoSchema.optional(),
-  notes: z.string().optional(),
+  // Generous for a long rehearsal/gig announcement paragraph.
+  notes: z.string().max(5000).optional(),
   setlistId: z.string().optional(),
   status: eventStatusSchema,
   // Groups every occurrence (the template plus any exceptions) of one

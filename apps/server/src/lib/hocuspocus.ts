@@ -250,8 +250,19 @@ class HocuspocusAuthError extends Error {
   }
 }
 
+// A coarse transport-level backstop, not a substitute for the per-field
+// zod caps in packages/core/src/schemas/ — those only run inside the
+// debounced Postgres store hook below, *after* a CRDT update has already
+// been applied to the in-memory doc and broadcast to every connected
+// client. A single WebSocket message this large would already mean
+// something is badly wrong (a full-document sync for a genuinely large band
+// still fits comfortably under this), so rejecting it outright at the
+// connection level is strictly better than letting it reach the doc at all.
+const MAX_HOCUSPOCUS_MESSAGE_BYTES = 20 * 1024 * 1024;
+
 export const hocuspocusServer = new Server({
   port: Number(process.env.HOCUSPOCUS_PORT ?? 3002),
+  websocketOptions: { maxPayload: MAX_HOCUSPOCUS_MESSAGE_BYTES },
   async onAuthenticate({ token, documentName }) {
     const session = await auth.api.getSession({
       headers: new Headers({ authorization: `Bearer ${token}` }),

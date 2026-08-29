@@ -216,6 +216,41 @@ describe('voice annotations (integration)', () => {
     expect(nowUpdated?.objects).toMatchObject([{ text: 'v2' }]);
   });
 
+  it('rejects an objects array over the configured size limit', async () => {
+    const { band, member } = await setupBand();
+    cleanupUserIds.push(member.userId);
+    cleanupBandIds.push(band.id);
+
+    const created = (await (
+      await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Overloaded layer' })
+    ).json()) as { id: string; updatedAt: string };
+
+    const tooManyObjects = Array.from({ length: 5001 }, (_, i) => ({
+      id: `o${i}`,
+      type: 'text' as const,
+      page: 0,
+      position: { x: 0, y: 0 },
+      text: 'x',
+      color: '#000',
+      fontSize: 12,
+    }));
+
+    // Goes through the annotations sub-router directly, like every other
+    // test in this file — that bypasses index.ts's top-level app.onError
+    // (registered only on the full app, not this sub-router), so a schema
+    // validation failure here surfaces as Hono's own generic 500, the same
+    // as userPrefs.integration.test.ts's equivalent case. What's under test
+    // is that the request is rejected at all, not the exact status code.
+    const res = await req(`/${band.id}/annotations/${created.id}`, 'PUT', member.token, {
+      objects: tooManyObjects,
+      expectedUpdatedAt: created.updatedAt,
+    });
+    expect(res.status).toBe(500);
+
+    const [row] = await db.select().from(voiceAnnotationLayers).where(eq(voiceAnnotationLayers.id, created.id));
+    expect(row?.objects).toEqual([]);
+  });
+
   it('lets the original sharer, or an admin, remove a shared layer — but not an unrelated member', async () => {
     const { band, member, admin } = await setupBand();
     cleanupUserIds.push(member.userId, admin.userId);
