@@ -190,16 +190,21 @@ export function SetlistList() {
         )}
       </div>
 
-      <form onSubmit={handleCreate} className="mt-4 flex flex-wrap gap-2">
+      <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-center gap-2">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t('setlistList.newPlaceholder')}
           className="w-full sm:w-64"
         />
-        <Button type="submit" disabled={!name.trim()}>
+        <Button type="submit" disabled={!doc || !name.trim()}>
           {t('setlistList.create')}
         </Button>
+        {/* Without this, tapping Create while the band doc hasn't loaded yet
+            (a slower or just-reconnecting mobile connection) silently did
+            nothing — handleCreate's own `!doc` guard bailed with no
+            indication why, indistinguishable from the button being broken. */}
+        {!doc && <p className="text-sm text-muted-foreground">{t('setlistList.waitingForConnection')}</p>}
       </form>
 
       {entries.length === 0 || !doc ? (

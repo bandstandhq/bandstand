@@ -382,7 +382,12 @@ export function SetlistDetail() {
             <div>
               <h2 className="text-sm font-medium text-muted-foreground">{t('setlistDetail.pool')}</h2>
               <p className="text-xs text-muted-foreground">{t('setlistDetail.poolHint')}</p>
-              {poolSongs.length === 0 ? (
+              {/* An unloaded doc (`songs` reads as {}) must never look like
+                  "no active songs" — a slower mobile connection would make a
+                  real repertoire look wiped, not just not-yet-ready. */}
+              {!doc ? (
+                <p className="mt-2 text-sm text-muted-foreground">{t('setlistDetail.waitingForConnection')}</p>
+              ) : poolSongs.length === 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">{t('setlistDetail.poolEmpty')}</p>
               ) : (
                 <ul className="mt-2 space-y-1">
@@ -397,10 +402,10 @@ export function SetlistDetail() {
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-medium text-muted-foreground">{t('setlistDetail.items')}</h2>
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddBreak}>
+                  <Button type="button" size="sm" variant="outline" disabled={!doc} onClick={handleAddBreak}>
                     {t('setlistDetail.addBreak')}
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={handleAddFinale}>
+                  <Button type="button" size="sm" variant="outline" disabled={!doc} onClick={handleAddFinale}>
                     {t('setlistDetail.addFinale')}
                   </Button>
                 </div>
