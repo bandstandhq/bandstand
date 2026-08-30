@@ -13,6 +13,7 @@
     "submit": "Log in",
     "submitting": "Logging in…",
     "error": "Couldn't log in with those credentials.",
+    "networkError": "Couldn't reach the server — check your connection and try again. (Not a password problem.)",
     "noAccount": "Don't have an account?",
     "signUp": "Sign up"
   },
