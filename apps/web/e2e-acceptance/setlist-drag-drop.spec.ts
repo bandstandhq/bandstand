@@ -64,11 +64,38 @@ test('dragging a song from the pool into the setlist inserts it where it was dro
   addSong(setup.doc, songFixture('Scarborough Fair'));
   await flush();
 
+  let cdp: Awaited<ReturnType<import('@playwright/test').BrowserContext['newCDPSession']>> | undefined;
   try {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
     await page.getByRole('button', { name: 'Edit' }).click();
     await page.waitForSelector('text=Repertoire');
+
+    // Deliberately slows this tab's main thread (CDP-level, Chromium only —
+    // see playwright.acceptance.config.ts's single chromium project) to
+    // reproduce the conditions of the app's real target hardware: an older
+    // tablet on stage, not just a busy CI/dev machine. A sortable row here
+    // is a real, natively-draggable <a> (React Router Link) doubling as a
+    // dnd-kit drag handle; under a slow main thread the browser's own native
+    // drag recognition can win the race against dnd-kit's synthetic pointer
+    // tracking before dnd-kit's preventDefault applies, silently swallowing
+    // the gesture — see docs/adr/0014-no-native-drag-on-interactive-rows.md.
+    // Throttling starts only now, after login/setup, so it can't blow the
+    // test timeout on unrelated steps.
+    cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+
+    // A permanent regression guard, not a one-off diagnostic: 'drag'/
+    // 'dragend' only ever fire if a real native browser drag session
+    // actually started (unlike 'dragstart', which fires on mere attempt and
+    // says nothing about who won the race). If either ever fires again,
+    // the native-drag-vs-dnd-kit race is back.
+    await page.evaluate(() => {
+      (window as unknown as { __nativeDragEvents: string[] }).__nativeDragEvents = [];
+      for (const type of ['drag', 'dragend']) {
+        document.addEventListener(type, () => (window as unknown as { __nativeDragEvents: string[] }).__nativeDragEvents.push(type));
+      }
+    });
 
     const setlistItems = page.locator('.border-dashed li');
     await expect(setlistItems).toHaveCount(4);
@@ -113,6 +140,61 @@ test('dragging a song from the pool into the setlist inserts it where it was dro
     const shenandoahIndex = reorderedLabels.findIndex((label) => label.includes('Shenandoah'));
     expect(shenandoahIndex).toBeGreaterThanOrEqual(0);
     expect(shenandoahIndex).toBeLessThan(4);
+
+    const nativeDragEvents = await page.evaluate(() => (window as unknown as { __nativeDragEvents: string[] }).__nativeDragEvents);
+    expect(nativeDragEvents).toEqual([]);
+  } finally {
+    await cdp?.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('a real click on a setlist row still navigates to Stage Mode after that row was just dragged', async ({ page }) => {
+  // Regression test for the click-suppression backstop in SortableSetlistItem
+  // (see docs/adr/0014-no-native-drag-on-interactive-rows.md): it must
+  // swallow exactly the one click that a drag's own mouseup produces, never
+  // any click after it. No throttling needed here — this isn't about the
+  // race under load, it's about the suppression flag's own lifecycle.
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop-click-after');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  const setlistId = createSetlist(setup.doc, 'Click After Drag Test');
+  for (const title of ['Amazing Grace', 'Auld Lang Syne']) {
+    const songId = addSong(setup.doc, songFixture(title));
+    addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+  }
+  await flush();
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForSelector('text=Repertoire');
+
+    const setlistItems = page.locator('.border-dashed li');
+    await expect(setlistItems).toHaveCount(2);
+
+    // Drag the second item onto the first — a real reorder, so the
+    // suppression ref does get armed by an actual recognized drag-start,
+    // not skipped because nothing happened.
+    const firstItem = setlistItems.nth(0);
+    const secondItem = setlistItems.nth(1);
+    await dragTo(page, await leftEdgePoint(secondItem), await leftEdgePoint(firstItem));
+    await page.mouse.up();
+
+    // The drag's own mouseup may or may not have produced a click that got
+    // suppressed — either way, the row is idle now. A separate, later click
+    // (no drag movement at all) on that same row must go through normally.
+    // A plain `locator.click()` here would navigate away mid-action and then
+    // spin retrying against a locator that no longer resolves on the new
+    // page — a raw coordinate click sidesteps that entirely, the same way
+    // dragTo() already does for the drag itself.
+    const targetRow = page.locator('.border-dashed li').first();
+    const { x, y } = await leftEdgePoint(targetRow);
+    await Promise.all([page.waitForURL(/\/stage\//), page.mouse.click(x, y)]);
   } finally {
     await deleteThrowawayBand(token, bandId);
     setup.provider.destroy();

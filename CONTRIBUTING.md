@@ -104,6 +104,29 @@ Most features touch layers in this order:
    for flows that genuinely need a real browser (auth redirects, Stage Mode
    sync — see `apps/web/e2e/`).
 
+## Drag-and-drop rows
+
+If a dnd-kit drag handle (`{...attributes} {...listeners}` from `useDraggable`/`useSortable`) ends
+up on a real interactive element — a `<Link>`/`<a>`, a `<button>` — rather than a dedicated
+non-interactive handle (a grip icon `<span>`/`<div>`, as in `SongAnchors.tsx` and
+`PdfVoiceViewer.tsx`), you must:
+
+1. Set `draggable={false}` on it. An `<a>` is natively draggable by default, and the browser's own
+   native drag-and-drop can win a race against dnd-kit's synthetic recognition under enough
+   main-thread load — dnd-kit's own `preventDefault()` on native `dragstart` isn't a guarantee.
+2. Suppress the click that follows a completed drag yourself — dnd-kit's own click guard only calls
+   `stopPropagation()`, never `preventDefault()`, and is removed on a fixed timer regardless of
+   whether the click has arrived. Neither stops a real anchor's native navigation. See
+   `SortableSetlistItem` in `apps/web/src/pages/SetlistDetail.tsx` for the pattern: a ref armed by
+   `useDndMonitor`'s `onDragStart` for that item's own id, checked and cleared by a `document`-level,
+   capture-phase `click` listener registered once at mount (so it runs before dnd-kit's own,
+   per-drag one — capture-phase order is DOM position first, then attachment order, so it has to be
+   on `document` too, not on the element itself).
+
+Both are real, load-sensitive application bugs, not test artifacts — see
+`docs/adr/0014-no-native-drag-on-interactive-rows.md` for the full investigation, including how to
+test this under realistic (throttled-CPU) load rather than only a quiet dev machine.
+
 ## Testing on mobile devices
 
 By default everything (`pnpm dev`'s web app and API server, plus MinIO) is
