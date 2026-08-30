@@ -17,7 +17,7 @@ import { bandDocs, bandMembers, bands, userPrefs, users } from '../db/schema/ind
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `destructive-${randomUUID()}@bandstand.local`;
+  const email = `test-destructive-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Destructive Tester' },
   });
@@ -36,16 +36,25 @@ function req(path: string, method: string, token: string, body?: unknown) {
   });
 }
 
-async function setupBand() {
+// Registers every user/band it creates for cleanup itself — a caller that
+// only destructures the fields it needs (e.g. `{ band, admin, member }`)
+// used to also have to remember to separately push every id it got back
+// into cleanupUserIds/cleanupBandIds, and every call site here forgot at
+// least `owner` (see issue for the accumulated leak this caused). Taking
+// the arrays as parameters and pushing internally makes that impossible to
+// forget again.
+async function setupBand(cleanupUserIds: string[], cleanupBandIds: string[]) {
   const owner = await signUpTestUser();
   const admin = await signUpTestUser();
   const member = await signUpTestUser();
 
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Destructive Test Band', slug: `destructive-test-${randomUUID()}` })
+    .values({ name: 'Destructive Test Band', slug: `test-destructive-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
+  cleanupUserIds.push(owner.userId, admin.userId, member.userId);
+  cleanupBandIds.push(band.id);
 
   await db.insert(bandMembers).values([
     { bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] },
@@ -106,9 +115,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('rejects a member deleting a song forever, but lets an admin, and removes it from the setlist', async () => {
-    const { band, admin, member, songId, setlistId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, songId, setlistId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/songs/${songId}`, 'DELETE', member.token);
     expect(forbidden.status).toBe(403);
@@ -124,9 +131,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('delete-impact previews affected setlists without deleting anything', async () => {
-    const { band, admin, songId, setlistId } = await setupBand();
-    cleanupUserIds.push(admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, songId, setlistId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/songs/${songId}/delete-impact`, 'GET', admin.token);
     expect(res.status).toBe(200);
@@ -138,9 +143,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('delete-impact reports personal notes left behind by any member', async () => {
-    const { band, admin, member, songId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, songId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     await db
       .insert(userPrefs)
@@ -151,9 +154,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('deleting a song forever clears every member\'s personal notes for it', async () => {
-    const { band, admin, member, songId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, songId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     await db
       .insert(userPrefs)
@@ -167,9 +168,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('rejects a member deleting a setlist, but lets an admin', async () => {
-    const { band, admin, member, setlistId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, setlistId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/setlists/${setlistId}`, 'DELETE', member.token);
     expect(forbidden.status).toBe(403);
@@ -182,8 +181,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('rejects a member and an admin deleting the band, but lets the owner', async () => {
-    const { band, admin, member, owner } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId, owner.userId);
+    const { band, admin, member, owner } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const memberForbidden = await req(`/${band.id}`, 'DELETE', member.token);
     expect(memberForbidden.status).toBe(403);
@@ -199,9 +197,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('rejects a member resolving a tied idea vote, but lets an admin', async () => {
-    const { band, admin, member, songId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, songId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/songs/${songId}/resolve-tie`, 'POST', member.token, { resolution: 'archived' });
     expect(forbidden.status).toBe(403);
@@ -214,9 +210,7 @@ describe('destructive band/song/setlist actions (integration)', () => {
   });
 
   it('rejects a member detaching a file, but lets an admin, keeping the other file', async () => {
-    const { band, admin, member, songId, filesVoiceId } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member, songId, filesVoiceId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}`, 'DELETE', member.token);
     expect(forbidden.status).toBe(403);

@@ -25,7 +25,7 @@ import { setPushSenderForTesting } from './send';
 import { runPushDue } from './due';
 
 async function signUpTestUser() {
-  const email = `push-due-${randomUUID()}@bandstand.local`;
+  const email = `test-push-due-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Push Due Tester' },
   });
@@ -62,7 +62,7 @@ describe('push/due (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Push Due Band', slug: `push-due-${randomUUID()}` })
+      .values({ name: 'Push Due Band', slug: `test-push-due-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -123,11 +123,11 @@ describe('push/due (integration)', () => {
 
     const [answeredBand] = await db
       .insert(bands)
-      .values({ name: 'Push Due Answered Band', slug: `push-due-answered-${randomUUID()}` })
+      .values({ name: 'Push Due Answered Band', slug: `test-push-due-answered-${randomUUID()}` })
       .returning();
     const [cancelledBand] = await db
       .insert(bands)
-      .values({ name: 'Push Due Cancelled Band', slug: `push-due-cancelled-${randomUUID()}` })
+      .values({ name: 'Push Due Cancelled Band', slug: `test-push-due-cancelled-${randomUUID()}` })
       .returning();
     if (!answeredBand || !cancelledBand) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(answeredBand.id, cancelledBand.id);

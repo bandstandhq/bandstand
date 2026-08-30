@@ -16,7 +16,7 @@ import { runBlobsGc } from './gc';
 async function setupBandWithBlobs() {
   const [band] = await db
     .insert(bands)
-    .values({ name: 'GC Test Band', slug: `gc-test-${randomUUID()}` })
+    .values({ name: 'GC Test Band', slug: `test-gc-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
 

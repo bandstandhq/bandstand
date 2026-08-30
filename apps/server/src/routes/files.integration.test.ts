@@ -16,7 +16,7 @@ import { attachments, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `files-${randomUUID()}@bandstand.local`;
+  const email = `test-files-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Files Tester' },
   });
@@ -35,15 +35,23 @@ function req(path: string, method: string, token: string, body?: unknown) {
   });
 }
 
-async function setupBand() {
+// Registers every user/band it creates for cleanup itself — a caller that
+// only destructures the fields it needs (e.g. `{ band, member }`) used to
+// also have to remember to separately push every id it got back into
+// cleanupUserIds/cleanupBandIds, and most call sites here forgot `outsider`
+// (see issue for the accumulated leak this caused). Taking the arrays as
+// parameters and pushing internally makes that impossible to forget again.
+async function setupBand(cleanupUserIds: string[], cleanupBandIds: string[]) {
   const member = await signUpTestUser();
   const outsider = await signUpTestUser();
 
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Files Test Band', slug: `files-test-${randomUUID()}` })
+    .values({ name: 'Files Test Band', slug: `test-files-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
+  cleanupUserIds.push(member.userId, outsider.userId);
+  cleanupBandIds.push(band.id);
 
   await db.insert(bandMembers).values([{ bandId: band.id, userId: member.userId, role: 'member', instruments: [] }]);
 
@@ -60,18 +68,14 @@ describe('band file uploads (integration)', () => {
   });
 
   it('rejects a non-member entirely', async () => {
-    const { band, outsider } = await setupBand();
-    cleanupUserIds.push(outsider.userId);
-    cleanupBandIds.push(band.id);
+    const { band, outsider } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/files/check`, 'POST', outsider.token, { sha256: 'a'.repeat(64) });
     expect(res.status).toBe(403);
   });
 
   it('round-trips a real upload: check (miss) -> presign -> PUT -> confirm -> check (hit) -> presign-download -> GET', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const content = Buffer.from(`test file content ${randomUUID()}`);
     const sha256 = await sha256Hex(content);
@@ -118,18 +122,14 @@ describe('band file uploads (integration)', () => {
   });
 
   it('rejects presign-download for a hash this band never uploaded', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/files/${'b'.repeat(64)}/presign-download`, 'GET', member.token);
     expect(res.status).toBe(404);
   });
 
   it('rejects an unsupported mime type before issuing a presigned URL', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/files/presign-upload`, 'POST', member.token, {
       sha256: 'c'.repeat(64),
@@ -141,9 +141,7 @@ describe('band file uploads (integration)', () => {
   });
 
   it('rejects a file over the configured size limit before issuing a presigned URL', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/files/presign-upload`, 'POST', member.token, {
       sha256: 'd'.repeat(64),
@@ -155,10 +153,8 @@ describe('band file uploads (integration)', () => {
   });
 
   it('rejects a second band confirming a hash the first band actually uploaded, without a presign-upload call of its own', async () => {
-    const bandA = await setupBand();
-    const bandB = await setupBand();
-    cleanupUserIds.push(bandA.member.userId, bandA.outsider.userId, bandB.member.userId, bandB.outsider.userId);
-    cleanupBandIds.push(bandA.band.id, bandB.band.id);
+    const bandA = await setupBand(cleanupUserIds, cleanupBandIds);
+    const bandB = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const content = Buffer.from(`band A's exclusive content ${randomUUID()}`);
     const sha256 = await sha256Hex(content);
@@ -199,10 +195,8 @@ describe('band file uploads (integration)', () => {
   });
 
   it("rejects confirm even after the band's own presign-upload call, when the object predates it", async () => {
-    const bandA = await setupBand();
-    const bandB = await setupBand();
-    cleanupUserIds.push(bandA.member.userId, bandA.outsider.userId, bandB.member.userId, bandB.outsider.userId);
-    cleanupBandIds.push(bandA.band.id, bandB.band.id);
+    const bandA = await setupBand(cleanupUserIds, cleanupBandIds);
+    const bandB = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const content = Buffer.from(`band A's older content ${randomUUID()}`);
     const sha256 = await sha256Hex(content);
@@ -248,9 +242,7 @@ describe('band file uploads (integration)', () => {
   });
 
   it('rejects confirm when the uploaded bytes do not match the claimed hash, and removes the object', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const realContent = Buffer.from(`real content ${randomUUID()}`);
     const claimedSha256 = await sha256Hex(Buffer.from(`different content entirely ${randomUUID()}`));

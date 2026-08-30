@@ -12,7 +12,7 @@ import { bandMembers, bands, invites, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `invite-race-${randomUUID()}@bandstand.local`;
+  const email = `test-invite-race-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Race Tester' },
   });
@@ -45,7 +45,7 @@ describe('POST /invites/redeem (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Race Band', slug: `invite-race-band-${randomUUID()}` })
+      .values({ name: 'Invite Race Band', slug: `test-invite-race-band-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -90,7 +90,7 @@ describe('POST /invites/redeem (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Race Band 2', slug: `invite-race-band-${randomUUID()}` })
+      .values({ name: 'Invite Race Band 2', slug: `test-invite-race-band-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -122,7 +122,7 @@ describe('POST /invites/redeem (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Classification Band', slug: `invite-classify-${randomUUID()}` })
+      .values({ name: 'Invite Classification Band', slug: `test-invite-classify-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -186,7 +186,7 @@ describe('POST /invites/redeem (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Already-Member Band', slug: `invite-already-member-${randomUUID()}` })
+      .values({ name: 'Invite Already-Member Band', slug: `test-invite-already-member-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -224,7 +224,7 @@ describe('POST /invites/redeem (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Whitespace Band', slug: `invite-whitespace-${randomUUID()}` })
+      .values({ name: 'Invite Whitespace Band', slug: `test-invite-whitespace-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);

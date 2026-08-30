@@ -13,7 +13,7 @@ import type { PushSender } from './send';
 import { sendPushToUser, sendPushToUsers, setPushSenderForTesting } from './send';
 
 async function signUpTestUser() {
-  const email = `push-send-${randomUUID()}@bandstand.local`;
+  const email = `test-push-send-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Push Send Tester' },
   });

@@ -13,7 +13,7 @@ import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `invite-create-${randomUUID()}@bandstand.local`;
+  const email = `test-invite-create-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Invite Creator' },
   });
@@ -44,7 +44,7 @@ describe('POST /bands/:bandId/invites rate limiting (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Invite Creation Rate Band', slug: `invite-create-rate-${randomUUID()}` })
+      .values({ name: 'Invite Creation Rate Band', slug: `test-invite-create-rate-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);

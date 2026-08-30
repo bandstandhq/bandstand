@@ -127,6 +127,30 @@ Both are real, load-sensitive application bugs, not test artifacts — see
 `docs/adr/0014-no-native-drag-on-interactive-rows.md` for the full investigation, including how to
 test this under realistic (throttled-CPU) load rather than only a quiet dev machine.
 
+## Throwaway test data
+
+Every account and band an acceptance/integration test creates must start with a literal `test-`
+prefix — `apps/web/e2e-acceptance/fixtures.ts`'s `freshEmail`/`freshName` and every
+`*.integration.test.ts`'s own `signUpTestUser`/inline band slug already do this. Two rules follow
+from that:
+
+1. **The test that creates it deletes it, in its own `finally`/`afterAll` — always.** A band gets
+   deleted via the real `DELETE /bands/:id` route (`deleteThrowawayBand`); a user has no such route
+   (self-account deletion isn't a feature this app has), so it goes straight to Postgres via
+   `apps/web/e2e-acceptance/testDb.ts`'s `deleteUserByEmail` (mirrors the pattern every server-side
+   integration test already uses for its own `afterAll`). If a shared setup helper creates several
+   users/bands (e.g. an `owner`/`admin`/`member`/`outsider` quartet), have *that helper* register
+   all of them for cleanup itself, rather than trusting every call site to remember which ones it
+   personally destructured — a helper that only tracks what each caller happened to use is exactly
+   how this leaked hundreds of accounts in practice (see the issue this fixed).
+2. **`pnpm cleanup:test-accounts` is a backstop for the backlog an interrupted run left behind, not
+   a substitute for rule 1.** It matches strictly on the `test-` prefix (`WHERE email LIKE
+   'test-%'` / `WHERE slug LIKE 'test-%'`) — an inclusion list of what it's allowed to touch, not an
+   exclusion list of what to spare. An exclusion list ("delete everything except the demo accounts")
+   only stays safe as long as someone remembers to keep it updated for every account anyone ever
+   wants to keep; a prefix match can never touch something it wasn't explicitly asked to, regardless
+   of what else ends up in the database.
+
 ## Testing on mobile devices
 
 By default everything (`pnpm dev`'s web app and API server, plus MinIO) is

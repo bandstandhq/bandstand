@@ -9,29 +9,34 @@
 // visiting a band's URL — this is about landing on your *own*, band-less
 // /dashboard and seeing no trace of the last person's band at all.
 import { expect, test } from '@playwright/test';
-import { DEMO_OWNER_EMAIL, DEMO_PASSWORD, freshEmail, login } from './fixtures';
+import { DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteTestAccount, freshEmail, login } from './fixtures';
 
 test("logging in as a different user never shows the previous user's last-viewed band", async ({ page }) => {
-  // User A: has real bands, opens one.
-  await login(page, DEMO_OWNER_EMAIL);
-  await expect(page).toHaveURL(/\/bands\/.+\/dashboard$/);
-  await page.getByRole('link', { name: 'Repertoire' }).click();
-  await expect(page).toHaveURL(/\/repertoire$/);
+  const email = freshEmail('session-isolation');
+  try {
+    // User A: has real bands, opens one.
+    await login(page, DEMO_OWNER_EMAIL);
+    await expect(page).toHaveURL(/\/bands\/.+\/dashboard$/);
+    await page.getByRole('link', { name: 'Repertoire' }).click();
+    await expect(page).toHaveURL(/\/repertoire$/);
 
-  await page.getByRole('button', { name: 'Log out' }).click();
-  await page.waitForURL(/\/login/);
+    await page.getByRole('button', { name: 'Log out' }).click();
+    await page.waitForURL(/\/login/);
 
-  // User B: brand new, a member of nothing.
-  await page.goto('/signup');
-  await page.getByLabel('Name').fill('Session Isolation Tester');
-  await page.getByLabel('Email').fill(freshEmail('session-isolation'));
-  await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD);
-  await page.getByRole('button', { name: 'Sign up' }).click();
+    // User B: brand new, a member of nothing.
+    await page.goto('/signup');
+    await page.getByLabel('Name').fill('Session Isolation Tester');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill(DEMO_PASSWORD);
+    await page.getByRole('button', { name: 'Sign up' }).click();
 
-  // Lands on their own bare /dashboard (DashboardRedirect's zero-bands
-  // state) — never bounced into A's band, and never shown a membership
-  // error for a band B never asked to see.
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("You're not a member of this band")).not.toBeVisible();
-  await expect(page.getByText('Select or create a band to get started.')).toBeVisible();
+    // Lands on their own bare /dashboard (DashboardRedirect's zero-bands
+    // state) — never bounced into A's band, and never shown a membership
+    // error for a band B never asked to see.
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByText("You're not a member of this band")).not.toBeVisible();
+    await expect(page.getByText('Select or create a band to get started.')).toBeVisible();
+  } finally {
+    await deleteTestAccount(email);
+  }
 });

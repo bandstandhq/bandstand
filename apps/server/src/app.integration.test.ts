@@ -17,7 +17,7 @@ import { users } from './db/schema/index';
 import { auth } from './lib/auth';
 
 async function signUpTestUser() {
-  const email = `app-mw-${randomUUID()}@bandstand.local`;
+  const email = `test-app-mw-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'App Middleware Tester' },
   });
@@ -89,7 +89,7 @@ describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
           body: JSON.stringify({
-            email: `signup-rate-${randomUUID()}@bandstand.local`,
+            email: `test-signup-rate-${randomUUID()}@bandstand.local`,
             password: 'test-password-123',
             name: 'Signup Rate Tester',
           }),
