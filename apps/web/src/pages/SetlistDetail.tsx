@@ -8,6 +8,7 @@ import {
   MouseSensor,
   TouchSensor,
   closestCenter,
+  useDndMonitor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -29,7 +30,7 @@ import {
 import type { Setlist, SetlistItem, Song } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
 import type { ReactNode } from 'react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { AppHeader } from '../components/AppHeader';
@@ -123,6 +124,46 @@ function SortableSetlistItem({
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
+  // dnd-kit's own document-level click guard (added the moment a drag
+  // activates, meant to eat the click that a mousedown+mousemove+mouseup
+  // cycle would otherwise fire on the handle) only calls stopPropagation()
+  // on that click, never preventDefault() — see AbstractPointerSensor's
+  // handleStart() in @dnd-kit/core. That stops the click from reaching
+  // React (so React Router's own navigate() never runs), but does nothing
+  // to the browser's native default action for a real <a>: without an
+  // explicit preventDefault(), it still navigates. On top of that, dnd-kit
+  // removes its own guard on a hardcoded 50ms timer regardless of whether
+  // the click has arrived yet, so under enough main-thread contention (an
+  // older tablet, not just a busy dev machine) the click can arrive after
+  // the guard is already gone. Either way, a completed drag on this row can
+  // end in an unwanted navigation to Stage Mode.
+  //
+  // The fix has to run earlier than dnd-kit's own guard and call
+  // preventDefault() itself. Capture-phase listeners fire top-down by DOM
+  // position, not registration time, so a listener on the link itself would
+  // still run after dnd-kit's (document is visited before any of its
+  // descendants) — it has to sit on `document` too, and be registered once,
+  // at mount, well before any drag can ever start, so it's first in
+  // attachment order among same-node listeners. See
+  // docs/adr/0014-no-native-drag-on-interactive-rows.md.
+  const suppressNextClickRef = useRef(false);
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  useDndMonitor({
+    onDragStart(event) {
+      if (event.active.id === item.id) suppressNextClickRef.current = true;
+    },
+  });
+  useEffect(() => {
+    const onClickCapture = (event: MouseEvent) => {
+      if (suppressNextClickRef.current && linkRef.current?.contains(event.target as Node)) {
+        event.preventDefault();
+        suppressNextClickRef.current = false;
+      }
+    };
+    document.addEventListener('click', onClickCapture, { capture: true });
+    return () => document.removeEventListener('click', onClickCapture, { capture: true });
+  }, []);
+
   return (
     <li
       ref={setNodeRef}
@@ -133,9 +174,22 @@ function SortableSetlistItem({
           plain tap (no pointer movement past dnd-kit's activation
           distance) reaches Stage Mode; a drag reorders. Previously only the
           small separate "Play" link (now removed) navigated at all, so
-          tapping the row itself did nothing. */}
+          tapping the row itself did nothing.
+          `draggable={false}` is load-bearing, not decorative: an <a> is
+          natively draggable by default, and the browser's own drag
+          recognition runs independently of dnd-kit's pointer tracking. Under
+          CPU contention (e.g. an older tablet), the native drag can win the
+          race before dnd-kit's preventDefault applies, silently swallowing
+          the gesture — see docs/adr/0014-no-native-drag-on-interactive-rows.md. */}
       <Link
+        ref={linkRef}
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
+        draggable={false}
+        onPointerDown={() => {
+          // A fresh gesture starting — any suppression armed by a previous
+          // drag that never got the click it was waiting for is stale now.
+          suppressNextClickRef.current = false;
+        }}
         {...attributes}
         {...listeners}
         className="flex min-h-11 flex-1 cursor-grab items-center rounded-md px-1 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
