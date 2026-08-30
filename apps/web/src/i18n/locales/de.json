@@ -382,6 +382,7 @@
     "cropSave": "Zuschnitt speichern",
     "cropCancel": "Abbrechen",
     "notAvailableOffline": "Offline nicht verfügbar — erneut verbinden, um diese Seite zu laden",
+    "notFound": "Diese Seite existiert nicht mehr auf dem Server — erneutes Verbinden hilft hier nicht. Bitte ein Bandmitglied, sie neu hochzuladen.",
     "calibrateAnchors": "Anker kalibrieren",
     "calibrateChooseAnchor": "Anker",
     "calibrateChooseAnchorPlaceholder": "Anker auswählen…",

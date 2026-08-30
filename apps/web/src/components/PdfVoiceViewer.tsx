@@ -6,6 +6,7 @@
 // edit — see docs/adr/0009-voice-display-recipe.md.
 import type { Anchor, CropMargins, DisplayRecipe, Voice, VoiceAnchorPosition } from '@bandstand/core';
 import { anchorsKey, resolveDisplaySequence, setVoiceAnchorPosition, setVoiceDisplayRecipe } from '@bandstand/core';
+import { ApiRequestError } from '@bandstand/api-client';
 import {
   DndContext,
   type DragEndEvent,
@@ -114,7 +115,13 @@ async function loadFileBlob(bandId: string, sha256: string): Promise<Blob> {
 function usePdfDocuments(bandId: string, files: FilesVoice['files']) {
   const [docs, setDocs] = useState<Map<string, PdfDoc>>(new Map());
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
-  const [unavailable, setUnavailable] = useState<Set<string>>(new Set());
+  // A 404 from presign-download means the server has no such object for this
+  // band — reconnecting will never fix that, so it must never be worded the
+  // same as a real connectivity failure (offline, unreachable, a previous
+  // view never cached it). See docs/adr/0007-content-addressed-files.md for
+  // why a sha256 can legitimately go missing (e.g. a stale reference into a
+  // detached/never-confirmed file) without it being a network problem at all.
+  const [unavailableReasons, setUnavailableReasons] = useState<Map<string, 'network' | 'notFound'>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -128,11 +135,13 @@ function usePdfDocuments(bandId: string, files: FilesVoice['files']) {
         let blob: Blob;
         try {
           blob = await loadFileBlob(bandId, file.sha256);
-        } catch {
+        } catch (error) {
           // Offline and never pre-loaded (A4's pre-load pass, or a previous
           // view, would have cached it otherwise) — a clear "not available"
-          // state beats an indefinite spinner.
-          if (!cancelled) setUnavailable((prev) => new Set(prev).add(file.sha256));
+          // state beats an indefinite spinner. A genuine 404 gets its own
+          // reason instead of being folded into that same "offline" bucket.
+          const reason = error instanceof ApiRequestError && error.status === 404 ? 'notFound' : 'network';
+          if (!cancelled) setUnavailableReasons((prev) => new Map(prev).set(file.sha256, reason));
           continue;
         }
         if (cancelled) return;
@@ -162,7 +171,7 @@ function usePdfDocuments(bandId: string, files: FilesVoice['files']) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bandId, files.map((f) => f.sha256).join(',')]);
 
-  return { docs, imageUrls, unavailable };
+  return { docs, imageUrls, unavailableReasons };
 }
 
 /** Renders one page (PDF or image) at `targetWidth`, already rotated — pdf.js applies rotation during render, and the image path rotates via canvas transform. Never crops; see `cropCanvas` for that, kept separate so a crop-only change can reuse this render. */
@@ -216,7 +225,7 @@ async function renderFullPage(
 function PageView({
   doc,
   imageUrl,
-  unavailable,
+  unavailableReason,
   pageNumberInFile,
   rotation,
   cropMargins,
@@ -226,7 +235,7 @@ function PageView({
 }: {
   doc: PdfDoc | undefined;
   imageUrl: string | undefined;
-  unavailable: boolean;
+  unavailableReason: 'network' | 'notFound' | undefined;
   pageNumberInFile: number;
   rotation: Rotation;
   cropMargins: CropMargins | undefined;
@@ -269,10 +278,10 @@ function PageView({
     cropMargins?.left,
   ]);
 
-  if (unavailable) {
+  if (unavailableReason) {
     return (
       <div className="flex min-h-40 items-center justify-center bg-muted p-4 text-center text-sm text-muted-foreground" style={{ width: containerWidth }}>
-        {t('pdfViewer.notAvailableOffline')}
+        {unavailableReason === 'notFound' ? t('pdfViewer.notFound') : t('pdfViewer.notAvailableOffline')}
       </div>
     );
   }
@@ -515,7 +524,7 @@ export function PdfVoiceViewer({
     () => resolveDisplaySequence(voice.files, recipe),
     [voice.files, recipe],
   );
-  const { docs, imageUrls, unavailable } = usePdfDocuments(bandId, voice.files);
+  const { docs, imageUrls, unavailableReasons } = usePdfDocuments(bandId, voice.files);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -760,7 +769,7 @@ export function PdfVoiceViewer({
                     key={p.position}
                     doc={docs.get(p.file.sha256)}
                     imageUrl={imageUrls.get(p.file.sha256)}
-                    unavailable={unavailable.has(p.file.sha256)}
+                    unavailableReason={unavailableReasons.get(p.file.sha256)}
                     pageNumberInFile={p.pageNumberInFile}
                     rotation={p.rotation}
                     cropMargins={recipe?.cropMargins}
@@ -775,7 +784,7 @@ export function PdfVoiceViewer({
                     key={p.position}
                     doc={docs.get(p.file.sha256)}
                     imageUrl={imageUrls.get(p.file.sha256)}
-                    unavailable={unavailable.has(p.file.sha256)}
+                    unavailableReason={unavailableReasons.get(p.file.sha256)}
                     pageNumberInFile={p.pageNumberInFile}
                     rotation={p.rotation}
                     cropMargins={recipe?.cropMargins}

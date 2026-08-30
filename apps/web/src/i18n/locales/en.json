@@ -382,6 +382,7 @@
     "cropSave": "Save crop",
     "cropCancel": "Cancel",
     "notAvailableOffline": "Not available offline — reconnect to load this page",
+    "notFound": "This page no longer exists on the server — reconnecting won't help. Ask a bandmate to re-upload it.",
     "calibrateAnchors": "Calibrate anchors",
     "calibrateChooseAnchor": "Anchor",
     "calibrateChooseAnchorPlaceholder": "Choose an anchor…",
