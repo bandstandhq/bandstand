@@ -54,6 +54,18 @@ describe('userPrefsSchema', () => {
     };
     expect(() => userPrefsSchema.parse(invalid)).toThrow();
   });
+
+  it('defaults keepScreenAwake to false and locale to null (never explicitly chosen)', () => {
+    expect(DEFAULT_USER_PREFS.keepScreenAwake).toBe(false);
+    expect(DEFAULT_USER_PREFS.locale).toBeNull();
+  });
+
+  it('accepts null, "en", and "de" for locale, but rejects an unsupported one', () => {
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: null })).not.toThrow();
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: 'en' })).not.toThrow();
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: 'de' })).not.toThrow();
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: 'fr' })).toThrow();
+  });
 });
 
 describe('updateUserPrefsInputSchema', () => {

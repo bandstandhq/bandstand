@@ -29,16 +29,16 @@ const ANSWER_LABEL_KEY: Record<AvailabilityAnswer, string> = {
   no: 'eventDetail.answerNo',
 };
 
-function formatEventWhen(event: CalendarEvent): string {
+function formatEventWhen(event: CalendarEvent, locale: string): string {
   const start = new Date(event.startsAt);
   const startText = event.allDay
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(start)
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' }).format(start);
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'full' }).format(start)
+    : new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short' }).format(start);
   if (!event.endsAt) return startText;
   const end = new Date(event.endsAt);
   const endText = event.allDay
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(end)
-    : new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(end);
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'full' }).format(end)
+    : new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(end);
   return `${startText} – ${endText}`;
 }
 
@@ -80,7 +80,7 @@ function AvailabilityRow({
 }
 
 export function EventDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { bandId, occurrenceId } = useParams<{ bandId: string; occurrenceId: string }>();
   const { data: session } = authClient.useSession();
@@ -183,7 +183,7 @@ export function EventDetail() {
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-muted-foreground">{formatEventWhen(event)}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{formatEventWhen(event, i18n.language)}</p>
 
       {event.location && (
         <p className="mt-2 text-sm">

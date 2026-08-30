@@ -41,15 +41,15 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function formatEventWhen(event: CalendarEvent): string {
+function formatEventWhen(event: CalendarEvent, locale: string): string {
   const start = new Date(event.startsAt);
   return event.allDay
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(start)
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(start);
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(start)
+    : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(start);
 }
 
 function EventRow({ bandId, occurrence }: { bandId: string; occurrence: ResolvedOccurrence }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { event, occurrenceId } = occurrence;
   return (
     <li className="relative flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50">
@@ -65,7 +65,7 @@ function EventRow({ bandId, occurrence }: { bandId: string; occurrence: Resolved
             <span className="ml-2 text-muted-foreground">{t('calendarList.cancelledLabel')}</span>
           )}
         </p>
-        <p className="text-xs text-muted-foreground">{formatEventWhen(event)}</p>
+        <p className="text-xs text-muted-foreground">{formatEventWhen(event, i18n.language)}</p>
       </div>
       <span className="shrink-0 text-sm text-primary">{t('calendarList.open')}</span>
     </li>
@@ -97,7 +97,7 @@ function MonthGrid({
   onChangeMonth: (d: Date) => void;
   occurrences: ResolvedOccurrence[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isNarrowScreen = useMediaQuery('(max-width: 639px)');
   const byDate = useMemo(() => {
     const map = new Map<string, ResolvedOccurrence[]>();
@@ -121,7 +121,7 @@ function MonthGrid({
     ),
   ];
   const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+    new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }).format(
       new Date(Date.UTC(2026, 1, 1 + i)),
     ),
   );
@@ -141,7 +141,7 @@ function MonthGrid({
           {t('calendarList.previousMonth')}
         </Button>
         <p className="order-first w-full text-center font-medium sm:order-0 sm:w-auto">
-          {new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
+          {new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' }).format(
             monthCursor,
           )}
         </p>
@@ -171,7 +171,7 @@ function MonthGrid({
               {[...byDate.keys()].sort().map((dateKey) => (
                 <li key={dateKey}>
                   <p className="text-xs font-medium text-muted-foreground">
-                    {new Intl.DateTimeFormat(undefined, {
+                    {new Intl.DateTimeFormat(i18n.language, {
                       weekday: 'short',
                       month: 'short',
                       day: 'numeric',

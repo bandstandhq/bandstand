@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router';
+import { GlobalPrefsEffects } from './components/GlobalPrefsEffects';
 import { RequireAuth } from './components/RequireAuth';
+import { AccountSettings } from './pages/AccountSettings';
 import { BandSettings } from './pages/BandSettings';
 import { Calendar } from './pages/Calendar';
 import { Dashboard } from './pages/Dashboard';
@@ -58,12 +60,21 @@ function KeyedByBandId({ Component }: { Component: ComponentType }) {
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <GlobalPrefsEffects />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/settings"
+          element={
+            <RequireAuth>
+              <AccountSettings />
+            </RequireAuth>
+          }
+        />
         {/* Resolves which band's dashboard to show (or the zero-bands empty
             state) fresh from the current session every time — see
             DashboardRedirect.tsx. Never renders band-scoped content itself;

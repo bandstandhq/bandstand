@@ -20,6 +20,7 @@ import { deleteAllLocalBandData } from '../lib/yjs';
 import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
 import { useThemeStore } from '../stores/theme';
+import { useUserPrefsStore } from '../stores/userPrefs';
 
 /** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
 function HamburgerIcon() {
@@ -114,6 +115,7 @@ export function AppHeader({ title }: { title: ReactNode }) {
   // store. See the effect below for what the store is still for.
   const { bandId: currentBandId } = useParams<{ bandId?: string }>();
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
+  const resetUserPrefs = useUserPrefsStore((s) => s.reset);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const isWide = useMediaQuery('(min-width: 640px)');
@@ -209,6 +211,7 @@ export function AppHeader({ title }: { title: ReactNode }) {
     // this device. IndexedDB caches deliberately stay (ADR-0006), but
     // nothing derived from them may still be *displayed* after this.
     setActiveBandId(null);
+    resetUserPrefs();
     void authClient.signOut();
   }
 
@@ -220,6 +223,16 @@ export function AppHeader({ title }: { title: ReactNode }) {
   // wide screen) since none of these navigate away on their own.
   const actionButtons = (
     <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setMenuOpen(false);
+          navigate('/settings');
+        }}
+      >
+        {t('appHeader.accountSettings')}
+      </Button>
       <Button variant="destructive" size="sm" onClick={() => void handleDeleteLocalData()}>
         {t('appHeader.deleteLocalData')}
       </Button>

@@ -2,6 +2,18 @@
 import { useEffect } from 'react';
 
 /**
+ * Whether either mechanism useWakeLock relies on is available in this
+ * browser at all — used to gray out the "keep screen awake" setting with
+ * an explanation instead of leaving it silently non-functional (Safari
+ * versions old enough to lack both the Wake Lock API and canvas
+ * `captureStream` do exist, mainly older WebViews).
+ */
+export function isWakeLockSupported(): boolean {
+  if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) return true;
+  return typeof HTMLCanvasElement !== 'undefined' && 'captureStream' in HTMLCanvasElement.prototype;
+}
+
+/**
  * Keeps the screen from sleeping while `active`. Uses the Screen Wake
  * Lock API where available; the browser auto-releases the lock when the
  * tab is hidden, so this re-acquires on visibility return. Where the API

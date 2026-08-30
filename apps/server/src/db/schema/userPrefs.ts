@@ -35,4 +35,8 @@ export const userPrefs = pgTable('user_prefs', {
     missingResponseReminder: false,
     upcomingEventReminder: false,
   }),
+  keepScreenAwake: boolean('keep_screen_awake').notNull().default(false),
+  // 'en' | 'de' | null ("never explicitly chosen" — see userPrefsSchema);
+  // validated in packages/core's userPrefsSchema.
+  locale: text('locale'),
 });
