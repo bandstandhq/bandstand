@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
 
-export function Input({ className, type, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
+  { className, type, ...props },
+  ref,
+) {
   return (
     <input
+      ref={ref}
       type={type}
       className={cn(
         'flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm',
@@ -15,4 +19,4 @@ export function Input({ className, type, ...props }: InputHTMLAttributes<HTMLInp
       {...props}
     />
   );
-}
+});
