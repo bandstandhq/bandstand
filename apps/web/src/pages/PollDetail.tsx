@@ -4,7 +4,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -121,13 +121,12 @@ export function PollDetail() {
   const poll = polls[pollId];
   if (!poll) {
     return (
-      <main className="min-h-screen bg-background p-6 text-foreground">
-        <AppHeader title={t('pollDetail.notFound')} />
+      <PageShell title={t('pollDetail.notFound')}>
         <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
           &larr; {t('pollDetail.back')}
         </Link>
         <p className="mt-6 text-sm text-muted-foreground">{t('pollDetail.notFound')}</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -163,8 +162,7 @@ export function PollDetail() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={poll.title} />
+    <PageShell title={poll.title}>
       <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('pollDetail.back')}
       </Link>
@@ -247,6 +245,6 @@ export function PollDetail() {
           </button>
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

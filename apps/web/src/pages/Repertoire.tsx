@@ -16,7 +16,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import type * as Y from 'yjs';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
@@ -185,8 +185,7 @@ export function Repertoire() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={t('repertoire.title')} />
+    <PageShell title={t('repertoire.title')}>
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('repertoire.back')}
       </Link>
@@ -375,7 +374,7 @@ export function Repertoire() {
           onClose={() => setDeleteTarget(null)}
         />
       )}
-    </main>
+    </PageShell>
   );
 }
 

@@ -35,7 +35,7 @@ test("logging in as a different user never shows the previous user's last-viewed
     // error for a band B never asked to see.
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText("You're not a member of this band")).not.toBeVisible();
-    await expect(page.getByText('Select or create a band to get started.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome to Bandstand' })).toBeVisible();
   } finally {
     await deleteTestAccount(email);
   }

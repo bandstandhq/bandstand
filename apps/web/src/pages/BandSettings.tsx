@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { RequireBandRole } from '../components/RequireBandRole';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -89,8 +89,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={myBand?.name} />
+    <PageShell title={myBand?.name}>
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('bandSettings.back')}
       </Link>
@@ -169,7 +168,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
           {deleteError && <p className="mt-2 text-sm text-destructive">{deleteError}</p>}
         </section>
       )}
-    </main>
+    </PageShell>
   );
 }
 

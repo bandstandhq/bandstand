@@ -19,7 +19,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -542,8 +542,7 @@ export function Calendar() {
   const pollEntries = Object.entries(polls);
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={t('calendarList.title')} />
+    <PageShell title={t('calendarList.title')}>
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('calendarList.back')}
       </Link>
@@ -584,6 +583,6 @@ export function Calendar() {
         )}
         {canCreatePoll && doc && <CreatePollForm doc={doc} />}
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -16,7 +16,7 @@ import { Button, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { SongAnchors } from '../components/SongAnchors';
 import { SongVoices } from '../components/SongVoices';
@@ -285,8 +285,7 @@ export function SongEditor() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')} />
+    <PageShell title={isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')}>
       <Link to={`/bands/${bandId}/repertoire`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('songEditor.backNew')}
       </Link>
@@ -455,6 +454,6 @@ export function SongEditor() {
           </div>
         </div>
       </form>
-    </main>
+    </PageShell>
   );
 }

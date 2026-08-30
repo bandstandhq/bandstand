@@ -15,7 +15,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -103,13 +103,12 @@ export function EventDetail() {
   const event = findOccurrenceEvent(events, occurrenceId);
   if (!event) {
     return (
-      <main className="min-h-screen bg-background p-6 text-foreground">
-        <AppHeader title={t('eventDetail.notFound')} />
+      <PageShell title={t('eventDetail.notFound')}>
         <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
           &larr; {t('eventDetail.back')}
         </Link>
         <p className="mt-6 text-sm text-muted-foreground">{t('eventDetail.notFound')}</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -169,8 +168,7 @@ export function EventDetail() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={event.title} />
+    <PageShell title={event.title}>
       <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('eventDetail.back')}
       </Link>
@@ -270,6 +268,6 @@ export function EventDetail() {
           )}
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

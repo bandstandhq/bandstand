@@ -4,7 +4,7 @@ import { Button } from '@bandstand/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { OfflineReadiness } from '../components/OfflineReadiness';
 import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
@@ -146,8 +146,7 @@ export function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={t('dashboard.title')} />
+    <PageShell title={t('dashboard.title')}>
       <p className="mt-4 text-sm text-muted-foreground">
         {status === 'connected'
           ? t('dashboard.connected')
@@ -162,6 +161,6 @@ export function Dashboard() {
       {doc && bandId && session && <UpcomingEvents bandId={bandId} doc={doc} currentUserId={session.user.id} />}
       <CalendarSubscribePanel />
       <PushNotificationsPanel />
-    </main>
+    </PageShell>
   );
 }

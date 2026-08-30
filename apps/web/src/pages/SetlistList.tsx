@@ -5,7 +5,7 @@ import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useIsWideScreen } from '../hooks/useIsWideScreen';
@@ -176,8 +176,7 @@ export function SetlistList() {
   const entries = Object.entries(setlists);
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={t('setlistList.title')} />
+    <PageShell title={t('setlistList.title')}>
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('setlistList.back')}
       </Link>
@@ -240,6 +239,6 @@ export function SetlistList() {
           ))}
         </ul>
       )}
-    </main>
+    </PageShell>
   );
 }

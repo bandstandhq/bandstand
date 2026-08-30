@@ -75,7 +75,9 @@
     "offline": "Offline",
     "songCount": "{{count}} Song im Banddokument",
     "songCount_other": "{{count}} Songs im Banddokument",
-    "noBandSelected": "Wähle eine Band aus oder lege eine an, um loszulegen.",
+    "welcomeTitle": "Willkommen bei Bandstand",
+    "welcomeDescription": "Tritt einer Band bei, zu der du eingeladen wurdest, oder leg eine neue an.",
+    "welcomeOr": "oder",
     "upcomingTitle": "Als Nächstes",
     "openEventAria": "{{name}} öffnen",
     "needsResponse": "Braucht deine Antwort",
@@ -90,9 +92,7 @@
   },
   "appHeader": {
     "openMenu": "Menü öffnen",
-    "menuTitle": "Menü",
     "navLabel": "Bandbereiche",
-    "sectionBand": "Band",
     "sectionNav": "Navigation",
     "sectionActions": "Aktionen",
     "repertoire": "Repertoire",
@@ -109,6 +109,11 @@
   },
   "accountSettings": {
     "title": "Einstellungen",
+    "bandsTitle": "Bands",
+    "bandsDescription": "Einer weiteren Band mit einem Einladungscode beitreten oder eine neue anlegen.",
+    "themeTitle": "Design",
+    "localDataTitle": "Lokale Daten",
+    "localDataDescription": "Dadurch wird der Offline-Zwischenspeicher aller Bands auf diesem Gerät gelöscht — dein Konto und deine Bands selbst bleiben unberührt.",
     "languageTitle": "Sprache",
     "languageDescription": "Gilt überall für dein Konto — die Umstellung hier betrifft nicht nur dieses Gerät.",
     "languageLabel": "Sprache",
@@ -248,8 +253,7 @@
     "newBandPlaceholder": "Bandname",
     "createBand": "Band erstellen",
     "createBandToggle": "Neue Band erstellen",
-    "creating": "Wird erstellt…",
-    "joinBand": "Einer Band beitreten"
+    "creating": "Wird erstellt…"
   },
   "repertoire": {
     "back": "Zurück zum Dashboard",
