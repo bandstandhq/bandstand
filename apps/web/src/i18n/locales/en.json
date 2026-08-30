@@ -75,7 +75,9 @@
     "offline": "Offline",
     "songCount": "{{count}} song in the band doc",
     "songCount_other": "{{count}} songs in the band doc",
-    "noBandSelected": "Select or create a band to get started.",
+    "welcomeTitle": "Welcome to Bandstand",
+    "welcomeDescription": "Join a band you've been invited to, or start a new one.",
+    "welcomeOr": "or",
     "upcomingTitle": "Next up",
     "openEventAria": "Open {{name}}",
     "needsResponse": "Needs your answer",
@@ -90,9 +92,7 @@
   },
   "appHeader": {
     "openMenu": "Open menu",
-    "menuTitle": "Menu",
     "navLabel": "Band sections",
-    "sectionBand": "Band",
     "sectionNav": "Navigation",
     "sectionActions": "Actions",
     "repertoire": "Repertoire",
@@ -109,6 +109,11 @@
   },
   "accountSettings": {
     "title": "Settings",
+    "bandsTitle": "Bands",
+    "bandsDescription": "Join another band with an invite code, or start a new one.",
+    "themeTitle": "Theme",
+    "localDataTitle": "Local data",
+    "localDataDescription": "This removes every band's offline cache from this device — your account and bands themselves are unaffected.",
     "languageTitle": "Language",
     "languageDescription": "Applies to your account everywhere — switching here doesn't just change this device.",
     "languageLabel": "Language",
@@ -248,8 +253,7 @@
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
     "createBandToggle": "Create a new band",
-    "creating": "Creating…",
-    "joinBand": "Join a band"
+    "creating": "Creating…"
   },
   "repertoire": {
     "back": "Back to dashboard",

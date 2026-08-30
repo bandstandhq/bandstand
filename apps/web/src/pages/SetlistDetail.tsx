@@ -33,7 +33,7 @@ import type { ReactNode } from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
+import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
@@ -347,8 +347,7 @@ export function SetlistDetail() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={setlist?.name} />
+    <PageShell title={setlist?.name}>
       <Link to={`/bands/${bandId}/setlists`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('setlistDetail.back')}
       </Link>
@@ -463,6 +462,6 @@ export function SetlistDetail() {
           </div>
         </DndContext>
       )}
-    </main>
+    </PageShell>
   );
 }

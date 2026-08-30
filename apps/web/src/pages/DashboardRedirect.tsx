@@ -9,17 +9,19 @@
 // leak into a brand-new session: sign out, someone else signs in, and
 // nothing had ever re-checked whether that id still meant anything for
 // them.
+import type { Band } from '@bandstand/core';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate } from 'react-router';
-import { AppHeader } from '../components/AppHeader';
-import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
+import { Navigate, useNavigate } from 'react-router';
+import { CreateBandForm } from '../components/CreateBandForm';
+import { JoinBandForm } from '../components/JoinBandForm';
+import { PageShell } from '../components/PageShell';
 import { apiClient } from '../lib/api-client';
 import { useActiveBandStore } from '../stores/activeBand';
-import { CalendarSubscribePanel } from './Dashboard';
 
 export function DashboardRedirect() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const [resolvedBandId, setResolvedBandId] = useState<string | null | undefined>(undefined);
@@ -42,15 +44,45 @@ export function DashboardRedirect() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function goToBand(band: Band) {
+    setActiveBandId(band.id);
+    navigate(`/bands/${band.id}/dashboard`);
+  }
+
   if (resolvedBandId === undefined) return null;
   if (resolvedBandId !== null) return <Navigate to={`/bands/${resolvedBandId}/dashboard`} replace />;
 
+  // A brand-new account's very first screen — worth a real first
+  // impression rather than the join/create panel that fits an already-busy
+  // menu elsewhere. The invite-code field is rendered straight away, not
+  // behind a second toggle: this is the one moment a bandless user
+  // actually needs it front and center.
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
-      <AppHeader title={t('dashboard.title')} />
-      <p className="mt-4 text-sm text-muted-foreground">{t('dashboard.noBandSelected')}</p>
-      <CalendarSubscribePanel />
-      <PushNotificationsPanel />
-    </main>
+    <PageShell title={t('dashboard.title')}>
+      <div className="mx-auto mt-10 max-w-md text-center">
+        <h2 className="text-lg font-medium">{t('dashboard.welcomeTitle')}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.welcomeDescription')}</p>
+
+        <div className="mt-6 rounded-md border border-border p-4 text-left">
+          <h3 className="text-sm font-medium">{t('joinBand.title')}</h3>
+          <div className="mt-3">
+            <JoinBandForm onJoined={goToBand} />
+          </div>
+        </div>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="h-px flex-1 bg-border" aria-hidden="true" />
+          {t('dashboard.welcomeOr')}
+          <div className="h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
+
+        <div className="rounded-md border border-border p-4 text-left">
+          <h3 className="text-sm font-medium">{t('bandSwitcher.createBandToggle')}</h3>
+          <div className="mt-3">
+            <CreateBandForm onCreated={goToBand} />
+          </div>
+        </div>
+      </div>
+    </PageShell>
   );
 }

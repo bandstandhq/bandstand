@@ -16,10 +16,8 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { BandSwitcher } from './BandSwitcher';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { authClient } from '../lib/auth-client';
-import { deleteAllLocalBandData } from '../lib/yjs';
 import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
-import { useThemeStore } from '../stores/theme';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 /** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
@@ -106,7 +104,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 export function AppHeader({ title }: { title: ReactNode }) {
   const { t } = useTranslation();
-  const { data: session } = authClient.useSession();
   const location = useLocation();
   const navigate = useNavigate();
   // The URL is the source of truth for "which band" on every page this
@@ -114,10 +111,9 @@ export function AppHeader({ title }: { title: ReactNode }) {
   // the bare /dashboard, where there's no current band at all) — never the
   // store. See the effect below for what the store is still for.
   const { bandId: currentBandId } = useParams<{ bandId?: string }>();
+  const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const resetUserPrefs = useUserPrefsStore((s) => s.reset);
-  const theme = useThemeStore((s) => s.theme);
-  const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const isWide = useMediaQuery('(min-width: 640px)');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -190,19 +186,6 @@ export function AppHeader({ title }: { title: ReactNode }) {
     }
   }
 
-  async function handleDeleteLocalData() {
-    setMenuOpen(false);
-    if (!session) return;
-    if (!window.confirm(t('appHeader.deleteLocalDataConfirm'))) return;
-    await deleteAllLocalBandData(session.user.id);
-    window.alert(t('appHeader.deleteLocalDataDone'));
-  }
-
-  function handleToggleTheme() {
-    setMenuOpen(false);
-    toggleTheme();
-  }
-
   function handleSignOut() {
     setMenuOpen(false);
     // The only band-related client state that outlives a page unmount
@@ -221,48 +204,49 @@ export function AppHeader({ title }: { title: ReactNode }) {
   // links so the two categories read differently at a glance. Every
   // handler also closes the mobile menu (a no-op when already closed on a
   // wide screen) since none of these navigate away on their own.
+  // Sign out is the only thing left here — Account settings is a real page
+  // (a NavLink, in navLinks below, not an action button), and Delete local
+  // data/theme moved into that page itself (see AccountSettings.tsx).
   const actionButtons = (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          setMenuOpen(false);
-          navigate('/settings');
-        }}
-      >
-        {t('appHeader.accountSettings')}
-      </Button>
-      <Button variant="destructive" size="sm" onClick={() => void handleDeleteLocalData()}>
-        {t('appHeader.deleteLocalData')}
-      </Button>
-      <Button variant="outline" size="sm" type="button" aria-pressed={theme === 'dark'} onClick={handleToggleTheme}>
-        {theme === 'dark' ? t('appHeader.themeLight') : t('appHeader.themeDark')}
-      </Button>
-      <Button variant="outline" size="sm" onClick={handleSignOut}>
-        {t('appHeader.logout')}
-      </Button>
-    </>
+    <Button variant="outline" size="sm" onClick={handleSignOut}>
+      {t('appHeader.logout')}
+    </Button>
   );
 
+  // The URL's own :bandId wins when present; otherwise the last band the
+  // user was actually on (falls back further to nothing at all for a user
+  // who has never had one). This is what keeps the menu identical on a
+  // band-independent page like /settings instead of losing every band link
+  // just because this particular page has no :bandId of its own.
+  const effectiveBandId = currentBandId ?? activeBandId ?? null;
+
   function navLinks(variant: 'inline' | 'list', onNavigate?: () => void) {
-    if (!currentBandId) return null;
+    // No band at all (not even a remembered one) — every band-scoped link
+    // still shows, but points at /dashboard, which is exactly where a
+    // bandless user can join or create one; it must never just disappear,
+    // which is what let this whole menu look different depending on page.
+    const bandPath = (suffix: string) => (effectiveBandId ? `/bands/${effectiveBandId}/${suffix}` : '/dashboard');
     return (
       <nav
         className={variant === 'inline' ? 'flex flex-wrap items-center gap-4' : 'flex flex-col divide-y divide-border'}
         aria-label={t('appHeader.navLabel')}
       >
-        <NavLink to={`/bands/${currentBandId}/repertoire`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={bandPath('repertoire')} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.repertoire')}
         </NavLink>
-        <NavLink to={`/bands/${currentBandId}/setlists`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={bandPath('setlists')} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.setlists')}
         </NavLink>
-        <NavLink to={`/bands/${currentBandId}/calendar`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={bandPath('calendar')} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.calendar')}
         </NavLink>
-        <NavLink to={`/bands/${currentBandId}/settings`} variant={variant} onNavigate={onNavigate}>
+        <NavLink to={bandPath('settings')} variant={variant} onNavigate={onNavigate}>
           {t('appHeader.bandSettings')}
+        </NavLink>
+        {/* Band-independent — always the real page, never routed through
+            /dashboard the way the band-scoped links above are. */}
+        <NavLink to="/settings" variant={variant} onNavigate={onNavigate}>
+          {t('appHeader.accountSettings')}
         </NavLink>
       </nav>
     );
@@ -300,25 +284,26 @@ export function AppHeader({ title }: { title: ReactNode }) {
       <Sheet
         open={menuOpen}
         onOpenChange={handleMenuOpenChange}
-        title={t('appHeader.menuTitle')}
+        title="Bandstand"
         closeLabel={t('common.close')}
         side="left"
       >
-        <div>
-          <SectionLabel>{t('appHeader.sectionBand')}</SectionLabel>
-          <div className="mt-2">
-            <BandSwitcher onBandChange={handleBandChange} />
-          </div>
-        </div>
-        {currentBandId && (
-          <div className="mt-4 border-t border-border pt-4">
+        {/* The separator before each section applies to whichever child
+            actually renders first — not hardcoded onto the second and
+            third the way it used to be. BandSwitcher renders nothing at
+            all below two bands (see its own docstring), and hardcoding the
+            border onto Navigation regardless left a stray empty "Band"
+            heading over a blank gap whenever it did. */}
+        <div className="[&>*+*]:mt-4 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-4">
+          <BandSwitcher onBandChange={handleBandChange} />
+          <div>
             <SectionLabel>{t('appHeader.sectionNav')}</SectionLabel>
             <div className="mt-2">{navLinks('list', () => setMenuOpen(false))}</div>
           </div>
-        )}
-        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
-          <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
-          {actionButtons}
+          <div className="flex flex-col gap-2">
+            <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
+            {actionButtons}
+          </div>
         </div>
       </Sheet>
     </>

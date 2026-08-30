@@ -1,48 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MyBand } from '@bandstand/api-client';
-import type { Band } from '@bandstand/core';
-import { Button, Input } from '@bandstand/ui';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { JoinBandForm } from './JoinBandForm';
 import { apiClient } from '../lib/api-client';
 import { useActiveBandStore } from '../stores/activeBand';
 
-type OpenPanel = 'none' | 'join' | 'create';
-
 /**
- * The band-area cluster: switch between bands, join one, or create a new
- * one. "Create a new band" used to only exist for a user with zero bands
- * (CreateFirstBand's old name) — once you're in any band at all it became
- * unreachable, which is exactly the "how do I start a second band?" dead
- * end AppHeader's menu is meant to fix. Both toggles are always available
- * regardless of how many bands the user already has.
+ * Which band you're currently looking at — nothing else. Joining or
+ * creating a band lives in AccountSettings (1+ band) or DashboardRedirect's
+ * own zero-band view instead: those aren't things a user reaches for
+ * anywhere near as often as switching bands, so they don't belong cluttering
+ * every page's header/menu (see the nav-cleanup ADR-equivalent discussion).
+ * Renders nothing at all below two bands — with zero there's nothing to
+ * switch between, and with exactly one there's nothing else it could show.
  *
- * `onBandChange`, if given, is called whenever the selection changes (the
- * select itself, joining, or creating) with the new band's id — AppHeader
- * uses it to actually navigate there. This component only ever manages
- * *which band is remembered*, never where the app navigates.
+ * `onBandChange`, if given, is called whenever the selection changes with
+ * the new band's id — AppHeader uses it to actually navigate there. This
+ * component only ever manages *which band is remembered*, never where the
+ * app navigates.
  */
 export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string) => void }) {
   const { t } = useTranslation();
   const [bands, setBands] = useState<MyBand[] | null>(null);
-  const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
-
-  function handleJoined(band: Band) {
-    setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
-    setActiveBandId(band.id);
-    onBandChange?.(band.id);
-    setOpenPanel('none');
-  }
-
-  function handleCreated(band: Band) {
-    setBands((prev) => [...(prev ?? []), { ...band, role: 'owner' }]);
-    setActiveBandId(band.id);
-    onBandChange?.(band.id);
-    setOpenPanel('none');
-  }
 
   function handleSelect(bandId: string) {
     setActiveBandId(bandId);
@@ -76,82 +57,20 @@ export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (bands === null) return null;
+  if (bands === null || bands.length < 2) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {bands.length > 0 && (
-          <select
-            aria-label={t('bandSwitcher.label')}
-            value={activeBandId ?? bands[0]!.id}
-            onChange={(e) => handleSelect(e.target.value)}
-            className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
-          >
-            {bands.map((band) => (
-              <option key={band.id} value={band.id}>
-                {band.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-pressed={openPanel === 'join'}
-          onClick={() => setOpenPanel(openPanel === 'join' ? 'none' : 'join')}
-        >
-          {t('bandSwitcher.joinBand')}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-pressed={openPanel === 'create'}
-          onClick={() => setOpenPanel(openPanel === 'create' ? 'none' : 'create')}
-        >
-          {t('bandSwitcher.createBandToggle')}
-        </Button>
-      </div>
-      {openPanel === 'join' && <JoinBandForm onJoined={handleJoined} />}
-      {openPanel === 'create' && <CreateBandForm onCreated={handleCreated} />}
-    </div>
-  );
-}
-
-function CreateBandForm({ onCreated }: { onCreated: (band: Band) => void }) {
-  const { t } = useTranslation();
-  const [name, setName] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const band = await apiClient.createBand({ name });
-      onCreated(band);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('bandSwitcher.newBandPlaceholder')}
-        className="w-48"
-      />
-      <Button type="submit" size="sm" disabled={submitting || !name.trim()}>
-        {submitting ? t('bandSwitcher.creating') : t('bandSwitcher.createBand')}
-      </Button>
-      {error && <span className="text-sm text-destructive">{error}</span>}
-    </form>
+    <select
+      aria-label={t('bandSwitcher.label')}
+      value={activeBandId ?? bands[0]!.id}
+      onChange={(e) => handleSelect(e.target.value)}
+      className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
+    >
+      {bands.map((band) => (
+        <option key={band.id} value={band.id}>
+          {band.name}
+        </option>
+      ))}
+    </select>
   );
 }
