@@ -7,7 +7,7 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
-  closestCenter,
+  rectIntersection,
   useDndMonitor,
   useDraggable,
   useDroppable,
@@ -83,6 +83,12 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
         {...listeners}
         {...attributes}
         data-testid="pool-drag-handle"
+        // Without this, a touch press on this handle can't be told apart
+        // from the start of a page scroll — the browser's own scroll
+        // gesture wins almost every time before TouchSensor's activation
+        // delay elapses, so a drag from the pool never actually starts on a
+        // touchscreen. See docs/adr/0014-no-native-drag-on-interactive-rows.md.
+        style={{ touchAction: 'none' }}
         className="flex min-h-11 flex-1 cursor-grab items-center py-1"
       >
         {song.title} <span className="text-muted-foreground">— {song.artist}</span>
@@ -185,6 +191,9 @@ function SortableSetlistItem({
         ref={linkRef}
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
         draggable={false}
+        // Same reasoning as PoolSongCard's handle — a touch press here must
+        // never be interpreted as the start of a page scroll.
+        style={{ touchAction: 'none' }}
         onPointerDown={() => {
           // A fresh gesture starting — any suppression armed by a previous
           // drag that never got the click it was waiting for is stale now.
@@ -372,7 +381,15 @@ export function SetlistDetail() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          // rectIntersection, not closestCenter: closestCenter always
+          // resolves `over` to *some* droppable — nearest-by-distance, even
+          // when the pointer isn't actually above any of them — so dropping
+          // back over the pool (which has no droppable of its own) still
+          // landed on whichever setlist droppable happened to be nearest,
+          // silently adding the song anyway. rectIntersection only reports a
+          // droppable the dragged rect genuinely overlaps, so releasing
+          // outside every droppable correctly yields `over: null`.
+          collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -427,6 +444,15 @@ export function SetlistDetail() {
                     </ul>
                   </SortableContext>
                 )}
+                {/* A dedicated, generously-sized "append to the end" target —
+                    without it, that action's actual hit area was whatever
+                    sliver of SetlistDropZone's own padding sat below the
+                    last item (often none once items filled the container),
+                    while "insert before the first item" had that whole
+                    item's rect to land on. This belongs to the drop zone,
+                    not to any sortable item, so hovering it resolves
+                    `over.id` to SETLIST_DROP_ZONE_ID — see handleDragOver. */}
+                {items.length > 0 && <div className="h-16" aria-hidden="true" />}
               </SetlistDropZone>
             </div>
           </div>
