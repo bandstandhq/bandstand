@@ -61,6 +61,16 @@ const KEY_LETTER_OPTIONS: string[] = STANDARD_KEYS.filter((k) => k.mode === 'maj
   .sort((a, b) => a.semitone - b.semitone || Number(b.standard) - Number(a.standard))
   .map((k) => k.name);
 
+/** Marks a field as always-required — shown before any failed attempt, not just after one. */
+function RequiredMark({ t }: { t: (key: string) => string }) {
+  return (
+    <span className="text-destructive" aria-label={t('songEditor.required')}>
+      {' '}
+      *
+    </span>
+  );
+}
+
 function ChordProPreview({
   body,
   baseKey,
@@ -148,6 +158,8 @@ export function SongEditor() {
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [personalTranspose, setPersonalTranspose] = useState(0);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const artistInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => setPersonalTranspose(prefs.personalTranspose));
@@ -225,15 +237,37 @@ export function SongEditor() {
     applyTargetKey(minor ? `${keyLetter}m` : keyLetter);
   }
 
+  // Only title/artist can actually fail validation now — every other field
+  // either comes from a select (always a valid option) or is sanitized to a
+  // safe fallback below, so it can never be the reason a save is rejected.
+  // Checked in the same top-to-bottom order they appear in the form, so
+  // "the topmost missing field" falls out of just checking title first.
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!doc) return;
     setError(null);
+    if (!title.trim()) {
+      setError(t('songEditor.errorTitleRequired'));
+      titleInputRef.current?.focus();
+      return;
+    }
+    if (!artist.trim()) {
+      setError(t('songEditor.errorArtistRequired'));
+      artistInputRef.current?.focus();
+      return;
+    }
+    // A mobile number input can hand back an empty string (parses to 0) or
+    // NaN for reasons that have nothing to do with what the user actually
+    // filled in (e.g. an in-progress edit read mid-keystroke) — falling
+    // back to the field's own pre-filled default rather than rejecting the
+    // whole save is what makes these fields genuinely optional in practice.
+    const safeBpm = Number.isFinite(bpm) && bpm > 0 ? Math.round(bpm) : 120;
+    const safeDurationSec = Number.isFinite(durationSec) && durationSec >= 0 ? Math.round(durationSec) : 180;
     try {
       if (isNew) {
-        addSong(doc, { title, artist, key, bpm, durationSec, status, bandNotes, body });
+        addSong(doc, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, status, bandNotes, body });
       } else if (songId && voiceId) {
-        updateSong(doc, songId, { title, artist, key, bpm, durationSec, bandNotes });
+        updateSong(doc, songId, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, bandNotes });
         setSongStatus(doc, songId, status);
         updateVoiceBody(doc, voiceId, body);
       }
@@ -263,14 +297,16 @@ export function SongEditor() {
             <div className="space-y-1">
               <label htmlFor="song-title" className="text-sm text-muted-foreground">
                 {t('songEditor.title')}
+                <RequiredMark t={t} />
               </label>
-              <Input id="song-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input id="song-title" ref={titleInputRef} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div className="space-y-1">
               <label htmlFor="song-artist" className="text-sm text-muted-foreground">
                 {t('songEditor.artist')}
+                <RequiredMark t={t} />
               </label>
-              <Input id="song-artist" value={artist} onChange={(e) => setArtist(e.target.value)} />
+              <Input id="song-artist" ref={artistInputRef} value={artist} onChange={(e) => setArtist(e.target.value)} />
             </div>
           </div>
 
@@ -332,7 +368,6 @@ export function SongEditor() {
                   id="song-bpm"
                   type="number"
                   min={1}
-                  required
                   value={bpm}
                   onChange={(e) => setBpm(Number(e.target.value))}
                 />
@@ -347,7 +382,6 @@ export function SongEditor() {
                 id="song-duration"
                 type="number"
                 min={0}
-                required
                 value={durationSec}
                 onChange={(e) => setDurationSec(Number(e.target.value))}
               />
