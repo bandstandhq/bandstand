@@ -43,6 +43,10 @@
     "password": "Password",
     "submit": "Sign up",
     "error": "Couldn't create an account with those details.",
+    "networkError": "Couldn't reach the server — check your connection and try again.",
+    "rateLimitError": "Too many attempts — wait a moment and try again.",
+    "invalidEmailError": "That doesn't look like a valid email address.",
+    "passwordTooShortError": "Password is too short — use at least 8 characters.",
     "haveAccount": "Already have an account?"
   },
   "joinBand": {

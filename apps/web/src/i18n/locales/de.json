@@ -43,6 +43,10 @@
     "password": "Passwort",
     "submit": "Registrieren",
     "error": "Konto konnte mit diesen Angaben nicht erstellt werden.",
+    "networkError": "Server nicht erreichbar — Verbindung prüfen und erneut versuchen.",
+    "rateLimitError": "Zu viele Versuche — kurz warten und erneut versuchen.",
+    "invalidEmailError": "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
+    "passwordTooShortError": "Passwort zu kurz — mindestens 8 Zeichen verwenden.",
     "haveAccount": "Schon ein Konto?"
   },
   "joinBand": {
