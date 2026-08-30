@@ -200,3 +200,161 @@ test('a real click on a setlist row still navigates to Stage Mode after that row
     setup.provider.destroy();
   }
 });
+
+/**
+ * A real touch drag via CDP's Input.dispatchTouchEvent — page.mouse (used by
+ * dragTo above) sends pointerType 'mouse' even in a hasTouch context, so it
+ * never exercises TouchSensor at all. Holds still past dnd-kit's 200ms
+ * activation delay before moving, matching how TouchSensor tells an
+ * intentional drag apart from the start of a page scroll.
+ */
+async function touchDragTo(
+  cdp: Awaited<ReturnType<import('@playwright/test').BrowserContext['newCDPSession']>>,
+  fromPoint: { x: number; y: number },
+  toPoint: { x: number; y: number },
+) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [fromPoint] });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const steps = 8;
+  for (let i = 1; i <= steps; i++) {
+    const point = {
+      x: fromPoint.x + ((toPoint.x - fromPoint.x) * i) / steps,
+      y: fromPoint.y + ((toPoint.y - fromPoint.y) * i) / steps,
+    };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+}
+
+async function touchDrop(cdp: Awaited<ReturnType<import('@playwright/test').BrowserContext['newCDPSession']>>) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+test('dragging a song from the pool into the setlist works via a real touch gesture, not just a mouse', async ({ browser }) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop-touch');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  const setlistId = createSetlist(setup.doc, 'Touch Drag Test');
+  addSong(setup.doc, songFixture('Scarborough Fair'));
+  await flush();
+
+  // A narrow, touch-capable context — on this layout the pool sits above the
+  // setlist (single-column below the `lg` breakpoint), so this also
+  // exercises dragging across a real scroll distance, not just within one
+  // already-visible section.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForSelector('text=Repertoire');
+
+    const setlistItems = page.locator('.border-dashed li');
+    await expect(setlistItems).toHaveCount(0);
+
+    const poolHandle = page.getByTestId('pool-drag-handle');
+    const dropZone = page.locator('.border-dashed');
+    const from = await leftEdgePoint(poolHandle);
+    const to = await leftEdgePoint(dropZone);
+
+    await touchDragTo(cdp, from, to);
+    await expect(page.getByTestId('setlist-insertion-marker')).toBeVisible();
+    await touchDrop(cdp);
+
+    await expect(setlistItems).toHaveCount(1);
+    await expect(setlistItems.first()).toContainText('Scarborough Fair');
+  } finally {
+    await context.close();
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('dropping a dragged pool song back outside the setlist adds nothing', async ({ page }) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop-cancel');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  const setlistId = createSetlist(setup.doc, 'Cancel Outside Test');
+  const songId = addSong(setup.doc, songFixture('Amazing Grace'));
+  addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+  addSong(setup.doc, songFixture('Scarborough Fair'));
+  await flush();
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForSelector('text=Repertoire');
+
+    const setlistItems = page.locator('.border-dashed li');
+    await expect(setlistItems).toHaveCount(1);
+
+    // Grabbed, moved toward the setlist and back, then released over the
+    // pool itself (a point with no droppable of its own) — this used to
+    // still land the song at the top of the setlist regardless, since
+    // closestCenter always resolves `over` to its nearest droppable even
+    // when the release point isn't actually above one.
+    const poolCard = page.locator('li', { hasText: 'Scarborough Fair' }).first();
+    const poolPoint = await leftEdgePoint(poolCard);
+    await dragTo(page, poolPoint, await leftEdgePoint(setlistItems.first()));
+    await page.mouse.move(poolPoint.x, poolPoint.y, { steps: 4 });
+    await page.mouse.up();
+
+    await expect(setlistItems).toHaveCount(1);
+    await expect(setlistItems.first()).toContainText('Amazing Grace');
+  } finally {
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('dragging a pool song below the last setlist item appends it at the end', async ({ page }) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop-append');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  const setlistId = createSetlist(setup.doc, 'Append At End Test');
+  for (const title of ['Amazing Grace', 'Auld Lang Syne']) {
+    const songId = addSong(setup.doc, songFixture(title));
+    addSetlistItem(setup.doc, setlistId, buildSongItem(songId));
+  }
+  addSong(setup.doc, songFixture('Scarborough Fair'));
+  await flush();
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForSelector('text=Repertoire');
+
+    const setlistItems = page.locator('.border-dashed li');
+    await expect(setlistItems).toHaveCount(2);
+
+    // A point clearly below the last item's own box, but still inside the
+    // drop zone's reserved trailing space — reachable only because of that
+    // dedicated spacer, not a razor-thin sliver of leftover padding.
+    const lastItemBox = await setlistItems.last().boundingBox();
+    if (!lastItemBox) throw new Error('Could not measure last setlist item');
+    const belowLastItem = { x: lastItemBox.x + 20, y: lastItemBox.y + lastItemBox.height + 30 };
+
+    const poolCard = page.locator('li', { hasText: 'Scarborough Fair' }).first();
+    await dragTo(page, await leftEdgePoint(poolCard), belowLastItem);
+    await expect(page.getByTestId('setlist-insertion-marker')).toBeVisible();
+    await page.mouse.up();
+
+    await expect(setlistItems).toHaveCount(3);
+    const labels = await setlistItems.allTextContents();
+    expect(labels[2]).toContain('Scarborough Fair');
+  } finally {
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
