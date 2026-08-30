@@ -94,12 +94,27 @@
     "setlists": "Setlists",
     "calendar": "Calendar",
     "bandSettings": "Band settings",
+    "accountSettings": "Account settings",
     "themeDark": "Dark theme",
     "themeLight": "Light theme",
     "logout": "Log out",
     "deleteLocalData": "Delete local data",
     "deleteLocalDataConfirm": "This removes every band's offline cache from this device (your account and bands are unaffected). Continue?",
     "deleteLocalDataDone": "Local data deleted."
+  },
+  "accountSettings": {
+    "title": "Settings",
+    "languageTitle": "Language",
+    "languageDescription": "Applies to your account everywhere — switching here doesn't just change this device.",
+    "languageLabel": "Language",
+    "languageDetecting": "Detecting…",
+    "language_en": "English",
+    "language_de": "Deutsch",
+    "wakeLockTitle": "Keep screen awake",
+    "wakeLockDescription": "Keeps this device's display on while Bandstand is open, on any page.",
+    "wakeLockLabel": "Keep the display on while Bandstand is open",
+    "wakeLockUnsupported": "Not supported on this browser — there's no way to hold the screen awake here.",
+    "wakeLockStageModeNote": "Stage Mode always keeps the display on, regardless of this setting."
   },
   "pushNotifications": {
     "title": "Push notifications",

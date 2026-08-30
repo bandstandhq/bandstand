@@ -4,6 +4,9 @@ import { z } from 'zod';
 export const themeSchema = z.enum(['dark', 'light']);
 export type Theme = z.infer<typeof themeSchema>;
 
+export const localeSchema = z.enum(['en', 'de']);
+export type Locale = z.infer<typeof localeSchema>;
+
 // The four Stage Mode text sizes from the brief.
 export const textSizeSchema = z.enum(['small', 'medium', 'large', 'xlarge']);
 export type TextSize = z.infer<typeof textSizeSchema>;
@@ -68,6 +71,14 @@ export const userPrefsSchema = z.object({
   // Keyed by songId.
   songNotes: z.record(z.string(), songNoteSchema),
   pushTriggers: pushTriggersSchema,
+  // Keeps the screen from sleeping on every page, not just Stage Mode
+  // (which always does this regardless — see useWakeLock's call site in
+  // StageMode.tsx). Off by default: most pages don't warrant it.
+  keepScreenAwake: z.boolean(),
+  // `null` means "never explicitly chosen" — the client detects it from
+  // the browser once and immediately persists that as the real choice, so
+  // this is never null for long in practice. See GlobalPrefsEffects.tsx.
+  locale: localeSchema.nullable(),
 });
 export type UserPrefs = z.infer<typeof userPrefsSchema>;
 
@@ -84,4 +95,6 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
   contentVisibility: 'both',
   songNotes: {},
   pushTriggers: DEFAULT_PUSH_TRIGGERS,
+  keepScreenAwake: false,
+  locale: null,
 };

@@ -15,15 +15,15 @@ import { authClient, getDefaultServerUrl } from '../lib/auth-client';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
 
-function formatEventWhen(event: CalendarEvent): string {
+function formatEventWhen(event: CalendarEvent, locale: string): string {
   const start = new Date(event.startsAt);
   return event.allDay
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(start)
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(start);
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(start)
+    : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(start);
 }
 
 function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: import('yjs').Doc; currentUserId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const events = useYMap<CalendarEvent>(doc.getMap('events'));
   const availability = useYMap<AvailabilityAnswer>(doc.getMap('availability'));
   const [now] = useState(() => Date.now());
@@ -53,7 +53,7 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
               />
               <div className="min-w-0">
                 <p className="wrap-break-word">{occ.event.title}</p>
-                <p className="text-xs text-muted-foreground">{formatEventWhen(occ.event)}</p>
+                <p className="text-xs text-muted-foreground">{formatEventWhen(occ.event, i18n.language)}</p>
               </div>
               {!hasAnswered && (
                 <span className="shrink-0 text-xs text-primary">{t('dashboard.needsResponse')}</span>

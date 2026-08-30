@@ -761,7 +761,7 @@ function InviteRow({
   redeemedByName: string | null;
   onRevoked: (invite: Invite) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const status = getInviteStatus(invite);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -794,7 +794,7 @@ function InviteRow({
     }
   }
 
-  const expiryDate = new Date(invite.expiresAt).toLocaleDateString();
+  const expiryDate = new Date(invite.expiresAt).toLocaleDateString(i18n.language);
 
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center">

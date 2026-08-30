@@ -18,14 +18,14 @@ const ANSWER_LABEL_KEY: Record<AvailabilityAnswer, string> = {
   no: 'eventDetail.answerNo',
 };
 
-function formatOptionWhen(startsAt: number, endsAt?: number): string {
-  const start = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(startsAt));
+function formatOptionWhen(startsAt: number, endsAt: number | undefined, locale: string): string {
+  const start = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(startsAt));
   if (!endsAt) return start;
-  return `${start} – ${new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(endsAt))}`;
+  return `${start} – ${new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(endsAt))}`;
 }
 
 function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string; poll: Poll }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [optionId, setOptionId] = useState(poll.options[0]?.id ?? '');
@@ -72,7 +72,7 @@ function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string
         >
           {poll.options.map((option) => (
             <option key={option.id} value={option.id}>
-              {formatOptionWhen(option.startsAt, option.endsAt)}
+              {formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}
             </option>
           ))}
         </select>
@@ -100,7 +100,7 @@ function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string
 }
 
 export function PollDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { bandId, pollId } = useParams<{ bandId: string; pollId: string }>();
   const { data: session } = authClient.useSession();
@@ -201,7 +201,7 @@ export function PollDetail() {
                 <li key={option.id} className="rounded-md border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="wrap-break-word font-medium">
-                      {formatOptionWhen(option.startsAt, option.endsAt)}
+                      {formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}
                       {option.id === bestOptionId && (
                         <span className="ml-2 rounded bg-accent px-2 py-0.5 text-xs text-accent-foreground">
                           {t('pollDetail.bestFit')}
