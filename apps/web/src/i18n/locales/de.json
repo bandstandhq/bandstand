@@ -13,6 +13,7 @@
     "submit": "Anmelden",
     "submitting": "Anmeldung läuft…",
     "error": "Anmeldung mit diesen Daten nicht möglich.",
+    "networkError": "Server nicht erreichbar — Verbindung prüfen und erneut versuchen. (Kein Passwortproblem.)",
     "noAccount": "Noch kein Konto?",
     "signUp": "Registrieren"
   },

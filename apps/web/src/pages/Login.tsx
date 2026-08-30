@@ -11,18 +11,30 @@ export function Login() {
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  // Deliberately distinct from a plain boolean: a request that never got a
+  // response from the server (unreachable host, blocked by CORS, DNS
+  // failure — see authClient's underlying better-fetch, which lets a raw
+  // fetch() rejection propagate as a thrown error rather than turning it
+  // into an { error } result) looks nothing like a real "wrong password"
+  // rejection (a definite 401 response), and must never be reported as
+  // one — that sends someone hunting for a typo in a password that was
+  // never actually checked.
+  const [errorKind, setErrorKind] = useState<'credentials' | 'network' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { refetch } = authClient.useSession();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(false);
+    setErrorKind(null);
     setSubmitting(true);
     try {
       const { error: signInError } = await authClient.signIn.email({ email, password });
       if (signInError) {
-        setError(true);
+        // A non-2xx response the server actually sent — status 401 is the
+        // real "wrong email or password"; anything else (a 5xx, a rate
+        // limit) is a server-side problem, not a credentials problem, and
+        // must not be worded as one either.
+        setErrorKind(signInError.status === 401 ? 'credentials' : 'network');
         return;
       }
       // signIn.email only marks the shared session store stale — it doesn't
@@ -36,11 +48,9 @@ export function Login() {
       await refetch();
       navigate(searchParams.get('next') ?? '/dashboard');
     } catch {
-      // A rejection here (network failure, an aborted request) used to
-      // leave the button looking clicked but nothing visibly happening —
-      // this makes even that failure mode end in a visible error instead
-      // of silence.
-      setError(true);
+      // The request itself never completed — no response to have been
+      // wrong about, so this is never a credentials error.
+      setErrorKind('network');
     } finally {
       setSubmitting(false);
     }
@@ -83,7 +93,8 @@ export function Login() {
             hideLabel={t('common.hidePassword')}
           />
         </div>
-        {error && <p className="text-sm text-destructive">{t('login.error')}</p>}
+        {errorKind === 'credentials' && <p className="text-sm text-destructive">{t('login.error')}</p>}
+        {errorKind === 'network' && <p className="text-sm text-destructive">{t('login.networkError')}</p>}
         <Button type="submit" className="w-full" disabled={submitting}>
           {submitting ? t('login.submitting') : t('login.submit')}
         </Button>
