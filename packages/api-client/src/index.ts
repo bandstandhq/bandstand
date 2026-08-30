@@ -37,6 +37,24 @@ interface ApiError {
   error: string;
 }
 
+/**
+ * A real HTTP response the server sent back — as opposed to `fetch` itself
+ * rejecting (unreachable host, DNS, CORS, offline). Callers that need to
+ * tell "the server said no" apart from "there was no response at all" (e.g.
+ * a 404 for a file that genuinely doesn't exist vs. a network hiccup that a
+ * retry might fix) can check `error instanceof ApiRequestError` — a plain
+ * `catch {}` that doesn't care about the distinction still works unchanged.
+ */
+export class ApiRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 async function request<T>(
   baseUrl: string,
   path: string,
@@ -57,7 +75,7 @@ async function request<T>(
     // way (e.g. a form's own error message), not a reason to sign out.
     if (res.status === 401) onUnauthorized?.();
     const body = (await res.json().catch(() => null)) as ApiError | null;
-    throw new Error(body?.error ?? `Request failed with status ${res.status}`);
+    throw new ApiRequestError(res.status, body?.error ?? `Request failed with status ${res.status}`);
   }
   return res.json() as Promise<T>;
 }

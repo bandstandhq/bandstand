@@ -269,7 +269,14 @@ export function SongEditor() {
       } else if (songId && voiceId) {
         updateSong(doc, songId, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, bandNotes });
         setSongStatus(doc, songId, status);
-        updateVoiceBody(doc, voiceId, body);
+        // `body` is only ever populated for a chordpro-kind default voice
+        // (see the init effect above, which bails out for any other kind)
+        // — calling this unconditionally for a `files` voice happened to be
+        // harmless only because voiceSchema's discriminated union silently
+        // strips the stray `body` field, an implementation detail this
+        // shouldn't depend on. Every save of a song whose default voice is
+        // a PDF wrote a pointless extra Yjs update for nothing.
+        if (existingVoice?.kind === 'chordpro') updateVoiceBody(doc, voiceId, body);
       }
       navigate(`/bands/${bandId}/repertoire`);
     } catch {
