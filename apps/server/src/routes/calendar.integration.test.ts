@@ -22,7 +22,7 @@ const OPTION_A = 'option-a';
 const OPTION_B = 'option-b';
 
 async function signUpTestUser() {
-  const email = `calendar-${randomUUID()}@bandstand.local`;
+  const email = `test-calendar-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Calendar Tester' },
   });
@@ -44,7 +44,7 @@ async function setupBand() {
 
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Calendar Test Band', slug: `calendar-test-${randomUUID()}` })
+    .values({ name: 'Calendar Test Band', slug: `test-calendar-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
 

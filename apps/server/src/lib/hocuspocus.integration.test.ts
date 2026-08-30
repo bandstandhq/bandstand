@@ -26,7 +26,7 @@ import { auth } from './auth';
 import { hocuspocusServer } from './hocuspocus';
 
 async function signUpTestUser() {
-  const email = `hocuspocus-auth-${randomUUID()}@bandstand.local`;
+  const email = `test-hocuspocus-auth-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'HP Tester' },
   });
@@ -149,7 +149,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'HP Auth Test Band', slug: `hp-auth-test-${randomUUID()}` })
+      .values({ name: 'HP Auth Test Band', slug: `test-hp-auth-test-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -185,7 +185,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Guard Test Band', slug: `guard-test-${randomUUID()}` })
+      .values({ name: 'Guard Test Band', slug: `test-guard-test-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -264,7 +264,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Ownership Guard Band', slug: `ownership-guard-${randomUUID()}` })
+      .values({ name: 'Ownership Guard Band', slug: `test-ownership-guard-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -339,7 +339,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Vote Guard Band', slug: `vote-guard-${randomUUID()}` })
+      .values({ name: 'Vote Guard Band', slug: `test-vote-guard-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -407,7 +407,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Role Guard Band', slug: `role-guard-${randomUUID()}` })
+      .values({ name: 'Role Guard Band', slug: `test-role-guard-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -475,7 +475,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Anchor Guard Band', slug: `anchor-guard-${randomUUID()}` })
+      .values({ name: 'Anchor Guard Band', slug: `test-anchor-guard-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -549,7 +549,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Assignment Guard Band', slug: `assignment-guard-${randomUUID()}` })
+      .values({ name: 'Assignment Guard Band', slug: `test-assignment-guard-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);
@@ -614,7 +614,7 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
 
     const [band] = await db
       .insert(bands)
-      .values({ name: 'Push Notify Band', slug: `push-notify-${randomUUID()}` })
+      .values({ name: 'Push Notify Band', slug: `test-push-notify-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);

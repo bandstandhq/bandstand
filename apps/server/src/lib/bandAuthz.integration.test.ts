@@ -14,11 +14,11 @@ async function createTestUserAndBand(role: 'owner' | 'admin' | 'member') {
   const suffix = randomUUID();
   const [user] = await db
     .insert(users)
-    .values({ email: `integration-${suffix}@bandstand.local`, name: 'Integration Test User' })
+    .values({ email: `test-integration-${suffix}@bandstand.local`, name: 'Integration Test User' })
     .returning();
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Integration Test Band', slug: `integration-test-band-${suffix}` })
+    .values({ name: 'Integration Test Band', slug: `test-integration-test-band-${suffix}` })
     .returning();
   if (!user || !band) throw new Error('Setup insert returned no row');
   await db.insert(bandMembers).values({ bandId: band.id, userId: user.id, role, instruments: [] });

@@ -14,7 +14,7 @@ import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `bands-order-${randomUUID()}@bandstand.local`;
+  const email = `test-bands-order-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Bands Order Tester' },
   });
@@ -43,11 +43,11 @@ describe('GET /bands (integration)', () => {
 
     const [firstBand] = await db
       .insert(bands)
-      .values({ name: 'First Joined Band', slug: `first-joined-${randomUUID()}` })
+      .values({ name: 'First Joined Band', slug: `test-first-joined-${randomUUID()}` })
       .returning();
     const [secondBand] = await db
       .insert(bands)
-      .values({ name: 'Second Joined Band', slug: `second-joined-${randomUUID()}` })
+      .values({ name: 'Second Joined Band', slug: `test-second-joined-${randomUUID()}` })
       .returning();
     if (!firstBand || !secondBand) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(firstBand.id, secondBand.id);

@@ -15,7 +15,7 @@ import { bandMembers, bands, users, voiceAnnotationLayers } from '../db/schema/i
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `annotations-${randomUUID()}@bandstand.local`;
+  const email = `test-annotations-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Annotations Tester' },
   });
@@ -34,7 +34,14 @@ function req(path: string, method: string, token: string, body?: unknown) {
   });
 }
 
-async function setupBand() {
+// Registers every user/band it creates for cleanup itself — a caller that
+// only destructures the fields it needs (e.g. `{ band, member, admin }`)
+// used to also have to remember to separately push every id it got back
+// into cleanupUserIds/cleanupBandIds, and every call site here forgot at
+// least `owner` (see issue for the accumulated leak this caused). Taking
+// the arrays as parameters and pushing internally makes that impossible to
+// forget again.
+async function setupBand(cleanupUserIds: string[], cleanupBandIds: string[]) {
   const owner = await signUpTestUser();
   const admin = await signUpTestUser();
   const member = await signUpTestUser();
@@ -42,9 +49,11 @@ async function setupBand() {
 
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Annotations Test Band', slug: `annotations-test-${randomUUID()}` })
+    .values({ name: 'Annotations Test Band', slug: `test-annotations-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
+  cleanupUserIds.push(owner.userId, admin.userId, member.userId, outsider.userId);
+  cleanupBandIds.push(band.id);
 
   await db.insert(bandMembers).values([
     { bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] },
@@ -67,18 +76,14 @@ describe('voice annotations (integration)', () => {
   });
 
   it('rejects a non-member entirely', async () => {
-    const { band, outsider } = await setupBand();
-    cleanupUserIds.push(outsider.userId);
-    cleanupBandIds.push(band.id);
+    const { band, outsider } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/annotations/voices/${voiceId}`, 'GET', outsider.token);
     expect(res.status).toBe(403);
   });
 
   it('creates a personal layer, lists only your own, and never someone else\'s', async () => {
-    const { band, member, admin } = await setupBand();
-    cleanupUserIds.push(member.userId, admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Rehearsal May' });
     expect(created.status).toBe(201);
@@ -91,9 +96,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('updates a layer\'s objects, then rejects an update from a different member', async () => {
-    const { band, member, admin } = await setupBand();
-    cleanupUserIds.push(member.userId, admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (
       await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Gig June' })
@@ -115,9 +118,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('forks a "(Conflict Copy)" layer on a stale conditional update instead of overwriting', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (
       await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Tablet session' })
@@ -151,9 +152,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('leaves a member\'s own annotations untouched when another member edits the voice', async () => {
-    const { band, member, admin } = await setupBand();
-    cleanupUserIds.push(member.userId, admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (
       await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'My notes' })
@@ -177,9 +176,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('shares a layer as a frozen copy, readable by any member, and re-sharing updates it in place', async () => {
-    const { band, member, admin } = await setupBand();
-    cleanupUserIds.push(member.userId, admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (
       await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Solo cues' })
@@ -217,9 +214,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('rejects an objects array over the configured size limit', async () => {
-    const { band, member } = await setupBand();
-    cleanupUserIds.push(member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (
       await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'Overloaded layer' })
@@ -246,9 +241,7 @@ describe('voice annotations (integration)', () => {
   });
 
   it('lets the original sharer, or an admin, remove a shared layer — but not an unrelated member', async () => {
-    const { band, member, admin } = await setupBand();
-    cleanupUserIds.push(member.userId, admin.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const created = (await (await req(`/${band.id}/annotations/voices/${voiceId}`, 'POST', member.token, { name: 'To share' })).json()) as {
       id: string;

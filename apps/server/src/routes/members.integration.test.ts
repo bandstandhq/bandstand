@@ -12,7 +12,7 @@ import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `members-${randomUUID()}@bandstand.local`;
+  const email = `test-members-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Members Tester' },
   });
@@ -28,16 +28,25 @@ function req(path: string, method: string, token: string, body?: unknown) {
   });
 }
 
-async function setupBand() {
+// Registers every user/band it creates for cleanup itself — a caller that
+// only destructures the fields it needs (e.g. `{ band, admin, member }`)
+// used to also have to remember to separately push every id it got back
+// into cleanupUserIds/cleanupBandIds, and several call sites here forgot
+// `owner` (see issue for the accumulated leak this caused). Taking the
+// arrays as parameters and pushing internally makes that impossible to
+// forget again.
+async function setupBand(cleanupUserIds: string[], cleanupBandIds: string[]) {
   const owner = await signUpTestUser();
   const admin = await signUpTestUser();
   const member = await signUpTestUser();
 
   const [band] = await db
     .insert(bands)
-    .values({ name: 'Members Test Band', slug: `members-test-${randomUUID()}` })
+    .values({ name: 'Members Test Band', slug: `test-members-test-${randomUUID()}` })
     .returning();
   if (!band) throw new Error('Setup insert returned no row');
+  cleanupUserIds.push(owner.userId, admin.userId, member.userId);
+  cleanupBandIds.push(band.id);
 
   await db.insert(bandMembers).values([
     { bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] },
@@ -66,9 +75,7 @@ describe('band member management (integration)', () => {
   });
 
   it('rejects a member changing a role, but lets the owner', async () => {
-    const { band, owner, admin, member } = await setupBand();
-    cleanupUserIds.push(owner.userId, admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/members/${admin.userId}/role`, 'PATCH', member.token, { role: 'member' });
     expect(forbidden.status).toBe(403);
@@ -79,19 +86,16 @@ describe('band member management (integration)', () => {
   });
 
   it('rejects an admin changing a role — owner only', async () => {
-    const { band, admin, member } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/members/${member.userId}/role`, 'PATCH', admin.token, { role: 'admin' });
     expect(res.status).toBe(403);
   });
 
   it('lets an admin remove a plain member, but not another admin or the owner', async () => {
-    const { band, owner, admin, member } = await setupBand();
+    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
     const secondAdmin = await signUpTestUser();
-    cleanupUserIds.push(owner.userId, admin.userId, member.userId, secondAdmin.userId);
-    cleanupBandIds.push(band.id);
+    cleanupUserIds.push(secondAdmin.userId);
     await db.insert(bandMembers).values({ bandId: band.id, userId: secondAdmin.userId, role: 'admin', instruments: [] });
 
     const removeMember = await req(`/${band.id}/members/${member.userId}`, 'DELETE', admin.token);
@@ -106,18 +110,14 @@ describe('band member management (integration)', () => {
   });
 
   it('rejects a plain member removing anyone', async () => {
-    const { band, admin, member } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/members/${admin.userId}`, 'DELETE', member.token);
     expect(res.status).toBe(403);
   });
 
   it('lets the owner remove an admin', async () => {
-    const { band, owner, admin, member } = await setupBand();
-    cleanupUserIds.push(owner.userId, admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, owner, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/members/${admin.userId}`, 'DELETE', owner.token);
     expect(res.status).toBe(200);
@@ -125,9 +125,7 @@ describe('band member management (integration)', () => {
   });
 
   it('transfers ownership: only the owner may, and it flips both roles atomically', async () => {
-    const { band, owner, admin, member } = await setupBand();
-    cleanupUserIds.push(owner.userId, admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, owner, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const forbidden = await req(`/${band.id}/members/${admin.userId}/transfer-ownership`, 'POST', admin.token);
     expect(forbidden.status).toBe(403);
@@ -147,9 +145,7 @@ describe('band member management (integration)', () => {
   });
 
   it('rejects the owner leaving without transferring ownership first, but lets a member or admin leave', async () => {
-    const { band, owner, admin, member } = await setupBand();
-    cleanupUserIds.push(owner.userId, admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const ownerLeave = await req(`/${band.id}/members/me`, 'DELETE', owner.token);
     expect(ownerLeave.status).toBe(409);
@@ -164,9 +160,7 @@ describe('band member management (integration)', () => {
   });
 
   it('lets a member update their own instruments', async () => {
-    const { band, admin, member } = await setupBand();
-    cleanupUserIds.push(admin.userId, member.userId);
-    cleanupBandIds.push(band.id);
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const res = await req(`/${band.id}/members/me`, 'PATCH', member.token, { instruments: ['Bass', 'Vocals'] });
     expect(res.status).toBe(200);

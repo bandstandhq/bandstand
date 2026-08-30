@@ -4,6 +4,7 @@ import {
   createThrowawayBand,
   DEMO_OWNER_EMAIL,
   DEMO_PASSWORD,
+  deleteTestAccount,
   deleteThrowawayBand,
   freshEmail,
   login,
@@ -16,6 +17,8 @@ const INVITE_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 test('an invite code redeems exactly once', async ({ page }) => {
   const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
   const { bandId } = await createThrowawayBand(token, 'invite-single-use');
+  const firstEmail = freshEmail('first');
+  const secondEmail = freshEmail('second');
 
   try {
     await login(page, DEMO_OWNER_EMAIL);
@@ -34,7 +37,7 @@ test('an invite code redeems exactly once', async ({ page }) => {
 
     // First redemption succeeds and joins the band.
     await page.goto(`/join/${code}`);
-    await signUp(page, { name: 'First redeemer', email: freshEmail('first') }, 'Sign up and join');
+    await signUp(page, { name: 'First redeemer', email: firstEmail }, 'Sign up and join');
     // /dashboard forwards on to /bands/:bandId/dashboard once this brand-new
     // user has the one band they just joined (DashboardRedirect).
     await page.waitForURL(/\/bands\/.+\/dashboard$/);
@@ -45,10 +48,12 @@ test('an invite code redeems exactly once', async ({ page }) => {
     // A second redemption of the same already-used code is refused, and the
     // refusal is surfaced to the user, not just a silent failure.
     await page.goto(`/join/${code}`);
-    await signUp(page, { name: 'Second redeemer', email: freshEmail('second') }, 'Sign up and join');
+    await signUp(page, { name: 'Second redeemer', email: secondEmail }, 'Sign up and join');
     await expect(page.getByText('That invite code has already been used.')).toBeVisible();
     await expect(page).not.toHaveURL(/\/dashboard$/);
   } finally {
     await deleteThrowawayBand(token, bandId);
+    await deleteTestAccount(firstEmail);
+    await deleteTestAccount(secondEmail);
   }
 });

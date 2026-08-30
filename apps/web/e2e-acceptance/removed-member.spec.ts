@@ -3,7 +3,7 @@ import { addSong } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, freshEmail, signUp } from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
-import { addBandMember, getUserIdByEmail, removeBandMember, withDb } from './testDb';
+import { addBandMember, deleteUserByEmail, getUserIdByEmail, removeBandMember, withDb } from './testDb';
 
 function flush() {
   return new Promise((resolve) => setTimeout(resolve, 800));
@@ -54,10 +54,7 @@ test('a removed member\'s cached band content clears on the next reconnect', asy
     await expect(page.getByText(songTitle)).not.toBeVisible();
     await expect(page.getByText("You're not a member of this band, so its content isn't available here.")).toBeVisible();
   } finally {
-    await withDb(async (client) => {
-      const userId = await getUserIdByEmail(client, email);
-      await client.query('delete from users where id = $1', [userId]);
-    });
+    await withDb((client) => deleteUserByEmail(client, email));
     await deleteThrowawayBand(ownerToken, bandId);
     setup.provider.destroy();
   }

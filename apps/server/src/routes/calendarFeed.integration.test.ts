@@ -15,7 +15,7 @@ import { bandDocs, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `ics-${randomUUID()}@bandstand.local`;
+  const email = `test-ics-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'ICS Tester' },
   });
@@ -80,7 +80,7 @@ describe('calendar feed route (integration)', () => {
   async function setupBandWithEvent(memberUserId: string) {
     const [band] = await db
       .insert(bands)
-      .values({ name: 'ICS Test Band', slug: `ics-test-${randomUUID()}` })
+      .values({ name: 'ICS Test Band', slug: `test-ics-test-${randomUUID()}` })
       .returning();
     if (!band) throw new Error('Setup insert returned no row');
     cleanupBandIds.push(band.id);

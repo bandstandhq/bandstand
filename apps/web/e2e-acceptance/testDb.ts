@@ -30,6 +30,20 @@ export async function getUserIdByEmail(client: Client, email: string): Promise<s
   return rows[0].id as string;
 }
 
+/**
+ * Deletes a user created via `freshEmail` — pair with any spec that signs a
+ * fresh user up in the test's own `finally`, the same way a throwaway band
+ * gets deleted via `deleteThrowawayBand`. Refuses anything that doesn't
+ * carry the `test-` prefix every test-created account now uses (see
+ * CONTRIBUTING.md), so a typo'd or reused email can never delete a real
+ * account — a silent no-op instead, not an error, since a `finally` block
+ * shouldn't itself throw and hide the test's actual failure.
+ */
+export async function deleteUserByEmail(client: Client, email: string): Promise<void> {
+  if (!email.startsWith('test-')) return;
+  await client.query('delete from users where email = $1', [email]);
+}
+
 export async function addBandMember(client: Client, bandId: string, userId: string): Promise<void> {
   await client.query(
     `insert into band_members (band_id, user_id, role, instruments)

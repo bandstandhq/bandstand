@@ -13,7 +13,7 @@ import { pushSubscriptions, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
-  const email = `push-${randomUUID()}@bandstand.local`;
+  const email = `test-push-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
     body: { email, password: 'test-password-123', name: 'Push Tester' },
   });

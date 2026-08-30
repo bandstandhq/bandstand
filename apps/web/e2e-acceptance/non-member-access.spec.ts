@@ -5,6 +5,7 @@ import {
   createThrowawayBand,
   DEMO_OWNER_EMAIL,
   DEMO_PASSWORD,
+  deleteTestAccount,
   deleteThrowawayBand,
   freshEmail,
   login,
@@ -33,6 +34,7 @@ test('a non-member never sees a band doc\'s content, even navigating straight to
   });
   await flush();
 
+  const eveEmail = freshEmail('eve');
   try {
     await login(page, DEMO_OWNER_EMAIL);
     // Visits the band's content once as its owner, so this browser
@@ -46,7 +48,7 @@ test('a non-member never sees a band doc\'s content, even navigating straight to
     await page.waitForURL(/\/login/);
 
     await page.goto('/signup');
-    await signUp(page, { name: 'Eve (outsider)', email: freshEmail('eve') });
+    await signUp(page, { name: 'Eve (outsider)', email: eveEmail });
     await page.waitForURL(/\/dashboard$/);
 
     // Alice's earlier session cached the full band doc in this browser
@@ -63,6 +65,7 @@ test('a non-member never sees a band doc\'s content, even navigating straight to
     await expect(page.getByText(songTitle)).not.toBeVisible();
   } finally {
     await deleteThrowawayBand(token, bandId);
+    await deleteTestAccount(eveEmail);
     setup.provider.destroy();
   }
 });

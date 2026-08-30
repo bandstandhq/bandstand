@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Page } from '@playwright/test';
+import { deleteUserByEmail, withDb } from './testDb';
 
 const SERVER_URL = process.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001';
 
@@ -38,14 +39,25 @@ function freshToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** A fresh, never-seen-before address — one test run's temp users don't collide with the next's. */
+/**
+ * A fresh, never-seen-before address — one test run's temp users don't
+ * collide with the next's. Always starts with `test-`: a cleanup command
+ * needs to recognize "this account belongs to a test run" by what it looks
+ * like, not by knowing every other account in the database — see
+ * apps/server/src/scripts/cleanupTestAccounts.ts.
+ */
 export function freshEmail(prefix: string) {
-  return `${prefix}-${freshToken()}@example.test`;
+  return `test-${prefix}-${freshToken()}@example.test`;
 }
 
-/** A fresh, never-seen-before name for other throwaway records (setlists, invite labels, ...). */
+/**
+ * A fresh, never-seen-before name for other throwaway records (bands,
+ * setlists, invite labels, ...). Always starts with `test-`, same reasoning
+ * as `freshEmail` — a band created through this is what
+ * `cleanupTestAccounts.ts` matches on by name/slug.
+ */
 export function freshName(prefix: string) {
-  return `${prefix}-${freshToken()}`;
+  return `test-${prefix}-${freshToken()}`;
 }
 
 /** Reads the logged-in user's active band id off the dashboard's Repertoire link. */
@@ -117,4 +129,19 @@ export async function deleteThrowawayBand(token: string, bandId: string): Promis
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+/**
+ * Deletes a user created via `freshEmail` — pair with any spec that signs a
+ * fresh user up (session-isolation, password-reset, account-settings,
+ * invite-single-use, removed-member, non-member-access, ...) in the test's
+ * own `finally`, the same way a throwaway band gets deleted via
+ * `deleteThrowawayBand`. There's no REST route for this (self-account
+ * deletion isn't a feature this app has), so — like `removed-member.spec.ts`
+ * already does for its own cleanup — this goes straight to Postgres via
+ * `testDb.ts`. See `deleteUserByEmail`'s own doc comment for why that's
+ * still safe to call on an arbitrary email.
+ */
+export async function deleteTestAccount(email: string): Promise<void> {
+  await withDb((client) => deleteUserByEmail(client, email));
 }
