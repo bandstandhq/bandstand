@@ -130,8 +130,22 @@ test this under realistic (throttled-CPU) load rather than only a quiet dev mach
 ## Testing on mobile devices
 
 By default everything (`pnpm dev`'s web app and API server, plus MinIO) is
-only reachable from the machine running it. To open the app on a phone on
-the same Wi-Fi/LAN:
+only reachable from the machine running it. Opening it up to a phone on the
+same Wi-Fi/LAN needs four ports reachable from that phone — all on your dev
+machine, none of this touches a production instance, which is a separate
+deployment with its own network config entirely:
+
+| Port | What | Why the phone needs it |
+|------|------|-------------------------|
+| 5173 | Vite dev server | Serves the app itself. |
+| 3001 | API server | Every REST call (auth, presign requests, etc.). |
+| 3002 | Hocuspocus | The band doc's real-time CRDT sync (WebSocket). |
+| 9000 | MinIO S3 API | **Not optional** — voices/files never round-trip through the API server (see `apps/server/src/routes/files.ts`'s comment: "the client uploads/downloads directly against MinIO via a presigned URL"). Without this reachable from the phone, an existing PDF voice won't even *display* there — this isn't only about uploading a new one. |
+
+If your OS has a local firewall (e.g. `firewalld`, `ufw`), you'll also need
+to allow these four ports through it for your LAN-facing interface —
+that's a one-time, machine-level change outside this repo, not something
+`pnpm dev` can do for you.
 
 1. Find your machine's LAN IP, e.g. `hostname -I` (Linux), `ipconfig
    getifaddr en0` (macOS), or `ipconfig` (Windows).
@@ -150,12 +164,13 @@ the same Wi-Fi/LAN:
    ```
    pnpm dev:infra:down && pnpm dev
    ```
-4. If you also want a phone to fetch its own presigned uploads/downloads
-   straight from MinIO (see step 2's note), set `MINIO_ENDPOINT` in your
-   `.env` to that same LAN address too, e.g.
+4. Set `MINIO_ENDPOINT` in your `.env` to that same LAN address too, e.g.
    `MINIO_ENDPOINT=http://192.168.1.50:9000` — the server embeds this
-   directly into the presigned URLs it hands back, so it has to be an
-   address the phone can reach, not `localhost`.
+   directly into every presigned URL it hands back (both upload and
+   download), so it has to be an address the phone can reach, not
+   `localhost`. Skipping this step is why "it works on my laptop but the
+   phone shows no PDF" is almost always a MinIO-endpoint/port-9000 problem,
+   not a bug in the viewer.
 5. On the phone, open `http://192.168.1.50:5173` (your actual LAN address).
    Nothing needs changing on the client side beyond that: it detects
    whatever host the page was loaded from and talks to the API/WebSocket
