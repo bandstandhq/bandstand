@@ -98,6 +98,37 @@ holding it can read every event, including location, across all of the user's ba
 regenerated. Regenerating (overwriting the stored token) is the only revocation mechanism, since the
 token itself never expires on its own.
 
+### Every offered recurrence keeps the same weekday; `monthlyByWeekday` derives it from `startsAt` rather than storing it
+
+`weekly`/`biweekly` always land on the same weekday by construction (fixed 7/14-day steps).
+`every4weeks` (a fixed 28-day step) and `monthlyByWeekday` ("the Nth `startsAt`'s-weekday of the
+month," e.g. "the second Tuesday") were added so a monthly rehearsal never silently drifts onto a
+different weekday the way the original `monthly` (a fixed day-of-month, clamped into shorter months)
+does — `monthly` is kept only for series created before this, and is deliberately no longer offered
+when creating a new one (Calendar.tsx's own repeat dropdown). `monthlyByWeekday` stores no extra
+`weekday`/`ordinal` fields at all: both are re-derived from the template's own `startsAt` at read
+time (in `eventSeries.ts`'s `advanceByN`, and independently in `ics.ts`'s RRULE builder), the same
+way `weekly`'s weekday is implicit in `startsAt` rather than a separate field — one canonical source
+for "which day," not two that could drift apart. A start date that happens to be the month's rare
+fifth occurrence of its weekday falls back to that month's *last* occurrence in any month too short
+to have five.
+
+### The ICS feed exports a real RRULE, never one VEVENT per generated occurrence
+
+The feed used to run every recurring series through `resolveEventOccurrences` and emit one VEVENT
+per generated date within its window — correct, but pointless: RFC 5545's RRULE exists precisely so
+a calendar client can expand a series itself. A series template is now exactly one VEVENT carrying
+an RRULE (mapped from `seriesRule` — `every4weeks`/`biweekly` as `FREQ=WEEKLY;INTERVAL=n`,
+`monthlyByWeekday` as `FREQ=MONTHLY;BYDAY=<n><weekday>`, legacy `monthly` as plain `FREQ=MONTHLY`),
+regardless of the feed's own past/future window — a still-open or indefinite series is always
+included, since its own RRULE is what bounds it for the subscribing client now, not this feed. An
+exception (a cancelled or moved single date) is a separate VEVENT sharing the template's UID, with
+`RECURRENCE-ID` naming the *original*, template-generated instant it overrides — never the
+exception's own, possibly different, time — per RFC 5545's convention for addressing one modified
+occurrence of a series. `eventSeries.ts`'s `resolveTemplateGeneratedStartsAt` is what recovers that
+original instant, since an exception only stores the calendar *date* it overrides, not the
+generated time-of-day.
+
 ## Consequences
 
 - `bandSnapshotSchema` gained four flat, composite-key maps (`events`, `availability`, `polls`,
