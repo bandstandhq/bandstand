@@ -554,13 +554,20 @@
     "deleteSeries": "Delete entire series",
     "confirmDeleteSeries": "Delete the entire recurring series \"{{name}}\"? This removes every occurrence and can't be undone.",
     "cancelOccurrence": "Cancel this date",
-    "confirmCancelOccurrence": "Cancel this occurrence of \"{{name}}\"? The rest of the series is unaffected."
+    "confirmCancelOccurrence": "Cancel this occurrence of \"{{name}}\"? The rest of the series is unaffected.",
+    "edit": "Edit",
+    "editTitle": "Edit event",
+    "saveChanges": "Save changes",
+    "status": "Status",
+    "statusConfirmed": "Confirmed",
+    "statusTentative": "Tentative",
+    "statusCancelled": "Cancelled"
   },
   "pollDetail": {
     "back": "Back to calendar",
     "notFound": "Poll not found.",
     "notes": "Notes",
-    "bestFit": "Best fit",
+    "rank": "#{{rank}} choice",
     "votesCount": "{{yes}} yes, {{maybe}} maybe, {{no}} no",
     "resolvedTo": "This poll is closed.",
     "viewEvent": "View the event",
@@ -574,7 +581,12 @@
     "closing": "Closing…",
     "delete": "Delete poll",
     "deleting": "Deleting…",
-    "confirmDelete": "Delete \"{{name}}\"? This can't be undone."
+    "confirmDelete": "Delete \"{{name}}\"? This can't be undone.",
+    "edit": "Edit",
+    "editTitle": "Edit poll",
+    "saveChanges": "Save changes",
+    "existingOptions": "Existing proposals",
+    "addProposals": "Add more proposals"
   },
   "unsavedChanges": {
     "title": "Unsaved changes",

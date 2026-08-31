@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-import { type AvailabilityAnswer, type BandRole, can, getPollResults, type Poll, votePoll } from '@bandstand/core';
-import { Button, Input, Textarea } from '@bandstand/ui';
-import { useEffect, useState } from 'react';
+import {
+  addPollOption,
+  type AvailabilityAnswer,
+  type BandRole,
+  can,
+  type Poll,
+  rankPollOptions,
+  updatePoll,
+  votePoll,
+} from '@bandstand/core';
+import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { TrashIcon } from '../components/icons';
+import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -23,6 +32,91 @@ function formatOptionWhen(startsAt: number, endsAt: number | undefined, locale: 
   const start = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(startsAt));
   if (!endsAt) return start;
   return `${start} – ${new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(endsAt))}`;
+}
+
+// How many of the ranked options are worth calling out with a badge: with
+// only one or two proposals, ranking beyond 1st tells you nothing you can't
+// already see (2nd place in a two-way poll is just "the other one") — 2nd
+// place becomes worth surfacing once there's a 3rd option it beats, and 3rd
+// place once there's a 4th.
+function ranksToShow(optionCount: number): number {
+  if (optionCount > 3) return 3;
+  if (optionCount > 2) return 2;
+  return 1;
+}
+
+/**
+ * Editing here never touches existing options or their votes — only the
+ * poll's own title/notes, plus appending brand-new proposals (which
+ * naturally start with no votes at all, same as any other freshly-created
+ * option).
+ */
+function EditPollForm({ doc, poll, pollId, onSaved }: { doc: import('yjs').Doc; poll: Poll; pollId: string; onSaved: () => void }) {
+  const { t, i18n } = useTranslation();
+  const [title, setTitle] = useState(poll.title);
+  const [notes, setNotes] = useState(poll.notes ?? '');
+  const [newOptionStarts, setNewOptionStarts] = useState<string[]>(['']);
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const trimmedNotes = notes.trim() || undefined;
+    if (title.trim() !== poll.title || trimmedNotes !== poll.notes) {
+      updatePoll(doc, pollId, { title: title.trim(), notes: trimmedNotes });
+    }
+    for (const value of newOptionStarts) {
+      if (!value) continue;
+      const startsAt = new Date(value).getTime();
+      if (!Number.isNaN(startsAt)) addPollOption(doc, pollId, { startsAt });
+    }
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.pollTitlePlaceholder')} />
+      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.pollNotesPlaceholder')} />
+
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.existingOptions')}</p>
+        <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+          {poll.options.map((option) => (
+            <li key={option.id}>{formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.addProposals')}</p>
+        {newOptionStarts.map((value, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setNewOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))}
+              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            />
+            {newOptionStarts.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setNewOptionStarts((prev) => prev.filter((_, i) => i !== index))}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                {t('calendarList.removeOption')}
+              </button>
+            )}
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => setNewOptionStarts((prev) => [...prev, ''])}>
+          {t('calendarList.addOption')}
+        </Button>
+      </div>
+
+      <Button type="submit" disabled={!title.trim()}>
+        {t('pollDetail.saveChanges')}
+      </Button>
+    </form>
+  );
 }
 
 function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string; poll: Poll }) {
@@ -110,6 +204,7 @@ export function PollDetail() {
   const pollVotes = useYMap<AvailabilityAnswer>(doc?.getMap('pollVotes'));
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!bandId) return;
@@ -137,13 +232,11 @@ export function PollDetail() {
   for (const [key, answer] of Object.entries(pollVotes)) {
     if (key.startsWith(prefix)) votesForPoll[key.slice(prefix.length)] = answer;
   }
-  const results = getPollResults(votesForPoll, poll.options);
-  const bestOptionId = results.reduce<{ id: string; yes: number } | null>((best, r) => {
-    if (r.yes > 0 && (!best || r.yes > best.yes)) return { id: r.optionId, yes: r.yes };
-    return best;
-  }, null)?.id;
+  const ranked = rankPollOptions(votesForPoll, poll.options);
+  const visibleRanks = ranksToShow(poll.options.length);
 
   const canClose = viewerRole ? can(viewerRole, 'poll:close') : false;
+  const canEditPoll = viewerRole ? can(viewerRole, 'poll:edit') : false;
 
   function handleVote(optionId: string, answer: AvailabilityAnswer) {
     if (!doc || !currentUserId || !pollId) return;
@@ -192,23 +285,30 @@ export function PollDetail() {
         </div>
       ) : (
         <>
+          {/* Deliberately kept in the poll's own option order, not re-sorted
+              by rank — this list re-renders live as other members vote, and
+              reordering rows under a voter's finger mid-click would be a
+              real hazard in a collaborative poll. The rank badge alone
+              carries the ranking; only the list order stays put. */}
           <ul className="mt-6 space-y-3">
             {poll.options.map((option) => {
-              const tally = results.find((r) => r.optionId === option.id);
+              const tally = ranked.find((r) => r.optionId === option.id);
+              if (!tally) return null;
               const myAnswer = currentUserId ? votesForPoll[`${option.id}:${currentUserId}`] : undefined;
+              const showRank = tally.rank <= visibleRanks && tally.yes > 0;
               return (
                 <li key={option.id} className="rounded-md border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="wrap-break-word font-medium">
                       {formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}
-                      {option.id === bestOptionId && (
+                      {showRank && (
                         <span className="ml-2 rounded bg-accent px-2 py-0.5 text-xs text-accent-foreground">
-                          {t('pollDetail.bestFit')}
+                          {t('pollDetail.rank', { rank: tally.rank })}
                         </span>
                       )}
                     </p>
                     <span className="text-xs text-muted-foreground">
-                      {tally && t('pollDetail.votesCount', { yes: tally.yes, maybe: tally.maybe, no: tally.no })}
+                      {t('pollDetail.votesCount', { yes: tally.yes, maybe: tally.maybe, no: tally.no })}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -234,19 +334,43 @@ export function PollDetail() {
         </>
       )}
 
-      {canClose && (
-        <div className="mt-6 border-t border-border pt-4">
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={() => void handleDelete()}
-            aria-label={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
-            title={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
+      {(canClose || (canEditPoll && !poll.resolvedEventId)) && (
+        <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+          {canEditPoll && !poll.resolvedEventId && (
+            <button
+              type="button"
+              onClick={() => setEditDialogOpen(true)}
+              aria-label={t('pollDetail.edit')}
+              title={t('pollDetail.edit')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+            >
+              <PencilIcon className="h-5 w-5" />
+            </button>
+          )}
+          {canClose && (
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => void handleDelete()}
+              aria-label={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
+              title={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
+      )}
+
+      {canEditPoll && !poll.resolvedEventId && doc && (
+        <Dialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          title={t('pollDetail.editTitle')}
+          closeLabel={t('common.close')}
+        >
+          <EditPollForm doc={doc} poll={poll} pollId={pollId} onSaved={() => setEditDialogOpen(false)} />
+        </Dialog>
       )}
     </PageShell>
   );

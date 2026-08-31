@@ -31,6 +31,21 @@ export function createPoll(
   return id;
 }
 
+/** Edits a poll's title/notes — never its `options` or `resolvedEventId`, which have their own dedicated mutations below/above. */
+export function updatePoll(doc: Y.Doc, pollId: string, patch: { title?: string; notes?: string }): void {
+  const existing = getPollOrThrow(doc, pollId);
+  const updated = pollSchema.parse({ ...existing, ...patch });
+  doc.getMap('polls').set(pollId, updated);
+}
+
+/** Appends one new candidate date to an already-created poll — every existing option, and every vote already cast on it, is untouched; the new option simply starts with no votes at all. */
+export function addPollOption(doc: Y.Doc, pollId: string, option: { startsAt: number; endsAt?: number }): void {
+  const existing = getPollOrThrow(doc, pollId);
+  const options: PollOption[] = [...existing.options, { id: crypto.randomUUID(), ...option }];
+  const updated = pollSchema.parse({ ...existing, options });
+  doc.getMap('polls').set(pollId, updated);
+}
+
 export function deletePoll(doc: Y.Doc, pollId: string): void {
   doc.transact(() => {
     doc.getMap('polls').delete(pollId);
@@ -85,4 +100,25 @@ export function getPollResults(votes: Record<string, AvailabilityAnswer>, option
     }
     return tally;
   });
+}
+
+export interface RankedPollOptionTally extends PollOptionTally {
+  /** 1-based; every option gets one, not just the top few — how many of
+   * them are worth actually showing in the UI is a display decision, not
+   * something this pure ranking makes for the caller. */
+  rank: number;
+}
+
+/**
+ * Every option, ordered best-first (most "yes" votes, "maybe" as a
+ * tiebreaker, original option order below that) and numbered accordingly.
+ * A tie in both yes and maybe still gets two distinct ranks, broken by
+ * option order — simpler than grouping equal ranks, and there's no
+ * requirement here that ties be called out as such.
+ */
+export function rankPollOptions(votes: Record<string, AvailabilityAnswer>, options: PollOption[]): RankedPollOptionTally[] {
+  return getPollResults(votes, options)
+    .map((tally, index) => ({ tally, index }))
+    .sort((a, b) => b.tally.yes - a.tally.yes || b.tally.maybe - a.tally.maybe || a.index - b.index)
+    .map(({ tally }, i) => ({ ...tally, rank: i + 1 }));
 }
