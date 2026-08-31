@@ -576,5 +576,12 @@
     "delete": "Umfrage löschen",
     "deleting": "Wird gelöscht…",
     "confirmDelete": "\"{{name}}\" löschen? Das kann nicht rückgängig gemacht werden."
+  },
+  "unsavedChanges": {
+    "title": "Ungespeicherte Änderungen",
+    "description": "Du hast ungespeicherte Änderungen. Speichern, verwerfen oder weiter bearbeiten.",
+    "continueEditing": "Weiter bearbeiten",
+    "discard": "Verwerfen",
+    "save": "Speichern"
   }
 }

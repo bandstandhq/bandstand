@@ -16,14 +16,16 @@ import type {
   Setlist,
 } from '@bandstand/core';
 import { Button, Input, Textarea } from '@bandstand/ui';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BarChartIcon, CalendarIcon } from '../components/icons';
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 
@@ -245,9 +247,13 @@ function MonthGrid({
 function CreateEventForm({
   doc,
   setlists,
+  onDirtyChange,
+  saveRef,
 }: {
   doc: import('yjs').Doc;
   setlists: Record<string, Setlist>;
+  onDirtyChange: (dirty: boolean) => void;
+  saveRef: RefObject<(() => boolean) | null>;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
@@ -273,11 +279,24 @@ function CreateEventForm({
     setRepeatUntil('');
   }
 
-  function handleCreate(event: FormEvent) {
-    event.preventDefault();
-    if (!title.trim() || !startsAt) return;
+  const isDirty = Boolean(
+    title.trim() || startsAt || endsAt || allDay || location.trim() || notes.trim() || setlistId || repeat !== 'none' || repeatUntil,
+  );
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // Deliberately reassigned on every render, not behind a dependency array
+  // — the unsaved-changes dialog's Save button needs whichever closure over
+  // the current field values is freshest at the moment it's clicked.
+  useEffect(() => {
+    saveRef.current = trySave;
+  });
+
+  function trySave(): boolean {
+    if (!title.trim() || !startsAt) return false;
     const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
-    if (Number.isNaN(startMs)) return;
+    if (Number.isNaN(startMs)) return false;
     const endMs = endsAt
       ? allDay
         ? Date.parse(`${endsAt}T23:59:59.999Z`)
@@ -304,6 +323,12 @@ function CreateEventForm({
       createRecurringEvent(doc, input, { freq, until: repeatUntil || undefined });
     }
     reset();
+    return true;
+  }
+
+  function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    trySave();
   }
 
   return (
@@ -437,23 +462,47 @@ function PollRow({ bandId, pollId, poll }: { bandId: string; pollId: string; pol
   );
 }
 
-function CreatePollForm({ doc }: { doc: import('yjs').Doc }) {
+function CreatePollForm({
+  doc,
+  onDirtyChange,
+  saveRef,
+}: {
+  doc: import('yjs').Doc;
+  onDirtyChange: (dirty: boolean) => void;
+  saveRef: RefObject<(() => boolean) | null>;
+}) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [optionStarts, setOptionStarts] = useState<string[]>(['']);
 
-  function handleCreate(event: FormEvent) {
-    event.preventDefault();
+  const isDirty = Boolean(title.trim() || notes.trim() || optionStarts.some((s) => s));
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // Deliberately reassigned on every render — same reasoning as
+  // CreateEventForm's own saveRef effect above.
+  useEffect(() => {
+    saveRef.current = trySave;
+  });
+
+  function trySave(): boolean {
     const options = optionStarts
       .filter((s) => s)
       .map((s) => ({ startsAt: new Date(s).getTime() }))
       .filter((o) => !Number.isNaN(o.startsAt));
-    if (!title.trim() || options.length === 0) return;
+    if (!title.trim() || options.length === 0) return false;
     createPoll(doc, { title: title.trim(), notes: notes.trim() || undefined, options });
     setTitle('');
     setNotes('');
     setOptionStarts(['']);
+    return true;
+  }
+
+  function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    trySave();
   }
 
   return (
@@ -523,6 +572,22 @@ export function Calendar() {
   // component body.
   const [now] = useState(() => Date.now());
 
+  // Both create forms live on this one page (they're never a separate
+  // route) — the unsaved-changes guard has to cover the page as a whole,
+  // so each form reports its own dirty state up and hands over a way to
+  // save itself when the dialog's Save button is clicked.
+  const [eventFormDirty, setEventFormDirty] = useState(false);
+  const [pollFormDirty, setPollFormDirty] = useState(false);
+  const eventFormSaveRef = useRef<(() => boolean) | null>(null);
+  const pollFormSaveRef = useRef<(() => boolean) | null>(null);
+  const unsavedGuard = useUnsavedChangesGuard(eventFormDirty || pollFormDirty);
+
+  function handleSaveFromUnsavedDialog() {
+    const eventOk = !eventFormDirty || (eventFormSaveRef.current?.() ?? false);
+    const pollOk = !pollFormDirty || (pollFormSaveRef.current?.() ?? false);
+    if (eventOk && pollOk) unsavedGuard.leave();
+  }
+
   useEffect(() => {
     if (!bandId) return;
     apiClient.listMyBands().then((bands) => {
@@ -546,6 +611,12 @@ export function Calendar() {
 
   return (
     <PageShell title={t('calendarList.title')}>
+      <UnsavedChangesDialog
+        open={unsavedGuard.pending !== null}
+        onSave={handleSaveFromUnsavedDialog}
+        onDiscard={unsavedGuard.leave}
+        onContinueEditing={unsavedGuard.continueEditing}
+      />
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('calendarList.back')}
       </Link>
@@ -571,7 +642,9 @@ export function Calendar() {
         <ListView bandId={bandId} occurrences={occurrences} />
       )}
 
-      {canCreate && doc && <CreateEventForm doc={doc} setlists={setlists} />}
+      {canCreate && doc && (
+        <CreateEventForm doc={doc} setlists={setlists} onDirtyChange={setEventFormDirty} saveRef={eventFormSaveRef} />
+      )}
 
       <div className="mt-8">
         <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
@@ -584,7 +657,7 @@ export function Calendar() {
             ))}
           </ul>
         )}
-        {canCreatePoll && doc && <CreatePollForm doc={doc} />}
+        {canCreatePoll && doc && <CreatePollForm doc={doc} onDirtyChange={setPollFormDirty} saveRef={pollFormSaveRef} />}
       </div>
     </PageShell>
   );

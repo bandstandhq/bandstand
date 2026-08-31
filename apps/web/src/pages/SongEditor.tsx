@@ -20,7 +20,9 @@ import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { SongAnchors } from '../components/SongAnchors';
 import { SongVoices } from '../components/SongVoices';
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 
@@ -182,6 +184,23 @@ export function SongEditor() {
   const originalKeyRef = useRef('C');
   const originalBodyRef = useRef('');
 
+  // What the form looked like when this editing session started — a new
+  // song's own useState defaults, or (once loaded) the existing song's
+  // values — compared against the current field values below to drive the
+  // unsaved-changes guard. personalTranspose is deliberately excluded: it
+  // saves itself immediately on every click (handlePersonalTransposeChange)
+  // and was never part of what the Save button below writes.
+  const [initialSnapshot, setInitialSnapshot] = useState({
+    title: '',
+    artist: '',
+    key: 'C',
+    bpm: 120,
+    durationSec: 180,
+    status: 'idea' as SongStatus,
+    bandNotes: '',
+    body: '',
+  });
+
   function applyTargetKey(newKey: string) {
     setError(null);
     try {
@@ -219,8 +238,29 @@ export function SongEditor() {
     setBody(existingVoice.body);
     originalKeyRef.current = normalizedKey;
     originalBodyRef.current = existingVoice.body;
+    setInitialSnapshot({
+      title: existingSong.title,
+      artist: existingSong.artist,
+      key: normalizedKey,
+      bpm: existingSong.bpm,
+      durationSec: existingSong.durationSec,
+      status: existingSong.status,
+      bandNotes: existingSong.bandNotes,
+      body: existingVoice.body,
+    });
     initializedRef.current = true;
   }, [isNew, existingSong, existingVoice]);
+
+  const isDirty =
+    title !== initialSnapshot.title ||
+    artist !== initialSnapshot.artist ||
+    key !== initialSnapshot.key ||
+    bpm !== initialSnapshot.bpm ||
+    durationSec !== initialSnapshot.durationSec ||
+    status !== initialSnapshot.status ||
+    bandNotes !== initialSnapshot.bandNotes ||
+    body !== initialSnapshot.body;
+  const unsavedGuard = useUnsavedChangesGuard(isDirty);
 
   if (!bandId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
@@ -242,19 +282,22 @@ export function SongEditor() {
   // safe fallback below, so it can never be the reason a save is rejected.
   // Checked in the same top-to-bottom order they appear in the form, so
   // "the topmost missing field" falls out of just checking title first.
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!doc) return;
+  // Deliberately doesn't navigate itself — the unsaved-changes dialog's own
+  // Save button needs to go wherever the user was originally headed, not
+  // to this form's own normal post-save destination (handleSubmit, below,
+  // is what wants that one).
+  function trySave(): { ok: boolean; newSongId?: string } {
+    if (!doc) return { ok: false };
     setError(null);
     if (!title.trim()) {
       setError(t('songEditor.errorTitleRequired'));
       titleInputRef.current?.focus();
-      return;
+      return { ok: false };
     }
     if (!artist.trim()) {
       setError(t('songEditor.errorArtistRequired'));
       artistInputRef.current?.focus();
-      return;
+      return { ok: false };
     }
     // A mobile number input can hand back an empty string (parses to 0) or
     // NaN for reasons that have nothing to do with what the user actually
@@ -269,12 +312,7 @@ export function SongEditor() {
     try {
       if (isNew) {
         const newSongId = addSong(doc, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, status, bandNotes, body });
-        // Straight into editing the song just created, not back to the list
-        // — that's the only way to reach the Voices section below (it needs
-        // a real songId to attach a file to), and landing there immediately
-        // is what makes "add a Full Score" discoverable right after
-        // creating a song instead of a separate, unguided step.
-        navigate(`/bands/${bandId}/songs/${newSongId}/edit`);
+        return { ok: true, newSongId };
       } else if (songId && voiceId) {
         updateSong(doc, songId, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, bandNotes });
         setSongStatus(doc, songId, status);
@@ -286,15 +324,40 @@ export function SongEditor() {
         // shouldn't depend on. Every save of a song whose default voice is
         // a PDF wrote a pointless extra Yjs update for nothing.
         if (existingVoice?.kind === 'chordpro') updateVoiceBody(doc, voiceId, body);
-        navigate(`/bands/${bandId}/repertoire`);
+        return { ok: true };
       }
+      return { ok: false };
     } catch {
       setError(t('songEditor.saveError'));
+      return { ok: false };
     }
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const result = trySave();
+    if (!result.ok) return;
+    // Straight into editing the song just created, not back to the list —
+    // that's the only way to reach the Voices section below (it needs a
+    // real songId to attach a file to), and landing there immediately is
+    // what makes "add a Full Score" discoverable right after creating a
+    // song instead of a separate, unguided step.
+    if (isNew && result.newSongId) navigate(`/bands/${bandId}/songs/${result.newSongId}/edit`);
+    else navigate(`/bands/${bandId}/repertoire`);
+  }
+
+  function handleSaveFromUnsavedDialog() {
+    if (trySave().ok) unsavedGuard.leave();
   }
 
   return (
     <PageShell title={isNew ? t('songEditor.titleNew') : t('songEditor.titleEdit')}>
+      <UnsavedChangesDialog
+        open={unsavedGuard.pending !== null}
+        onSave={handleSaveFromUnsavedDialog}
+        onDiscard={unsavedGuard.leave}
+        onContinueEditing={unsavedGuard.continueEditing}
+      />
       <Link to={`/bands/${bandId}/repertoire`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('songEditor.backNew')}
       </Link>
@@ -398,7 +461,7 @@ export function SongEditor() {
             </div>
             <div className="space-y-1">
               <span className="text-sm text-muted-foreground">{t('songEditor.duration')}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="number"
                   inputMode="numeric"
