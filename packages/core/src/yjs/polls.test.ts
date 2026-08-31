@@ -2,12 +2,15 @@
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import {
+  addPollOption,
   createPoll,
   deletePoll,
   getPollResults,
   listPolls,
   listVotesForPoll,
   markPollResolved,
+  rankPollOptions,
+  updatePoll,
   votePoll,
 } from './polls';
 
@@ -96,6 +99,82 @@ describe('markPollResolved', () => {
   it('throws resolving a nonexistent poll', () => {
     const doc = new Y.Doc();
     expect(() => markPollResolved(doc, 'missing', 'event-1')).toThrow('Poll not found');
+  });
+});
+
+describe('updatePoll', () => {
+  it('edits title/notes without touching options or votes', () => {
+    const doc = new Y.Doc();
+    const pollId = createPoll(doc, baseInput());
+    const originalOptions = listPolls(doc)[pollId]!.options;
+    const optionA = originalOptions[0]!;
+    votePoll(doc, pollId, optionA.id, 'u1', 'yes');
+
+    updatePoll(doc, pollId, { title: 'When really works?', notes: 'Bring your own amp' });
+
+    const poll = listPolls(doc)[pollId]!;
+    expect(poll.title).toBe('When really works?');
+    expect(poll.notes).toBe('Bring your own amp');
+    expect(poll.options).toEqual(originalOptions);
+    expect(listVotesForPoll(doc, pollId)).toEqual({ [`${optionA.id}:u1`]: 'yes' });
+  });
+
+  it('throws for a missing poll', () => {
+    const doc = new Y.Doc();
+    expect(() => updatePoll(doc, 'missing', { title: 'x' })).toThrow('Poll not found');
+  });
+});
+
+describe('addPollOption', () => {
+  it('appends a new option, leaving existing options and votes untouched', () => {
+    const doc = new Y.Doc();
+    const pollId = createPoll(doc, baseInput());
+    const optionA = listPolls(doc)[pollId]!.options[0]!;
+    votePoll(doc, pollId, optionA.id, 'u1', 'yes');
+
+    addPollOption(doc, pollId, { startsAt: 1_700_200_000_000 });
+
+    const poll = listPolls(doc)[pollId]!;
+    expect(poll.options).toHaveLength(3);
+    expect(poll.options[0]).toEqual(optionA);
+    expect(poll.options[2]!.startsAt).toBe(1_700_200_000_000);
+    expect(poll.options[2]!.id).not.toBe(optionA.id);
+    expect(listVotesForPoll(doc, pollId)).toEqual({ [`${optionA.id}:u1`]: 'yes' });
+  });
+
+  it('throws for a missing poll', () => {
+    const doc = new Y.Doc();
+    expect(() => addPollOption(doc, 'missing', { startsAt: 1 })).toThrow('Poll not found');
+  });
+});
+
+describe('rankPollOptions', () => {
+  it('orders by yes votes, then maybe votes, then original order — numbering every option', () => {
+    const options = [
+      { id: 'opt-a', startsAt: 1 },
+      { id: 'opt-b', startsAt: 2 },
+      { id: 'opt-c', startsAt: 3 },
+      { id: 'opt-d', startsAt: 4 },
+    ];
+    const votes = {
+      'opt-a:u1': 'yes' as const,
+      'opt-b:u1': 'yes' as const,
+      'opt-b:u2': 'yes' as const,
+      'opt-c:u1': 'maybe' as const,
+      // opt-d: no votes at all.
+    };
+
+    expect(rankPollOptions(votes, options)).toEqual([
+      { optionId: 'opt-b', yes: 2, maybe: 0, no: 0, rank: 1 },
+      { optionId: 'opt-a', yes: 1, maybe: 0, no: 0, rank: 2 },
+      { optionId: 'opt-c', yes: 0, maybe: 1, no: 0, rank: 3 },
+      { optionId: 'opt-d', yes: 0, maybe: 0, no: 0, rank: 4 },
+    ]);
+  });
+
+  it('breaks a full tie by original option order', () => {
+    const options = [{ id: 'opt-a', startsAt: 1 }, { id: 'opt-b', startsAt: 2 }];
+    expect(rankPollOptions({}, options).map((r) => r.optionId)).toEqual(['opt-a', 'opt-b']);
   });
 });
 

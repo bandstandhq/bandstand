@@ -36,6 +36,7 @@ export type Action =
   | 'event:edit'
   | 'event:delete'
   | 'poll:create'
+  | 'poll:edit'
   | 'poll:close';
 
 /**
@@ -104,6 +105,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'event:edit': 'admin',
   'event:delete': 'admin',
   'poll:create': 'admin',
+  'poll:edit': 'admin',
   'poll:close': 'admin',
 };
 

@@ -27,7 +27,7 @@ owner.
 | Edit a song's anchor list | ✅ | ✅ | — |
 | Remove a shared annotation layer someone else published | ✅ | ✅ | — |
 | Create, edit, or delete a calendar event | ✅ | ✅ | — |
-| Create or close a scheduling poll | ✅ | ✅ | — |
+| Create, edit, or close a scheduling poll | ✅ | ✅ | — |
 | Respond to your own availability, or vote in a poll ³ | ✅ | ✅ | ✅ |
 
 ¹ An admin can remove a member, but never the owner or another admin.

@@ -554,13 +554,20 @@
     "deleteSeries": "Gesamte Serie löschen",
     "confirmDeleteSeries": "Die gesamte Serie \"{{name}}\" löschen? Dadurch werden alle Termine entfernt — das kann nicht rückgängig gemacht werden.",
     "cancelOccurrence": "Diesen Termin absagen",
-    "confirmCancelOccurrence": "Diesen Termin von \"{{name}}\" absagen? Der Rest der Serie ist davon nicht betroffen."
+    "confirmCancelOccurrence": "Diesen Termin von \"{{name}}\" absagen? Der Rest der Serie ist davon nicht betroffen.",
+    "edit": "Bearbeiten",
+    "editTitle": "Termin bearbeiten",
+    "saveChanges": "Änderungen speichern",
+    "status": "Status",
+    "statusConfirmed": "Bestätigt",
+    "statusTentative": "Vorläufig",
+    "statusCancelled": "Abgesagt"
   },
   "pollDetail": {
     "back": "Zurück zum Kalender",
     "notFound": "Umfrage nicht gefunden.",
     "notes": "Notizen",
-    "bestFit": "Beste Option",
+    "rank": "{{rank}}. Wahl",
     "votesCount": "{{yes}} Ja, {{maybe}} Vielleicht, {{no}} Nein",
     "resolvedTo": "Diese Umfrage ist geschlossen.",
     "viewEvent": "Termin ansehen",
@@ -574,7 +581,12 @@
     "closing": "Wird geschlossen…",
     "delete": "Umfrage löschen",
     "deleting": "Wird gelöscht…",
-    "confirmDelete": "\"{{name}}\" löschen? Das kann nicht rückgängig gemacht werden."
+    "confirmDelete": "\"{{name}}\" löschen? Das kann nicht rückgängig gemacht werden.",
+    "edit": "Bearbeiten",
+    "editTitle": "Umfrage bearbeiten",
+    "saveChanges": "Änderungen speichern",
+    "existingOptions": "Bisherige Vorschläge",
+    "addProposals": "Weitere Vorschläge hinzufügen"
   },
   "unsavedChanges": {
     "title": "Ungespeicherte Änderungen",

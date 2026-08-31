@@ -79,6 +79,27 @@ export function updateEvent(doc: Y.Doc, eventId: string, patch: Partial<Calendar
   doc.getMap('events').set(eventId, updated);
 }
 
+/**
+ * Edits whichever occurrence `occurrenceId` refers to — a real entry (a
+ * plain event, a series template, or an already-materialized exception) is
+ * patched in place via `updateEvent`; a virtual (never-materialized)
+ * occurrence has no entry to patch yet, so a fresh exception is created for
+ * it instead, carrying `patch` as its overrides. Same "real entry wins,
+ * never both" rule `resolveEventOccurrences` already relies on. Editing the
+ * series template itself (`occurrenceId === event.seriesId`) is a template
+ * edit, affecting every occurrence that doesn't already have its own
+ * exception — not a same-occurrence-only edit.
+ */
+export function updateOccurrence(doc: Y.Doc, occurrenceId: string, patch: Partial<NewEventInput>): void {
+  if (doc.getMap('events').has(occurrenceId)) {
+    updateEvent(doc, occurrenceId, patch);
+    return;
+  }
+  const atIndex = occurrenceId.lastIndexOf('@');
+  if (atIndex === -1) throw new Error(`Occurrence not found: ${occurrenceId}`);
+  createSeriesException(doc, occurrenceId.slice(0, atIndex), occurrenceId.slice(atIndex + 1), patch);
+}
+
 function deleteAvailabilityForOccurrence(doc: Y.Doc, occurrenceId: string): void {
   const availability = doc.getMap('availability');
   const prefix = `${occurrenceId}:`;

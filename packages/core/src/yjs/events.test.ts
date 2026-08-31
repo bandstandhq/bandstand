@@ -13,6 +13,7 @@ import {
   listEvents,
   respondAvailability,
   updateEvent,
+  updateOccurrence,
 } from './events';
 
 function baseInput() {
@@ -96,6 +97,56 @@ describe('createSeriesException / cancelOccurrence', () => {
     const doc = new Y.Doc();
     const id = createEvent(doc, baseInput());
     expect(() => createSeriesException(doc, id, '2026-09-14')).toThrow('not a series template');
+  });
+});
+
+describe('updateOccurrence', () => {
+  it('patches a plain event in place, same as updateEvent', () => {
+    const doc = new Y.Doc();
+    const id = createEvent(doc, baseInput());
+
+    updateOccurrence(doc, id, { title: 'Renamed practice' });
+
+    expect(listEvents(doc)[id]).toMatchObject({ title: 'Renamed practice' });
+  });
+
+  it('patches the series template when the occurrence id is the template itself', () => {
+    const doc = new Y.Doc();
+    const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+
+    updateOccurrence(doc, templateId, { location: 'New venue' });
+
+    expect(listEvents(doc)[templateId]).toMatchObject({ location: 'New venue', seriesId: templateId });
+  });
+
+  it('patches an already-materialized exception in place, not the template', () => {
+    const doc = new Y.Doc();
+    const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    const exceptionId = createSeriesException(doc, templateId, '2026-09-14', { title: 'Extra long practice' });
+
+    updateOccurrence(doc, exceptionId, { location: 'Different room' });
+
+    expect(listEvents(doc)[exceptionId]).toMatchObject({ title: 'Extra long practice', location: 'Different room' });
+    expect(listEvents(doc)[templateId]).not.toHaveProperty('location');
+  });
+
+  it('materializes a fresh exception for a virtual (never-created) occurrence', () => {
+    const doc = new Y.Doc();
+    const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    const virtualOccurrenceId = `${templateId}@2026-09-14`;
+    expect(listEvents(doc)[virtualOccurrenceId]).toBeUndefined();
+
+    updateOccurrence(doc, virtualOccurrenceId, { title: 'Extra long practice' });
+
+    const events = listEvents(doc);
+    const created = Object.entries(events).find(([id, e]) => id !== templateId && e.seriesId === templateId);
+    expect(created?.[1]).toMatchObject({ occurrenceDate: '2026-09-14', title: 'Extra long practice' });
+    expect(events[templateId]).toMatchObject({ title: 'Weekly practice' });
+  });
+
+  it('throws for an occurrence id that matches neither a real entry nor a virtual one', () => {
+    const doc = new Y.Doc();
+    expect(() => updateOccurrence(doc, 'not-an-occurrence-id', { title: 'x' })).toThrow('Occurrence not found');
   });
 });
 

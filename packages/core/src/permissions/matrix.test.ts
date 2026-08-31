@@ -33,6 +33,7 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['event:edit', true, true, false],
   ['event:delete', true, true, false],
   ['poll:create', true, true, false],
+  ['poll:edit', true, true, false],
   ['poll:close', true, true, false],
 ];
 

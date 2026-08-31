@@ -7,18 +7,22 @@ import {
   cancelOccurrence,
   can,
   type CalendarEvent,
+  type EventStatus,
+  type EventType,
   findOccurrenceEvent,
   respondAvailability,
+  type Setlist,
   updateEvent,
+  updateOccurrence,
 } from '@bandstand/core';
-import { Button } from '@bandstand/ui';
-import { useEffect, useState } from 'react';
+import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
-import { TrashIcon } from '../components/icons';
+import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -42,6 +46,186 @@ function formatEventWhen(event: CalendarEvent, locale: string): string {
     ? new Intl.DateTimeFormat(locale, { dateStyle: 'full' }).format(end)
     : new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(end);
   return `${startText} – ${endText}`;
+}
+
+// The inverse of CreateEventForm's own (Calendar.tsx) parsing: a
+// datetime-local input's value is local time with no offset, so this uses
+// local getters, not toISOString (UTC) — an all-day date, on the other hand,
+// is parsed there as UTC midnight, so formatting it back with toISOString's
+// UTC date portion is the correct inverse for that one, not a shortcut.
+function toDateTimeLocalValue(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toDateValue(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+const EVENT_STATUS_LABEL_KEY: Record<EventStatus, string> = {
+  confirmed: 'eventDetail.statusConfirmed',
+  tentative: 'eventDetail.statusTentative',
+  cancelled: 'eventDetail.statusCancelled',
+};
+
+/**
+ * Edits whichever occurrence is currently open, via `updateOccurrence` —
+ * never the series' recurrence rule itself (repeat/until), which stays a
+ * create-time-only decision here; changing an existing series' own
+ * recurrence is out of scope for this form.
+ */
+function EditEventForm({
+  doc,
+  event,
+  occurrenceId,
+  setlists,
+  onSaved,
+}: {
+  doc: import('yjs').Doc;
+  event: CalendarEvent;
+  occurrenceId: string;
+  setlists: Record<string, Setlist>;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState(event.title);
+  const [type, setType] = useState<EventType>(event.type);
+  const [allDay, setAllDay] = useState(event.allDay);
+  const [startsAt, setStartsAt] = useState(
+    event.allDay ? toDateValue(event.startsAt) : toDateTimeLocalValue(event.startsAt),
+  );
+  const [endsAt, setEndsAt] = useState(
+    event.endsAt === undefined ? '' : event.allDay ? toDateValue(event.endsAt) : toDateTimeLocalValue(event.endsAt),
+  );
+  const [location, setLocation] = useState(event.location ?? '');
+  const [notes, setNotes] = useState(event.notes ?? '');
+  const [setlistId, setSetlistId] = useState(event.setlistId ?? '');
+  const [status, setStatus] = useState<EventStatus>(event.status);
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !startsAt) return;
+    const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
+    if (Number.isNaN(startMs)) return;
+    const endMs = endsAt
+      ? allDay
+        ? Date.parse(`${endsAt}T23:59:59.999Z`)
+        : new Date(endsAt).getTime()
+      : undefined;
+
+    updateOccurrence(doc, occurrenceId, {
+      type,
+      title: title.trim(),
+      startsAt: startMs,
+      endsAt: endMs !== undefined && !Number.isNaN(endMs) ? endMs : undefined,
+      allDay,
+      location: location.trim() || undefined,
+      notes: notes.trim() || undefined,
+      setlistId: setlistId || undefined,
+      status,
+    });
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.titlePlaceholder')} />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.type')}
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as EventType)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="gig">{t('calendarList.typeGig')}</option>
+            <option value="rehearsal">{t('calendarList.typeRehearsal')}</option>
+            <option value="other">{t('calendarList.typeOther')}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('eventDetail.status')}
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as EventStatus)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            {(Object.keys(EVENT_STATUS_LABEL_KEY) as EventStatus[]).map((s) => (
+              <option key={s} value={s}>
+                {t(EVENT_STATUS_LABEL_KEY[s])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={allDay}
+            onChange={(e) => {
+              const nextAllDay = e.target.checked;
+              setAllDay(nextAllDay);
+              // Switching representations mid-edit would otherwise carry a
+              // stale local-time or UTC-midnight value across into the
+              // other input type — re-derive both from the same instant.
+              const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
+              if (!Number.isNaN(startMs)) setStartsAt(nextAllDay ? toDateValue(startMs) : toDateTimeLocalValue(startMs));
+              if (endsAt) {
+                const endMs = allDay ? Date.parse(`${endsAt}T23:59:59.999Z`) : new Date(endsAt).getTime();
+                if (!Number.isNaN(endMs)) setEndsAt(nextAllDay ? toDateValue(endMs) : toDateTimeLocalValue(endMs));
+              }
+            }}
+          />
+          {t('calendarList.allDay')}
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.startsAt')}
+          <input
+            type={allDay ? 'date' : 'datetime-local'}
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.endsAt')}
+          <input
+            type={allDay ? 'date' : 'datetime-local'}
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </label>
+      </div>
+
+      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('calendarList.location')} />
+      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.notes')} />
+
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        {t('calendarList.linkedSetlist')}
+        <select
+          value={setlistId}
+          onChange={(e) => setSetlistId(e.target.value)}
+          className="h-10 max-w-48 truncate rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="">{t('calendarList.noSetlist')}</option>
+          {Object.entries(setlists).map(([id, setlist]) => (
+            <option key={id} value={id}>
+              {setlist.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <Button type="submit" disabled={!title.trim() || !startsAt}>
+        {t('eventDetail.saveChanges')}
+      </Button>
+    </form>
+  );
 }
 
 function AvailabilityRow({
@@ -89,9 +273,11 @@ export function EventDetail() {
   const { doc, status } = useBandDoc(bandId ?? null);
   const events = useYMap<CalendarEvent>(doc?.getMap('events'));
   const availability = useYMap<AvailabilityAnswer>(doc?.getMap('availability'));
+  const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
   const [members, setMembers] = useState<BandMember[]>([]);
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!bandId) return;
@@ -243,6 +429,17 @@ export function EventDetail() {
 
       {(canEdit || canDelete) && (
         <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditDialogOpen(true)}
+              aria-label={t('eventDetail.edit')}
+              title={t('eventDetail.edit')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+            >
+              <PencilIcon className="h-5 w-5" />
+            </button>
+          )}
           {canEdit && event.seriesId && (
             <button
               type="button"
@@ -280,6 +477,23 @@ export function EventDetail() {
             </button>
           )}
         </div>
+      )}
+
+      {canEdit && doc && (
+        <Dialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          title={t('eventDetail.editTitle')}
+          closeLabel={t('common.close')}
+        >
+          <EditEventForm
+            doc={doc}
+            event={event}
+            occurrenceId={occurrenceId}
+            setlists={setlists}
+            onSaved={() => setEditDialogOpen(false)}
+          />
+        </Dialog>
       )}
     </PageShell>
   );
