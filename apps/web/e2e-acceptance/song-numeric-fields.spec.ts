@@ -26,14 +26,12 @@ test('BPM clamps to 20-400, and duration is entered as minutes and seconds', asy
 
     // A wildly high BPM clamps to the top of the range rather than resetting
     // to a default, and duration is split as 3 min 45 sec, not 225 sec.
+    // Saving a new song lands directly on its own edit page.
     await page.getByLabel('BPM').fill('9000');
     await page.getByLabel('Minutes').fill('3');
     await page.getByLabel('Seconds').fill('45');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page).toHaveURL(/\/repertoire$/);
-
-    await page.getByRole('link', { name: /Edit Numeric Fields Song/i }).click();
-    await page.waitForURL(/\/edit$/);
+    await expect(page).toHaveURL(/\/edit$/);
     await expect(page.getByLabel('BPM')).toHaveValue('400');
     await expect(page.getByLabel('Minutes')).toHaveValue('3');
     await expect(page.getByLabel('Seconds')).toHaveValue('45');

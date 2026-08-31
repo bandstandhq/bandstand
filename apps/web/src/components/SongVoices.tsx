@@ -25,7 +25,7 @@ import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
-import { UnsupportedFileTypeError, uploadFileToBand } from '../lib/uploadFile';
+import { InsecureContextError, UnsupportedFileTypeError, uploadFileToBand } from '../lib/uploadFile';
 
 // Code-split: pdf.js is a large dependency most songs (plain ChordPro)
 // never touch, so it shouldn't sit in the app's main bundle.
@@ -64,7 +64,13 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
       const fileRef = await uploadFileToBand(apiClient, bandId, file);
       createVoice(doc, songId, { name, kind: 'files', files: [fileRef] });
     } catch (err) {
-      setUploadError(err instanceof UnsupportedFileTypeError ? t('songVoices.addVoiceUnsupportedType') : t('songVoices.addVoiceFailed'));
+      setUploadError(
+        err instanceof UnsupportedFileTypeError
+          ? t('songVoices.addVoiceUnsupportedType')
+          : err instanceof InsecureContextError
+            ? t('songVoices.addVoiceInsecureContext')
+            : t('songVoices.addVoiceFailed'),
+      );
     } finally {
       setUploading(false);
     }
@@ -77,110 +83,127 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
   const voices = listVoicesForSong(doc, songId);
   const canEditOthers = viewerRole ? can(viewerRole, 'assignment:editOthers') : false;
 
-  if (voices.length === 0) return null;
-
+  // Collapsed by default (whether this is a song you just created or one
+  // you've had for years) — its content matters but shouldn't push the
+  // fields most edits actually touch further down the page. Previously
+  // this whole section rendered nothing at all once a song had no voices,
+  // which is exactly how it stayed hidden on the songs a member most
+  // needed to find "Add a part" on.
   return (
-    <div className="space-y-4 rounded-md border border-border p-4">
-      <div>
-        <p className="mb-2 text-sm font-medium">{t('songVoices.voicesTitle')}</p>
-        <ul className="space-y-1 text-sm text-muted-foreground">
-          {voices.map(({ id, voice }) => {
-            const chordProSections =
-              voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
-            const progress =
-              anchors.length > 0 ? getAnchorCalibrationProgress(voice, anchors, chordProSections) : null;
+    <details className="group rounded-md border border-border p-4">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium marker:hidden [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">
+          ▸
+        </span>
+        {t('songVoices.voicesTitle', { count: voices.length })}
+      </summary>
+      <div className="mt-4 space-y-4">
+        <div>
+          {voices.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t('songVoices.noVoices')}</p>
+          )}
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {voices.map(({ id, voice }) => {
+              const chordProSections =
+                voice.kind === 'chordpro' ? buildRenderModel(parseChordPro(voice.body)).sections : undefined;
+              const progress =
+                anchors.length > 0 ? getAnchorCalibrationProgress(voice, anchors, chordProSections) : null;
 
-            return (
-              <li key={id}>
-                {voice.kind === 'files' ? (
-                  <button
-                    type="button"
-                    className="w-full rounded-md px-1 py-1 text-left hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
-                  >
-                    {voice.name}
-                    {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
-                    {progress && (
-                      <span className="ml-2 text-xs">
-                        {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <span>
-                    {voice.name}
-                    {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
-                    {progress && (
-                      <span className="ml-2 text-xs">
-                        {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
-                      </span>
-                    )}
-                  </span>
-                )}
-                {voice.kind === 'files' && expandedVoiceId === id && (
-                  <div className="mt-2 max-w-md">
-                    <Suspense fallback={null}>
-                      <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
-                    </Suspense>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        {viewerRole && can(viewerRole, 'file:upload') && (
-          <div className="mt-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              className="hidden"
-              onChange={handleFileSelected}
-            />
-            <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? t('songVoices.addVoiceUploading') : t('songVoices.addVoice')}
-            </Button>
-            {uploadError && <p className="mt-1 text-sm text-destructive">{uploadError}</p>}
+              return (
+                <li key={id}>
+                  {voice.kind === 'files' ? (
+                    <button
+                      type="button"
+                      className="w-full rounded-md px-1 py-1 text-left hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
+                    >
+                      {voice.name}
+                      {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
+                      {progress && (
+                        <span className="ml-2 text-xs">
+                          {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <span>
+                      {voice.name}
+                      {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
+                      {progress && (
+                        <span className="ml-2 text-xs">
+                          {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {voice.kind === 'files' && expandedVoiceId === id && (
+                    <div className="mt-2 max-w-md">
+                      <Suspense fallback={null}>
+                        <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
+                      </Suspense>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {viewerRole && can(viewerRole, 'file:upload') && (
+            <div className="mt-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,image/png,image/jpeg"
+                className="hidden"
+                onChange={handleFileSelected}
+              />
+              <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+                {uploading ? t('songVoices.addVoiceUploading') : t('songVoices.addVoice')}
+              </Button>
+              <p className="mt-1 text-xs text-muted-foreground">{t('songVoices.addVoiceHint')}</p>
+              {uploadError && <p className="mt-1 text-sm text-destructive">{uploadError}</p>}
+            </div>
+          )}
+        </div>
+
+        {voices.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium">{t('songVoices.assignmentsTitle')}</p>
+            <ul className="space-y-2 text-sm">
+              {members.map((member) => {
+                const isSelf = member.userId === currentUserId;
+                const canEdit = isSelf || canEditOthers;
+                const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
+                const isGuessed = getAssignment(doc, songId, member.userId) === undefined;
+
+                return (
+                  <li key={member.userId} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <span className="wrap-break-word">{member.name}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canEdit ? (
+                        <select
+                          aria-label={t('songVoices.assignmentFor', { name: member.name })}
+                          value={assignedVoiceId ?? ''}
+                          onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
+                          className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-2 text-xs"
+                        >
+                          {voices.map(({ id, voice }) => (
+                            <option key={id} value={id}>
+                              {voice.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
+                      )}
+                      {isGuessed && <span className="text-xs text-muted-foreground">{t('songVoices.guessed')}</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </div>
-
-      <div>
-        <p className="mb-2 text-sm font-medium">{t('songVoices.assignmentsTitle')}</p>
-        <ul className="space-y-2 text-sm">
-          {members.map((member) => {
-            const isSelf = member.userId === currentUserId;
-            const canEdit = isSelf || canEditOthers;
-            const assignedVoiceId = getAssignedVoiceId(doc, songId, member.userId, member.instruments);
-            const isGuessed = getAssignment(doc, songId, member.userId) === undefined;
-
-            return (
-              <li key={member.userId} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <span className="wrap-break-word">{member.name}</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canEdit ? (
-                    <select
-                      aria-label={t('songVoices.assignmentFor', { name: member.name })}
-                      value={assignedVoiceId ?? ''}
-                      onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
-                      className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-2 text-xs"
-                    >
-                      {voices.map(({ id, voice }) => (
-                        <option key={id} value={id}>
-                          {voice.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
-                  )}
-                  {isGuessed && <span className="text-xs text-muted-foreground">{t('songVoices.guessed')}</span>}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </div>
+    </details>
   );
 }

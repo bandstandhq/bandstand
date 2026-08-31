@@ -25,6 +25,15 @@ async function countPages(file: File): Promise<number> {
 
 export class UnsupportedFileTypeError extends Error {}
 
+// `crypto.subtle` (needed below, for the content hash) is only exposed by
+// browsers in a secure context — https://, or http://localhost — never on a
+// plain http:// origin, which is exactly how this app is normally reached
+// over a home/rehearsal LAN (e.g. http://192.168.x.x:5173). Without this
+// check, sha256Hex's own `crypto.subtle.digest(...)` call throws a bare
+// TypeError that the generic catch below would show as a misleading
+// "try again" — retrying identically fails every time on that origin.
+export class InsecureContextError extends Error {}
+
 /**
  * Uploads `file` to `bandId`'s content store if it isn't already there, and
  * returns the `FileRef` to attach to a voice. Never re-uploads a hash the
@@ -33,6 +42,9 @@ export class UnsupportedFileTypeError extends Error {}
 export async function uploadFileToBand(apiClient: ApiClient, bandId: string, file: File): Promise<FileRef> {
   if (!isAllowedFileMimeType(file.type)) {
     throw new UnsupportedFileTypeError(`Unsupported file type: ${file.type}`);
+  }
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    throw new InsecureContextError('crypto.subtle is unavailable outside a secure context (https:// or http://localhost).');
   }
 
   const bytes = await file.arrayBuffer();
