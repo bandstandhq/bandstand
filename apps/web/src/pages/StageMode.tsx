@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  addSetlistItem,
   anchorsKey,
   applyAnchorToChordProPosition,
   applyAnchorToFilesPosition,
   applyPageSyncPosition,
-  buildBreakItem,
-  buildFinaleItem,
-  buildSongItem,
   computeCurrentAnchorInChordPro,
   computeCurrentAnchorInFiles,
   computePageSyncPosition,
@@ -17,8 +13,6 @@ import {
   isPageSyncAnchorId,
   itemsKey,
   matchAnchorsToChordProSections,
-  moveSetlistItem,
-  removeSetlistItem,
   resolveKnownAnchor,
   setVoiceAnchorPosition,
   stageAwarenessSchema,
@@ -46,6 +40,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
@@ -490,129 +485,6 @@ function LernmodusPanel({
   );
 }
 
-function itemLabel(
-  t: (key: string, opts?: Record<string, unknown>) => string,
-  item: SetlistItem,
-  songs: Record<string, Song>,
-): string {
-  if (item.type === 'song') return songs[item.songId]?.title ?? item.songId;
-  if (item.type === 'break') return t('stageMode.breakMinutes', { minutes: item.breakMinutes });
-  return t('stageMode.finale');
-}
-
-function EditSetlistPanel({
-  isDark,
-  doc,
-  setlistId,
-  items,
-  songs,
-  onClose,
-}: {
-  isDark: boolean;
-  doc: Y.Doc;
-  setlistId: string;
-  items: SetlistItem[];
-  songs: Record<string, Song>;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [pickedSongId, setPickedSongId] = useState('');
-  const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
-  const rowClass = isDark ? 'border-white/10' : 'border-black/10';
-  const buttonBase = 'rounded-md px-2 py-1 text-xs';
-  const hoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
-  const poolSongs = Object.entries(songs).filter(([, song]) => song.status === 'active');
-
-  function handleAddSong() {
-    if (!pickedSongId) return;
-    addSetlistItem(doc, setlistId, buildSongItem(pickedSongId));
-    setPickedSongId('');
-  }
-
-  return (
-    <div className={`absolute right-4 top-16 z-10 w-72 space-y-3 rounded-md border p-4 ${panelClass}`}>
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">{t('stageMode.editSetlist')}</p>
-        <button type="button" onClick={onClose} className="text-xs opacity-70 hover:opacity-100">
-          {t('stageMode.close')}
-        </button>
-      </div>
-
-      <ul className="max-h-60 space-y-1 overflow-y-auto">
-        {items.map((item, index) => (
-          <li key={item.id} className={`flex items-center justify-between border-b py-1 text-sm ${rowClass}`}>
-            <span className="flex-1 truncate">{itemLabel(t, item, songs)}</span>
-            <span className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                disabled={index === 0}
-                onClick={() => moveSetlistItem(doc, setlistId, item.id, index - 1)}
-                aria-label={t('stageMode.moveUp')}
-                className={`${buttonBase} ${hoverClass} disabled:opacity-30`}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                disabled={index === items.length - 1}
-                onClick={() => moveSetlistItem(doc, setlistId, item.id, index + 1)}
-                aria-label={t('stageMode.moveDown')}
-                className={`${buttonBase} ${hoverClass} disabled:opacity-30`}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => removeSetlistItem(doc, setlistId, item.id)}
-                aria-label={t('stageMode.removeItem')}
-                className={`${buttonBase} ${hoverClass}`}
-              >
-                ✕
-              </button>
-            </span>
-          </li>
-        ))}
-        {items.length === 0 && <li className="py-1 text-xs opacity-70">{t('stageMode.setlistEmpty')}</li>}
-      </ul>
-
-      <div className="flex gap-1">
-        <select
-          value={pickedSongId}
-          onChange={(e) => setPickedSongId(e.target.value)}
-          className={`h-8 flex-1 rounded-md border bg-transparent px-1 text-xs ${rowClass}`}
-        >
-          <option value="">{t('stageMode.addSong')}</option>
-          {poolSongs.map(([songId, song]) => (
-            <option key={songId} value={songId}>
-              {song.title}
-            </option>
-          ))}
-        </select>
-        <button type="button" disabled={!pickedSongId} onClick={handleAddSong} className={`${buttonBase} ${hoverClass} disabled:opacity-30`}>
-          {t('stageMode.add')}
-        </button>
-      </div>
-
-      <div className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => addSetlistItem(doc, setlistId, buildBreakItem(15))}
-          className={`${buttonBase} border ${rowClass} ${hoverClass}`}
-        >
-          {t('setlistDetail.addBreak')}
-        </button>
-        <button
-          type="button"
-          onClick={() => addSetlistItem(doc, setlistId, buildFinaleItem())}
-          className={`${buttonBase} border ${rowClass} ${hoverClass}`}
-        >
-          {t('setlistDetail.addFinale')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 const EMPTY_SONG_NOTE: SongNote = { notes: '', checklist: [] };
 
 /**
@@ -818,7 +690,6 @@ export function StageMode() {
   const [showLernmodusPanel, setShowLernmodusPanel] = useState(false);
   const [anchorProposals, setAnchorProposals] = useState<Record<string, { fileIndex: number; pageNumberInFile: number }>>({});
   const lastRecordedAnchorIdRef = useRef<string | null>(null);
-  const [showEditSetlist, setShowEditSetlist] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   // Landscape is the real-world way this gets used mid-song (see
   // docs/... mobile-usability pass) — a phone turned sideways has so little
@@ -1318,10 +1189,19 @@ export function StageMode() {
       </button>
 
       {chromeVisible && (
-      <div className="flex flex-wrap items-center justify-between gap-2 p-4 pt-10">
-        <Button type="button" variant="ghost" onClick={handleExit} className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}>
-          {t('stageMode.exit')}
-        </Button>
+        <button
+          type="button"
+          onClick={handleExit}
+          aria-label={t('stageMode.exit')}
+          title={t('stageMode.exit')}
+          className={`absolute right-4 top-1 z-20 flex h-8 w-8 items-center justify-center rounded-full ${chromeHoverClass} ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
+      )}
+
+      {chromeVisible && (
+      <div className="flex flex-wrap items-center gap-2 p-4 pt-10">
         <div className="flex flex-wrap items-center gap-3">
           {items.length > 0 && (
             <span className={`text-sm ${mutedClass}`}>
@@ -1435,44 +1315,37 @@ export function StageMode() {
               {learningFromUserId ? t('stageMode.lernmodusLearningFrom', { name: memberNames[learningFromUserId] ?? learningFromUserId }) : t('stageMode.lernmodus')}
             </Button>
           )}
-          {!singleSongMode && doc && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowEditSetlist((v) => !v)}
-              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
-            >
-              {t('stageMode.editSetlist')}
-            </Button>
-          )}
           {bandId && currentSongId && (
-            <Button
+            <button
               type="button"
-              variant="ghost"
               onClick={() => navigate(`/bands/${bandId}/songs/${currentSongId}/edit`)}
-              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+              aria-label={t('stageMode.editSong')}
+              title={t('stageMode.editSong')}
+              className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
             >
-              {t('stageMode.editSong')}
-            </Button>
+              <PencilIcon className="h-5 w-5" />
+            </button>
           )}
           {currentSong && (
-            <Button
+            <button
               type="button"
-              variant="ghost"
               onClick={() => setShowNotes((v) => !v)}
-              className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+              aria-label={t('stageMode.notes')}
+              title={t('stageMode.notes')}
+              className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
             >
-              {t('stageMode.notes')}
-            </Button>
+              <NoteIcon className="h-5 w-5" />
+            </button>
           )}
-          <Button
+          <button
             type="button"
-            variant="ghost"
             onClick={() => setShowSettings((v) => !v)}
-            className={`${isDark ? 'text-white' : 'text-black'} ${chromeHoverClass}`}
+            aria-label={t('stageMode.settings')}
+            title={t('stageMode.settings')}
+            className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
           >
-            {t('stageMode.settings')}
-          </Button>
+            <GearIcon className="h-5 w-5" />
+          </button>
         </div>
       </div>
       )}
@@ -1510,17 +1383,6 @@ export function StageMode() {
           onAccept={handleAcceptProposal}
           onDiscard={handleDiscardProposal}
           onClose={() => setShowLernmodusPanel(false)}
-        />
-      )}
-
-      {showEditSetlist && doc && setlistId && (
-        <EditSetlistPanel
-          isDark={isDark}
-          doc={doc}
-          setlistId={setlistId}
-          items={items}
-          songs={songs}
-          onClose={() => setShowEditSetlist(false)}
         />
       )}
 

@@ -21,6 +21,7 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
+import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
@@ -29,25 +30,6 @@ import { authClient } from '../lib/auth-client';
 
 type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea' | 'active'>;
 type RepertoireView = 'active' | 'archive';
-
-/** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
 
 /**
  * "Before a gig it's clear where it's stuck" (see docs/adr/0010-anchor-sync.md)
@@ -167,9 +149,11 @@ export function Repertoire() {
           <button
             type="button"
             onClick={() => setDeleteTarget({ songId, song })}
-            className="relative text-sm text-destructive hover:underline"
+            aria-label={t('repertoire.deleteForever.action')}
+            title={t('repertoire.deleteForever.action')}
+            className="relative -my-2.5 flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
           >
-            {t('repertoire.deleteForever.action')}
+            <TrashIcon className="h-5 w-5" />
           </button>
         )}
       </>
@@ -269,7 +253,7 @@ export function Repertoire() {
                   aria-label={t('repertoire.editAria', { title: song.title })}
                   className="relative -mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                 >
-                  <PencilIcon />
+                  <PencilIcon className="h-4 w-4" />
                 </Link>
               </div>
               <p className="wrap-break-word text-sm text-muted-foreground">
@@ -334,7 +318,7 @@ export function Repertoire() {
                       aria-label={t('repertoire.editAria', { title: song.title })}
                       className="relative ml-1 inline-flex h-11 w-11 -translate-y-0.5 items-center justify-center align-middle text-muted-foreground hover:text-foreground"
                     >
-                      <PencilIcon />
+                      <PencilIcon className="h-4 w-4" />
                     </Link>
                   </td>
                   <td className="py-2 pr-4 wrap-break-word">{song.artist}</td>

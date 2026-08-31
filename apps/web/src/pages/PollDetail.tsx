@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -239,9 +240,11 @@ export function PollDetail() {
             type="button"
             disabled={deleting}
             onClick={() => void handleDelete()}
-            className="text-sm text-destructive hover:underline disabled:opacity-50"
+            aria-label={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
+            title={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
+            className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
           >
-            {deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
+            <TrashIcon className="h-5 w-5" />
           </button>
         </div>
       )}

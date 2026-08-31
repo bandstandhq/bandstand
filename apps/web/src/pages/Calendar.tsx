@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { BarChartIcon, CalendarIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
@@ -409,6 +410,7 @@ function CreateEventForm({
       </div>
 
       <Button type="submit" disabled={!title.trim() || !startsAt}>
+        <CalendarIcon className="h-4 w-4" />
         {t('calendarList.create')}
       </Button>
     </form>
@@ -499,6 +501,7 @@ function CreatePollForm({ doc }: { doc: import('yjs').Doc }) {
         </Button>
       </div>
       <Button type="submit" disabled={!title.trim() || optionStarts.every((s) => !s)}>
+        <BarChartIcon className="h-4 w-4" />
         {t('calendarList.createPoll')}
       </Button>
     </form>

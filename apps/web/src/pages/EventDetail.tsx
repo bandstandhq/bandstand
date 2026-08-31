@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -251,9 +252,11 @@ export function EventDetail() {
               type="button"
               disabled={deleting}
               onClick={() => void handleDelete()}
-              className="text-sm text-destructive hover:underline disabled:opacity-50"
+              aria-label={deleting ? t('eventDetail.deleting') : t('eventDetail.delete')}
+              title={deleting ? t('eventDetail.deleting') : t('eventDetail.delete')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              {deleting ? t('eventDetail.deleting') : t('eventDetail.delete')}
+              <TrashIcon className="h-5 w-5" />
             </button>
           )}
           {canDelete && event.seriesId && (
@@ -261,9 +264,11 @@ export function EventDetail() {
               type="button"
               disabled={deleting}
               onClick={() => void handleDeleteSeries()}
-              className="text-sm text-destructive hover:underline disabled:opacity-50"
+              aria-label={t('eventDetail.deleteSeries')}
+              title={t('eventDetail.deleteSeries')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              {t('eventDetail.deleteSeries')}
+              <TrashIcon className="h-5 w-5" />
             </button>
           )}
         </div>
