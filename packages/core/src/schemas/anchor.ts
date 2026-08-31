@@ -15,7 +15,8 @@ export const anchorSchema = z.object({
   // (nearest-known-anchor fallback, ChordPro/files calibration progress)
   // walks. Not necessarily contiguous; only relative order matters.
   order: z.number().int().nonnegative(),
-  bar: z.number().int().positive().optional(),
+  // 9999 comfortably covers even a very long piece measured in bars.
+  bar: z.number().int().positive().max(9999).optional(),
   timeMs: z.number().nonnegative().optional(),
 });
 

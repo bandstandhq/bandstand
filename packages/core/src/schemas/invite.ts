@@ -10,8 +10,9 @@ export const createInviteInputSchema = z.strictObject({
   label: z.string().min(1),
   instrument: z.string().min(1).optional(),
   role: bandRoleSchema,
-  // Defaults to 7 days server-side when omitted.
-  expiresInDays: z.number().int().positive().optional(),
+  // Defaults to 7 days server-side when omitted. 365 is generous for a
+  // one-time invite without leaving an effectively-forever-valid code.
+  expiresInDays: z.number().int().positive().max(365).optional(),
 });
 export type CreateInviteInput = z.infer<typeof createInviteInputSchema>;
 
