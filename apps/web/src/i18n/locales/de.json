@@ -351,16 +351,19 @@
     "transposeSemitones": "{{semitones}} Halbtöne"
   },
   "songVoices": {
-    "voicesTitle": "Stimmen",
+    "voicesTitle": "Stimmen ({{count}})",
+    "noVoices": "Noch keine Stimmen.",
     "kindChordpro": "ChordPro",
     "kindFiles": "Dateien",
     "assignmentsTitle": "Wer spielt was",
     "assignmentFor": "Stimme für {{name}}",
     "guessed": "(aus Instrument geschätzt)",
     "addVoice": "Stimme hinzufügen (PDF oder Bild)",
+    "addVoiceHint": "Ein PDF kann mehrere Seiten haben — so fügst du auch eine komplette Partitur hinzu.",
     "addVoiceUploading": "Wird hochgeladen…",
     "addVoiceNamePrompt": "Benenne diese Stimme (z. B. \"Trompete in B\")",
     "addVoiceUnsupportedType": "Nur PDF-, PNG- und JPEG-Dateien werden unterstützt.",
+    "addVoiceInsecureContext": "Uploads brauchen eine sichere Verbindung. Das funktioniert über https:// oder http://localhost — aber nicht über eine reine http://-Adresse wie eine LAN-IP (z. B. 192.168.x.x). Bitte diejenige Person, die den Server verwaltet, HTTPS für den Zugriff per Telefon/LAN einzurichten.",
     "addVoiceFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
     "anchorProgress": "({{done}} von {{total}} Ankern gesetzt)"
   },

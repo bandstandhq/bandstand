@@ -351,16 +351,19 @@
     "transposeSemitones": "{{semitones}} semitones"
   },
   "songVoices": {
-    "voicesTitle": "Voices",
+    "voicesTitle": "Voices ({{count}})",
+    "noVoices": "No parts yet.",
     "kindChordpro": "ChordPro",
     "kindFiles": "Files",
     "assignmentsTitle": "Who plays what",
     "assignmentFor": "Voice for {{name}}",
     "guessed": "(guessed from instrument)",
     "addVoice": "Add a part (PDF or image)",
+    "addVoiceHint": "A PDF can have multiple pages — this is also how you add a full score.",
     "addVoiceUploading": "Uploading…",
     "addVoiceNamePrompt": "Name this part (e.g. \"Trumpet in B\")",
     "addVoiceUnsupportedType": "Only PDF, PNG, and JPEG files are supported.",
+    "addVoiceInsecureContext": "Uploads need a secure connection. This works over https://, or http://localhost — but not a plain http:// address like a LAN IP (e.g. 192.168.x.x). Ask whoever manages the server to set up HTTPS for phone/LAN access.",
     "addVoiceFailed": "Upload failed. Please try again.",
     "anchorProgress": "({{done}} of {{total}} anchors set)"
   },

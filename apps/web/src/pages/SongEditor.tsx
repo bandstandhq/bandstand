@@ -268,7 +268,13 @@ export function SongEditor() {
     const safeDurationSec = Number.isFinite(durationSec) && durationSec >= 0 ? Math.round(durationSec) : 180;
     try {
       if (isNew) {
-        addSong(doc, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, status, bandNotes, body });
+        const newSongId = addSong(doc, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, status, bandNotes, body });
+        // Straight into editing the song just created, not back to the list
+        // — that's the only way to reach the Voices section below (it needs
+        // a real songId to attach a file to), and landing there immediately
+        // is what makes "add a Full Score" discoverable right after
+        // creating a song instead of a separate, unguided step.
+        navigate(`/bands/${bandId}/songs/${newSongId}/edit`);
       } else if (songId && voiceId) {
         updateSong(doc, songId, { title: title.trim(), artist: artist.trim(), key, bpm: safeBpm, durationSec: safeDurationSec, bandNotes });
         setSongStatus(doc, songId, status);
@@ -280,8 +286,8 @@ export function SongEditor() {
         // shouldn't depend on. Every save of a song whose default voice is
         // a PDF wrote a pointless extra Yjs update for nothing.
         if (existingVoice?.kind === 'chordpro') updateVoiceBody(doc, voiceId, body);
+        navigate(`/bands/${bandId}/repertoire`);
       }
-      navigate(`/bands/${bandId}/repertoire`);
     } catch {
       setError(t('songEditor.saveError'));
     }

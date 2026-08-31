@@ -36,11 +36,13 @@ test('creating a song names the specific missing field instead of a generic mess
     await expect(page).toHaveURL(/\/songs\/new$/);
 
     // Title + Artist filled, everything else left at its default (BPM,
-    // duration, key, status) — this alone must be enough to save.
+    // duration, key, status) — this alone must be enough to save. Saving a
+    // new song lands on its own edit page (not back on the list) — see
+    // SongEditor's own comment on why.
     await page.getByLabel('Artist').fill('Test Artist');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page).toHaveURL(/\/repertoire$/);
-    await expect(page.getByText('Test Song')).toBeVisible();
+    await expect(page).toHaveURL(/\/edit$/);
+    await expect(page.getByLabel('Title')).toHaveValue('Test Song');
   } finally {
     await deleteThrowawayBand(token, bandId);
   }
