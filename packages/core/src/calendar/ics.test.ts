@@ -93,4 +93,64 @@ describe('buildIcsFeed', () => {
     expect(ics).toContain('BEGIN:VCALENDAR');
     expect(ics).toContain('END:VCALENDAR');
   });
+
+  describe('recurring series (point 7: RRULE, not one VEVENT per generated occurrence)', () => {
+    it('emits a single VEVENT with an RRULE for a weekly series, not one per date', () => {
+      const ics = buildIcsFeed([baseEntry({ recurrence: { freq: 'weekly' } })]);
+      expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+      expect(ics).toContain('RRULE:FREQ=WEEKLY');
+    });
+
+    it('maps biweekly and every4weeks onto FREQ=WEEKLY with the matching INTERVAL', () => {
+      expect(buildIcsFeed([baseEntry({ recurrence: { freq: 'biweekly' } })])).toContain('RRULE:FREQ=WEEKLY;INTERVAL=2');
+      expect(buildIcsFeed([baseEntry({ recurrence: { freq: 'every4weeks' } })])).toContain('RRULE:FREQ=WEEKLY;INTERVAL=4');
+    });
+
+    it('maps monthlyByWeekday onto FREQ=MONTHLY;BYDAY=<ordinal><weekday>, derived from DTSTART', () => {
+      // 2026-09-10 is a Thursday, the second one of September 2026.
+      const ics = buildIcsFeed([baseEntry({ startsAt: Date.parse('2026-09-10T18:00:00.000Z'), recurrence: { freq: 'monthlyByWeekday' } })]);
+      expect(ics).toContain('RRULE:FREQ=MONTHLY;BYDAY=2TH');
+    });
+
+    it('maps legacy monthly onto plain FREQ=MONTHLY', () => {
+      const ics = buildIcsFeed([baseEntry({ recurrence: { freq: 'monthly' } })]);
+      expect(ics).toContain('RRULE:FREQ=MONTHLY');
+      expect(ics).not.toContain('BYDAY');
+    });
+
+    it('appends UNTIL, as a plain date for an all-day series and end-of-day UTC otherwise', () => {
+      const timed = buildIcsFeed([baseEntry({ recurrence: { freq: 'weekly', until: '2026-12-31' } })]);
+      expect(timed).toContain('RRULE:FREQ=WEEKLY;UNTIL=20261231T235959Z');
+
+      const allDay = buildIcsFeed([baseEntry({ allDay: true, recurrence: { freq: 'weekly', until: '2026-12-31' } })]);
+      expect(allDay).toContain('RRULE:FREQ=WEEKLY;UNTIL=20261231');
+    });
+
+    it('an exception shares the template\'s UID and carries RECURRENCE-ID for the original slot, not its own new time', () => {
+      const ics = buildIcsFeed([
+        baseEntry({ uid: 'band-1:template-1', recurrence: { freq: 'weekly' } }),
+        baseEntry({
+          uid: 'band-1:template-1',
+          title: 'Moved to a bigger room',
+          startsAt: Date.parse('2026-09-17T19:00:00.000Z'), // moved an hour later
+          recurrenceId: Date.parse('2026-09-17T18:00:00.000Z'), // the original slot
+        }),
+      ]);
+      expect(ics.match(/UID:band-1:template-1/g)).toHaveLength(2);
+      expect(ics).toContain('RECURRENCE-ID:20260917T180000Z');
+      expect(ics).toContain('DTSTART:20260917T190000Z');
+    });
+
+    it('a cancelled exception still carries STATUS:CANCELLED, same as a plain cancelled event', () => {
+      const ics = buildIcsFeed([
+        baseEntry({
+          uid: 'band-1:template-1',
+          status: 'cancelled',
+          recurrenceId: Date.parse('2026-09-17T18:00:00.000Z'),
+        }),
+      ]);
+      expect(ics).toContain('STATUS:CANCELLED');
+      expect(ics).toContain('RECURRENCE-ID:20260917T180000Z');
+    });
+  });
 });

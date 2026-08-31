@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import type { CalendarEvent } from '../schemas/event';
-import { findOccurrenceEvent, resolveEventOccurrences } from './eventSeries';
+import { findOccurrenceEvent, resolveEventOccurrences, resolveTemplateGeneratedStartsAt } from './eventSeries';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -199,5 +199,92 @@ describe('findOccurrenceEvent', () => {
   it('returns undefined for an unknown id', () => {
     expect(findOccurrenceEvent({}, 'missing')).toBeUndefined();
     expect(findOccurrenceEvent({}, 'missing@2026-01-12')).toBeUndefined();
+  });
+});
+
+function weekdayOf(iso: string): number {
+  return new Date(`${iso}T00:00:00.000Z`).getUTCDay();
+}
+
+describe('recurrence lands on the same weekday every time (point 7: verify weekly/biweekly, extend to every4weeks/monthlyByWeekday)', () => {
+  it('weekly never drifts off its start weekday, month after month', () => {
+    const events = { 'series-1': template({ startsAt: Date.parse('2026-01-05T18:00:00.000Z') }) }; // a Monday
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-06-01')).map((o) => o.date);
+    expect(dates.length).toBeGreaterThan(10);
+    expect(dates.every((d) => weekdayOf(d) === 1)).toBe(true); // Monday every time
+  });
+
+  it('biweekly never drifts off its start weekday either', () => {
+    const events = { 'series-1': template({ startsAt: Date.parse('2026-01-06T18:00:00.000Z'), seriesRule: { freq: 'biweekly' } }) }; // a Tuesday
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-06-01')).map((o) => o.date);
+    expect(dates.length).toBeGreaterThan(5);
+    expect(dates.every((d) => weekdayOf(d) === 2)).toBe(true); // Tuesday every time
+  });
+
+  it('every4weeks lands on the same weekday every time, unlike legacy monthly', () => {
+    const events = {
+      'series-1': template({ startsAt: Date.parse('2026-01-07T18:00:00.000Z'), seriesRule: { freq: 'every4weeks' } }), // a Wednesday
+    };
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-12-01')).map((o) => o.date);
+    expect(dates.length).toBeGreaterThan(8);
+    expect(dates.every((d) => weekdayOf(d) === 3)).toBe(true); // Wednesday every time
+    expect(dates).toEqual(['2026-01-07', '2026-02-04', '2026-03-04', '2026-04-01', '2026-04-29', '2026-05-27', '2026-06-24', '2026-07-22', '2026-08-19', '2026-09-16', '2026-10-14', '2026-11-11']);
+  });
+
+  it('monthlyByWeekday re-derives "the Nth weekday" from the template\'s own start date and lands on it every month', () => {
+    // 2026-01-05 is the first Monday of January.
+    const events = {
+      'series-1': template({ startsAt: Date.parse('2026-01-05T18:00:00.000Z'), seriesRule: { freq: 'monthlyByWeekday' } }),
+    };
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-07-01')).map((o) => o.date);
+    // The first Monday of each month, Jan through Jun 2026.
+    expect(dates).toEqual(['2026-01-05', '2026-02-02', '2026-03-02', '2026-04-06', '2026-05-04', '2026-06-01']);
+    expect(dates.every((d) => weekdayOf(d) === 1)).toBe(true);
+  });
+
+  it('monthlyByWeekday also works for a later ordinal, matching "jeden zweiten Dienstag"', () => {
+    // 2026-01-13 is the second Tuesday of January.
+    const events = {
+      'series-1': template({ startsAt: Date.parse('2026-01-13T18:00:00.000Z'), seriesRule: { freq: 'monthlyByWeekday' } }),
+    };
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-05-01')).map((o) => o.date);
+    expect(dates).toEqual(['2026-01-13', '2026-02-10', '2026-03-10', '2026-04-14']);
+    expect(dates.every((d) => weekdayOf(d) === 2)).toBe(true);
+  });
+
+  it('monthlyByWeekday falls back to the last occurrence in a month too short for a rare 5th one', () => {
+    // 2026-01-30 is the fifth Friday of January 2026 — most months only have four Fridays.
+    const events = {
+      'series-1': template({ startsAt: Date.parse('2026-01-30T18:00:00.000Z'), seriesRule: { freq: 'monthlyByWeekday' } }),
+    };
+    const dates = resolveEventOccurrences(events, Date.parse('2026-01-01'), Date.parse('2026-04-01')).map((o) => o.date);
+    // February 2026 has only four Fridays — lands on the last one, not a skip or an overflow into March.
+    expect(dates).toEqual(['2026-01-30', '2026-02-27', '2026-03-27']);
+    expect(dates.every((d) => weekdayOf(d) === 5)).toBe(true);
+  });
+});
+
+describe('resolveTemplateGeneratedStartsAt', () => {
+  it('returns the unmodified generated time for a date the template actually lands on', () => {
+    const t = template({ startsAt: Date.parse('2026-01-05T18:00:00.000Z') }); // weekly, Mondays
+    expect(resolveTemplateGeneratedStartsAt(t, '2026-01-19')).toBe(Date.parse('2026-01-19T18:00:00.000Z'));
+  });
+
+  it('is unaffected by an exception\'s own, different time — it always describes the original slot', () => {
+    // Simulates the caller passing the template itself, never the exception —
+    // this only proves the function ignores any exception, since it never
+    // receives one.
+    const t = template({ startsAt: Date.parse('2026-01-05T18:00:00.000Z') });
+    expect(resolveTemplateGeneratedStartsAt(t, '2026-01-12')).toBe(Date.parse('2026-01-12T18:00:00.000Z'));
+  });
+
+  it('returns undefined for a date the template never actually generates', () => {
+    const t = template({ startsAt: Date.parse('2026-01-05T18:00:00.000Z') }); // weekly, Mondays
+    expect(resolveTemplateGeneratedStartsAt(t, '2026-01-06')).toBeUndefined(); // a Tuesday, never generated
+  });
+
+  it('returns undefined for a non-series event', () => {
+    const plain: CalendarEvent = { type: 'gig', title: 'One-off', startsAt: 1, allDay: false, status: 'confirmed' };
+    expect(resolveTemplateGeneratedStartsAt(plain, '2026-01-06')).toBeUndefined();
   });
 });

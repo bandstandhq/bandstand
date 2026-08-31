@@ -26,18 +26,56 @@ function toIsoDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+/**
+ * The day-of-month of the `ordinal`-th `weekday` in `year`/`month` (0-indexed
+ * month, 0=Sunday..6=Saturday) — e.g. ordinal=2, weekday=Tuesday gives the
+ * date of the second Tuesday. `ordinal` is clamped down to the last
+ * occurrence in the month if the month doesn't have that many (only ever
+ * matters for ordinal 5, since every month has at least four of any given
+ * weekday) — a start date that happened to fall on a rare fifth occurrence
+ * still generates something every following month, rather than skipping
+ * short months entirely.
+ */
+function nthWeekdayOfMonthDay(year: number, month: number, weekday: number, ordinal: number): number {
+  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const firstOccurrence = 1 + ((weekday - firstWeekday + 7) % 7);
+  const day = firstOccurrence + (ordinal - 1) * 7;
+  return day > daysInMonth ? day - 7 : day;
+}
+
+/**
+ * Which occurrence-of-the-month `date` is, for its own weekday — the true
+ * ordinal (up to 5), never pre-clamped to 4: clamping here too, on top of
+ * `nthWeekdayOfMonthDay`'s own clamp for a target month that's too short,
+ * would make `n=0` (the template's own start date, in its own month) land
+ * on the wrong day whenever that start date was itself the month's fifth
+ * occurrence of its weekday.
+ */
+function ordinalOfWeekdayInMonth(date: Date): number {
+  return Math.ceil(date.getUTCDate() / 7);
+}
+
 function advanceByN(startMs: number, freq: SeriesRule['freq'], n: number): number {
   const date = new Date(startMs);
   if (freq === 'weekly') {
     date.setUTCDate(date.getUTCDate() + 7 * n);
   } else if (freq === 'biweekly') {
     date.setUTCDate(date.getUTCDate() + 14 * n);
+  } else if (freq === 'every4weeks') {
+    date.setUTCDate(date.getUTCDate() + 28 * n);
+  } else if (freq === 'monthlyByWeekday') {
+    const weekday = date.getUTCDay();
+    const ordinal = ordinalOfWeekdayInMonth(date);
+    const targetMonth = date.getUTCMonth() + n;
+    const day = nthWeekdayOfMonthDay(date.getUTCFullYear(), targetMonth, weekday, ordinal);
+    date.setUTCFullYear(date.getUTCFullYear(), targetMonth, day);
   } else {
-    // setUTCMonth on a date whose day-of-month doesn't exist in the target
-    // month rolls forward into the month after (e.g. Jan 31 + 1 "month"
-    // lands on Mar 3, skipping February's 28 days entirely) — clamping to
-    // the target month's last day instead keeps every occurrence in the
-    // month it was actually meant to land in.
+    // Legacy 'monthly' — setUTCMonth on a date whose day-of-month doesn't
+    // exist in the target month rolls forward into the month after (e.g.
+    // Jan 31 + 1 "month" lands on Mar 3, skipping February's 28 days
+    // entirely) — clamping to the target month's last day instead keeps
+    // every occurrence in the month it was actually meant to land in.
     const day = date.getUTCDate();
     date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() + n);
@@ -51,12 +89,12 @@ function advanceByN(startMs: number, freq: SeriesRule['freq'], n: number): numbe
  * The smallest `n >= 0` with `advanceByN(startMs, freq, n) >= targetMs`.
  * Jumps to a direct estimate first (so a target far in the future costs one
  * division, not thousands of one-step iterations), then makes a small,
- * bounded correction for monthly's variable day count — weekly/biweekly are
- * exact, so that correction loop runs zero times for them.
+ * bounded correction for monthly's variable day count — weekly/biweekly/
+ * every4weeks are exact, so that correction loop runs zero times for them.
  */
 function firstOccurrenceIndexAtOrAfter(startMs: number, freq: SeriesRule['freq'], targetMs: number): number {
   if (targetMs <= startMs) return 0;
-  const estimateIntervalMs = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : 30.44;
+  const estimateIntervalMs = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : freq === 'every4weeks' ? 28 : 30.44;
   let n = Math.max(0, Math.floor((targetMs - startMs) / (estimateIntervalMs * 86_400_000)));
   while (n > 0 && advanceByN(startMs, freq, n) >= targetMs) n--;
   while (advanceByN(startMs, freq, n) < targetMs) n++;
@@ -157,4 +195,24 @@ export function findOccurrenceEvent(events: Record<string, CalendarEvent>, occur
   if (Number.isNaN(dayStart)) return undefined;
 
   return resolveEventOccurrences(events, dayStart, dayEnd).find((o) => o.occurrenceId === occurrenceId)?.event;
+}
+
+/**
+ * The template-generated (unmodified) start time for the occurrence dated
+ * `occurrenceDate` — what an exception's ICS export must reference via
+ * RECURRENCE-ID, per RFC 5545: that field names the original slot being
+ * overridden, not whatever new time the override itself carries (a moved
+ * rehearsal keeps DTSTART at the new time but RECURRENCE-ID at the old one,
+ * so a calendar client can tell which generated instance to replace).
+ * Undefined if `occurrenceDate` doesn't actually fall on one of the
+ * template's own generated dates — a data inconsistency the caller should
+ * skip, not synthesize a guess for.
+ */
+export function resolveTemplateGeneratedStartsAt(template: CalendarEvent, occurrenceDate: string): number | undefined {
+  if (!template.seriesRule) return undefined;
+  const dayStart = Date.parse(`${occurrenceDate}T00:00:00.000Z`);
+  if (Number.isNaN(dayStart)) return undefined;
+  const n = firstOccurrenceIndexAtOrAfter(template.startsAt, template.seriesRule.freq, dayStart);
+  const candidate = advanceByN(template.startsAt, template.seriesRule.freq, n);
+  return toIsoDate(candidate) === occurrenceDate ? candidate : undefined;
 }

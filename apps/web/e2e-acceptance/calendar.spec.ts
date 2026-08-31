@@ -168,7 +168,9 @@ test('a monthly recurring event fans out to the same day of the month, month ove
   }
 });
 
-test('the ICS feed serves valid data for a real token and 404s a wrong one', async ({ page }) => {
+test('the ICS feed serves valid data for a real token, 404s a wrong one, and exports a recurring series as one RRULE (point 7)', async ({
+  page,
+}) => {
   const ownerToken = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
   const { bandId } = await createThrowawayBand(ownerToken, 'calendar-ics');
   const setup = connectTestBandDoc(bandId, ownerToken);
@@ -182,6 +184,17 @@ test('the ICS feed serves valid data for a real token and 404s a wrong one', asy
     status: 'confirmed',
     location: 'Acceptance Venue',
   });
+  createRecurringEvent(
+    setup.doc,
+    {
+      type: 'rehearsal',
+      title: 'ICS Weekly Rehearsal',
+      startsAt: Date.now() + 1000 * 60 * 60 * 24 * 16,
+      allDay: false,
+      status: 'confirmed',
+    },
+    { freq: 'weekly' },
+  );
 
   try {
     const tokenRes = await fetch(`${SERVER_URL}/me/ics-token`, { headers: { Authorization: `Bearer ${ownerToken}` } });
@@ -190,8 +203,10 @@ test('the ICS feed serves valid data for a real token and 404s a wrong one', asy
 
     // The feed reads from Postgres's band_docs.snapshot, which Hocuspocus
     // only writes after its own debounce (up to several seconds, see
-    // hocuspocus.ts) — poll rather than assert immediately after the
-    // in-memory doc edit above.
+    // hocuspocus.ts) — poll (sharing one loop/request budget between both
+    // events below, rather than two separate polling tests, since this
+    // route is rate-limited per client IP) rather than assert immediately
+    // after the in-memory doc edits above.
     let body = '';
     const deadline = Date.now() + 12000;
     while (Date.now() < deadline) {
@@ -199,11 +214,20 @@ test('the ICS feed serves valid data for a real token and 404s a wrong one', asy
       expect(feedRes.status()).toBe(200);
       expect(feedRes.headers()['content-type']).toContain('text/calendar');
       body = await feedRes.text();
-      if (body.includes('ICS Acceptance Gig')) break;
-      await new Promise((r) => setTimeout(r, 500));
+      if (body.includes('ICS Acceptance Gig') && body.includes('ICS Weekly Rehearsal')) break;
+      await new Promise((r) => setTimeout(r, 1000));
     }
     expect(body).toContain('BEGIN:VCALENDAR');
     expect(body).toContain('ICS Acceptance Gig');
+    expect(body).toContain('ICS Weekly Rehearsal');
+
+    // The recurring series is one VEVENT carrying an RRULE, not one VEVENT
+    // per date it happens to cover — the feed aggregates every band the
+    // demo owner belongs to (including the persistent seeded demo band),
+    // so this counts occurrences of the series' own title rather than
+    // asserting a specific total VEVENT count for the whole feed.
+    expect(body).toContain('RRULE:FREQ=WEEKLY');
+    expect(body.match(/ICS Weekly Rehearsal/g)).toHaveLength(1);
 
     const badRes = await page.request.get(`${SERVER_URL}/calendar/not-a-real-token.ics`, { failOnStatusCode: false });
     expect(badRes.status()).toBe(404);

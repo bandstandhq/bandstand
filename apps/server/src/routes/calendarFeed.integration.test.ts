@@ -159,6 +159,71 @@ describe('calendar feed route (integration)', () => {
     expect(afterBody).toContain('END:VCALENDAR');
   });
 
+  it('exports a recurring series as one VEVENT with an RRULE, plus a separate VEVENT for its exception', async () => {
+    const member = await signUpTestUser();
+    cleanupUserIds.push(member.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'ICS Recurrence Band', slug: `test-ics-recurrence-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+    await db.insert(bandMembers).values({ bandId: band.id, userId: member.userId, role: 'member', instruments: [] });
+
+    const doc = new Y.Doc();
+    const templateStartsAt = Date.now() + 1000 * 60 * 60 * 24;
+    doc.getMap('events').set('series-1', {
+      type: 'rehearsal',
+      title: 'Weekly Rehearsal',
+      startsAt: templateStartsAt,
+      allDay: false,
+      status: 'confirmed',
+      seriesId: 'series-1',
+      seriesRule: { freq: 'weekly' },
+    });
+    const exceptionDate = new Date(templateStartsAt + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    doc.getMap('events').set('exc-1', {
+      type: 'rehearsal',
+      title: 'Weekly Rehearsal (bigger room)',
+      startsAt: templateStartsAt + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000, // an hour later than usual
+      allDay: false,
+      status: 'confirmed',
+      seriesId: 'series-1',
+      occurrenceDate: exceptionDate,
+    });
+    await db.insert(bandDocs).values({
+      bandId: band.id,
+      yjsState: Buffer.from(Y.encodeStateAsUpdate(doc)),
+      snapshot: yDocToSnapshot(doc),
+    });
+
+    const tokenRes = await authedReq('/me/ics-token', 'GET', member.token);
+    const { token } = (await tokenRes.json()) as { token: string };
+    const feed = await app.request(`/calendar/${token}.ics`);
+    const body = await feed.text();
+
+    // Exactly two VEVENTs — the template (with its RRULE) and the one
+    // exception — never one per week the series happens to cover.
+    expect(body.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+    expect(body).toContain('RRULE:FREQ=WEEKLY');
+    expect(body).toContain('SUMMARY:ICS Recurrence Band: Weekly Rehearsal');
+    expect(body).toContain('SUMMARY:ICS Recurrence Band: Weekly Rehearsal (bigger room)');
+
+    // Both VEVENTs share the template's UID (band+template id), and the
+    // exception is addressed via RECURRENCE-ID at its *original* slot, not
+    // the later time it was actually moved to.
+    const uidMatches = [...body.matchAll(/UID:([^\r\n]+)/g)].map((m) => m[1]);
+    expect(uidMatches).toHaveLength(2);
+    expect(new Set(uidMatches).size).toBe(1);
+
+    const toIcsDateTime = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const originalSlot = templateStartsAt + 7 * 24 * 60 * 60 * 1000;
+    const movedSlot = originalSlot + 60 * 60 * 1000;
+    expect(body).toContain(`RECURRENCE-ID:${toIcsDateTime(originalSlot)}`);
+    expect(body).toContain(`DTSTART:${toIcsDateTime(movedSlot)}`);
+  });
+
   it('rate-limits repeated requests from the same client past the configured max', async () => {
     const member = await signUpTestUser();
     cleanupUserIds.push(member.userId);

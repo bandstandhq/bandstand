@@ -23,9 +23,18 @@ export type EventStatus = z.infer<typeof eventStatusSchema>;
  * this at read time (`resolveEventOccurrences`, added in a later step), never
  * materialized as one entry per date. See docs/adr/0011-calendar-events.md
  * for why, and for the hard expansion cap a `until`-less rule still needs.
+ *
+ * `monthly` (a fixed day-of-month, clamped into shorter months) is kept only
+ * for backward compatibility with series created before `every4weeks` and
+ * `monthlyByWeekday` existed — it drifts across weekdays month to month and
+ * is deliberately never offered when creating a new series (Calendar.tsx's
+ * own repeat dropdown). `every4weeks` and `monthlyByWeekday` both land on
+ * the same weekday every time, the former by fixed 28-day steps, the latter
+ * by re-deriving "the Nth <weekday> of the month" from the template's own
+ * `startsAt` at read time — its ordinal/weekday aren't stored separately.
  */
 export const seriesRuleSchema = z.object({
-  freq: z.enum(['weekly', 'biweekly', 'monthly']),
+  freq: z.enum(['weekly', 'biweekly', 'every4weeks', 'monthly', 'monthlyByWeekday']),
   until: z.iso.date().optional(),
 });
 export type SeriesRule = z.infer<typeof seriesRuleSchema>;

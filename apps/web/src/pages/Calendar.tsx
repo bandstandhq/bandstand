@@ -12,7 +12,6 @@ import type {
   EventType,
   Poll,
   ResolvedOccurrence,
-  SeriesRule,
   Setlist,
 } from '@bandstand/core';
 import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
@@ -31,7 +30,44 @@ import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 
 type ViewMode = 'list' | 'month';
-type RepeatOption = 'none' | 'weekly' | 'biweekly' | 'monthly';
+// Every non-'none' value matches a real SeriesRule['freq'] 1:1 (see
+// trySave below) — 'monthly' (legacy, variable weekday) is deliberately not
+// offered here, only 'monthlyByWeekday' (see docs/adr/0011-calendar-events.md).
+type RepeatOption = 'none' | 'weekly' | 'biweekly' | 'every4weeks' | 'monthlyByWeekday';
+
+const ORDINAL_LABEL_KEY = [
+  'calendarList.ordinalFirst',
+  'calendarList.ordinalSecond',
+  'calendarList.ordinalThird',
+  'calendarList.ordinalFourth',
+] as const;
+
+/**
+ * "the first Monday" / "am ersten Montag" — the pattern a `monthlyByWeekday`
+ * series would repeat on, derived from whatever start date/time is
+ * currently in the form (not yet a real event, so there's no CalendarEvent
+ * to hand to eventSeries.ts's own math — this mirrors it just closely
+ * enough for the hint text). Undefined until a start date is actually
+ * chosen, or on an unparseable one.
+ */
+function describeMonthlyByWeekdayPattern(
+  startsAt: string,
+  allDay: boolean,
+  locale: string,
+  t: (key: string) => string,
+): string | undefined {
+  if (!startsAt) return undefined;
+  const ms = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
+  if (Number.isNaN(ms)) return undefined;
+  const d = new Date(ms);
+  const day = allDay ? d.getUTCDate() : d.getDate();
+  const ordinalIndex = Math.min(Math.ceil(day / 7), 4) - 1;
+  const weekdayLabel = new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    timeZone: allDay ? 'UTC' : undefined,
+  }).format(d);
+  return `${t(ORDINAL_LABEL_KEY[ordinalIndex]!)} ${weekdayLabel}`;
+}
 
 function startOfMonth(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
@@ -262,7 +298,7 @@ function CreateEventForm({
   saveRef: RefObject<(() => boolean) | null>;
   onSaved: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [title, setTitle] = useState('');
   const [type, setType] = useState<EventType>('rehearsal');
   const [startsAt, setStartsAt] = useState('');
@@ -325,9 +361,8 @@ function CreateEventForm({
     if (repeat === 'none') {
       createEvent(doc, input);
     } else {
-      const freq: SeriesRule['freq'] =
-        repeat === 'weekly' ? 'weekly' : repeat === 'biweekly' ? 'biweekly' : 'monthly';
-      createRecurringEvent(doc, input, { freq, until: repeatUntil || undefined });
+      // Every RepeatOption other than 'none' is already a real SeriesRule['freq'] value.
+      createRecurringEvent(doc, input, { freq: repeat, until: repeatUntil || undefined });
     }
     reset();
     return true;
@@ -424,7 +459,8 @@ function CreateEventForm({
             <option value="none">{t('calendarList.repeatNone')}</option>
             <option value="weekly">{t('calendarList.repeatWeekly')}</option>
             <option value="biweekly">{t('calendarList.repeatBiweekly')}</option>
-            <option value="monthly">{t('calendarList.repeatMonthly')}</option>
+            <option value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</option>
+            <option value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</option>
           </select>
         </label>
         {repeat !== 'none' && (
@@ -439,6 +475,13 @@ function CreateEventForm({
           </label>
         )}
       </div>
+      {repeat === 'monthlyByWeekday' &&
+        (() => {
+          const pattern = describeMonthlyByWeekdayPattern(startsAt, allDay, i18n.language, t);
+          return pattern ? (
+            <p className="text-xs text-muted-foreground">{t('calendarList.repeatMonthlyByWeekdayHint', { pattern })}</p>
+          ) : null;
+        })()}
 
       <Button type="submit" disabled={!title.trim() || !startsAt}>
         <CalendarIcon className="h-4 w-4" />
