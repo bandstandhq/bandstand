@@ -28,8 +28,15 @@ import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 
-type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea' | 'active'>;
+type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea'>;
 type RepertoireView = 'active' | 'archive';
+
+/** 'active' is the normal, unremarkable case and gets no visible label — only a suggestion or an archived song is worth calling out. */
+function statusLabel(t: (key: string) => string, status: SongStatus): string {
+  if (status === 'idea') return t('repertoire.statusIdea');
+  if (status === 'archived') return t('repertoire.statusArchived');
+  return '';
+}
 
 /**
  * "Before a gig it's clear where it's stuck" (see docs/adr/0010-anchor-sync.md)
@@ -193,41 +200,40 @@ export function Repertoire() {
       </div>
       {importedMessage && <p className="mt-2 text-sm text-primary">{importedMessage}</p>}
 
-      <div className="mt-4 flex gap-1 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setView('active')}
-          className={`px-3 py-2 text-sm ${view === 'active' ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}
-        >
-          {t('repertoire.tabActive')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('archive')}
-          className={`px-3 py-2 text-sm ${view === 'archive' ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}
-        >
-          {t('repertoire.tabArchive', { count: archivedEntries.length })}
-        </button>
-      </div>
-
+      {/* No "Active" tab: a song with no special status is the normal
+          case and needs no label of its own — this row is just the
+          search/filter controls, plus a single toggle into (and back out
+          of) the archive rather than a pair of co-equal tabs. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('repertoire.searchPlaceholder')}
-          className="w-72"
-        />
-        {view === 'active' && (
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as ActiveStatusFilter)}
-            aria-label={t('repertoire.statusFilter')}
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            <option value="all">{t('repertoire.statusAll')}</option>
-            <option value="idea">{t('repertoire.statusIdea')}</option>
-            <option value="active">{t('repertoire.statusActive')}</option>
-          </select>
+        {view === 'active' ? (
+          <>
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('repertoire.searchPlaceholder')}
+              className="w-72"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ActiveStatusFilter)}
+              aria-label={t('repertoire.statusFilter')}
+              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="all">{t('repertoire.statusAll')}</option>
+              <option value="idea">{t('repertoire.statusIdea')}</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setView('archive')}
+              className="ml-auto text-sm text-muted-foreground hover:underline"
+            >
+              {t('repertoire.tabArchive', { count: archivedEntries.length })}
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setView('active')} className="text-sm text-muted-foreground hover:underline">
+            &larr; {t('repertoire.backToActive')}
+          </button>
         )}
       </div>
 
@@ -257,7 +263,7 @@ export function Repertoire() {
                 </Link>
               </div>
               <p className="wrap-break-word text-sm text-muted-foreground">
-                {song.artist} &middot; {normalizeKey(song.key)} &middot; {song.status}
+                {[song.artist, normalizeKey(song.key), statusLabel(t, song.status)].filter(Boolean).join(' · ')}
               </p>
               {doc && (
                 <p className="mt-1">
@@ -323,7 +329,7 @@ export function Repertoire() {
                   </td>
                   <td className="py-2 pr-4 wrap-break-word">{song.artist}</td>
                   <td className="py-2 pr-4">{normalizeKey(song.key)}</td>
-                  <td className="py-2 pr-4">{song.status}</td>
+                  <td className="py-2 pr-4">{statusLabel(t, song.status)}</td>
                   <td className="py-2 pr-4">
                     {doc && <AnchorReadiness doc={doc} songId={songId} members={members} />}
                   </td>
