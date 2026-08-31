@@ -699,7 +699,10 @@ function CreateInviteForm({
       </select>
       <Input
         type="number"
+        inputMode="numeric"
         min={1}
+        max={365}
+        step={1}
         value={expiresInDays}
         onChange={(e) => setExpiresInDays(e.target.value)}
         placeholder={t('bandSettings.invites.expiresInDays')}

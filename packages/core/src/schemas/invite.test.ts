@@ -24,6 +24,12 @@ describe('createInviteInputSchema', () => {
       createInviteInputSchema.parse({ label: 'Jamie', role: 'member', expiresInDays: 0 }),
     ).toThrow();
   });
+
+  it('rejects an expiresInDays over 365', () => {
+    expect(() =>
+      createInviteInputSchema.parse({ label: 'Jamie', role: 'member', expiresInDays: 366 }),
+    ).toThrow();
+  });
 });
 
 describe('redeemInviteInputSchema', () => {

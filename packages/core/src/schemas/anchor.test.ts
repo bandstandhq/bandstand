@@ -20,4 +20,9 @@ describe('anchorSchema', () => {
   it('rejects a negative order', () => {
     expect(() => anchorSchema.parse({ id: 'a1', label: 'Intro', order: -1 })).toThrow();
   });
+
+  it('rejects a bar outside 1-9999', () => {
+    expect(() => anchorSchema.parse({ id: 'a1', label: 'Intro', order: 0, bar: 0 })).toThrow();
+    expect(() => anchorSchema.parse({ id: 'a1', label: 'Intro', order: 0, bar: 10000 })).toThrow();
+  });
 });

@@ -38,6 +38,20 @@ describe('songSchema', () => {
   it('rejects non-array links', () => {
     expect(() => songSchema.parse({ ...validSong, links: 'https://example.com' })).toThrow();
   });
+
+  it('accepts a BPM anywhere in 20-400, including an unusually fast speedcore tempo', () => {
+    expect(() => songSchema.parse({ ...validSong, bpm: 20 })).not.toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: 400 })).not.toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: 320 })).not.toThrow();
+  });
+
+  it('rejects a BPM outside 20-400, zero, negative, or non-integer', () => {
+    expect(() => songSchema.parse({ ...validSong, bpm: 19 })).toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: 401 })).toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: 0 })).toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: -10 })).toThrow();
+    expect(() => songSchema.parse({ ...validSong, bpm: 87.5 })).toThrow();
+  });
 });
 
 describe('resolveIdeaTieInputSchema', () => {

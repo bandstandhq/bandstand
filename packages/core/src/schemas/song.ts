@@ -17,7 +17,10 @@ export const songSchema = z.object({
   // A name field, not free-flowing prose.
   artist: z.string().max(200),
   key: musicalKeySchema,
-  bpm: z.number().int().positive(),
+  // 20-400: below a real tempo marking, but a hard floor stops a stray 0 or
+  // negative value; 400 comfortably covers even speedcore, which is about
+  // as fast as real music gets.
+  bpm: z.number().int().min(20).max(400),
   durationSec: z.number().int().nonnegative(),
   status: songStatusSchema,
   // Generous for a long shared note about the song.

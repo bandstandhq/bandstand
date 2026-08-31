@@ -261,7 +261,10 @@ export function SongEditor() {
     // filled in (e.g. an in-progress edit read mid-keystroke) — falling
     // back to the field's own pre-filled default rather than rejecting the
     // whole save is what makes these fields genuinely optional in practice.
-    const safeBpm = Number.isFinite(bpm) && bpm > 0 ? Math.round(bpm) : 120;
+    // A wildly out-of-range BPM (e.g. a stray extra digit) is clamped to the
+    // nearest valid tempo rather than reset to the default — a mistyped 500
+    // landing on 400 is a much smaller surprise than it silently becoming 120.
+    const safeBpm = Number.isFinite(bpm) ? Math.min(400, Math.max(20, Math.round(bpm))) : 120;
     const safeDurationSec = Number.isFinite(durationSec) && durationSec >= 0 ? Math.round(durationSec) : 180;
     try {
       if (isNew) {
@@ -297,7 +300,11 @@ export function SongEditor() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* noValidate: the numeric fields' min/max are a spinner/screen-reader
+          hint, not a hard gate — native constraint validation would silently
+          block the submit event (no error, no save) for e.g. a BPM over 400
+          instead of letting handleSubmit's own clamp fix it up. */}
+      <form onSubmit={handleSubmit} noValidate className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -373,7 +380,10 @@ export function SongEditor() {
                 <Input
                   id="song-bpm"
                   type="number"
-                  min={1}
+                  inputMode="numeric"
+                  min={20}
+                  max={400}
+                  step={1}
                   value={bpm}
                   onChange={(e) => setBpm(Number(e.target.value))}
                 />
@@ -381,16 +391,38 @@ export function SongEditor() {
               </div>
             </div>
             <div className="space-y-1">
-              <label htmlFor="song-duration" className="text-sm text-muted-foreground">
-                {t('songEditor.duration')}
-              </label>
-              <Input
-                id="song-duration"
-                type="number"
-                min={0}
-                value={durationSec}
-                onChange={(e) => setDurationSec(Number(e.target.value))}
-              />
+              <span className="text-sm text-muted-foreground">{t('songEditor.duration')}</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  aria-label={t('songEditor.durationMinutes')}
+                  value={Math.floor(durationSec / 60)}
+                  onChange={(e) => {
+                    const minutes = Math.max(0, Math.round(Number(e.target.value) || 0));
+                    setDurationSec(minutes * 60 + (durationSec % 60));
+                  }}
+                  className="w-20"
+                />
+                <span className="text-sm text-muted-foreground">{t('songEditor.durationMinutesShort')}</span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  step={1}
+                  aria-label={t('songEditor.durationSeconds')}
+                  value={durationSec % 60}
+                  onChange={(e) => {
+                    const seconds = Math.max(0, Math.min(59, Math.round(Number(e.target.value) || 0)));
+                    setDurationSec(Math.floor(durationSec / 60) * 60 + seconds);
+                  }}
+                  className="w-20"
+                />
+                <span className="text-sm text-muted-foreground">{t('songEditor.durationSecondsShort')}</span>
+              </div>
             </div>
           </div>
 

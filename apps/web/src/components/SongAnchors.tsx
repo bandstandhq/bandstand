@@ -91,9 +91,19 @@ function SortableAnchorRow({
         <>
           <Input
             type="number"
+            inputMode="numeric"
             min={1}
+            max={9999}
+            step={1}
             value={anchor.bar ?? ''}
-            onChange={(e) => onEdit({ bar: e.target.value ? Number(e.target.value) : undefined })}
+            onChange={(e) => {
+              // Clamped here, not left to anchorSchema's own bound below —
+              // updateAnchor calls anchorSchema.parse() unguarded, so an
+              // out-of-range value would otherwise throw instead of just
+              // being corrected.
+              const raw = e.target.value ? Number(e.target.value) : undefined;
+              onEdit({ bar: raw === undefined || !Number.isFinite(raw) ? undefined : Math.min(9999, Math.max(1, Math.round(raw))) });
+            }}
             placeholder={t('songAnchors.bar')}
             className="h-8 w-20"
             aria-label={t('songAnchors.barFor', { label: anchor.label })}
