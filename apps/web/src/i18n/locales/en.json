@@ -576,5 +576,12 @@
     "delete": "Delete poll",
     "deleting": "Deleting…",
     "confirmDelete": "Delete \"{{name}}\"? This can't be undone."
+  },
+  "unsavedChanges": {
+    "title": "Unsaved changes",
+    "description": "You have unsaved changes. Save them, discard them, or keep editing.",
+    "continueEditing": "Continue editing",
+    "discard": "Discard",
+    "save": "Save"
   }
 }
