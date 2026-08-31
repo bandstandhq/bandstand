@@ -523,6 +523,7 @@
     "repeatUntil": "Repeat until (optional)",
     "create": "Create event",
     "cancelledLabel": "(cancelled)",
+    "tentativeLabel": "(tentative)",
     "pollsTitle": "Scheduling polls",
     "noPolls": "No polls yet.",
     "openPollAria": "Open {{name}}",
@@ -537,8 +538,6 @@
   "eventDetail": {
     "back": "Back to calendar",
     "notFound": "Event not found.",
-    "cancelledBadge": "Cancelled",
-    "tentativeBadge": "Tentative",
     "allDayBadge": "All day",
     "notes": "Notes",
     "linkedSetlist": "Setlist",

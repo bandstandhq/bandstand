@@ -523,6 +523,7 @@
     "repeatUntil": "Wiederholen bis (optional)",
     "create": "Termin erstellen",
     "cancelledLabel": "(abgesagt)",
+    "tentativeLabel": "(vorläufig)",
     "pollsTitle": "Terminumfragen",
     "noPolls": "Noch keine Umfragen.",
     "openPollAria": "{{name}} öffnen",
@@ -537,8 +538,6 @@
   "eventDetail": {
     "back": "Zurück zum Kalender",
     "notFound": "Termin nicht gefunden.",
-    "cancelledBadge": "Abgesagt",
-    "tentativeBadge": "Vorläufig",
     "allDayBadge": "Ganztägig",
     "notes": "Notizen",
     "linkedSetlist": "Setlist",

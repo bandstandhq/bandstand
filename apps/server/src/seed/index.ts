@@ -64,25 +64,36 @@ async function uploadSeedAsset(bandId: string, uploadedBy: string, filename: str
 const DEMO_BAND_SLUG = 'demo-band';
 const SECOND_BAND_SLUG = 'second-fiddle';
 const DEMO_PASSWORD = 'bandstand-demo';
+// `name` is a per-user account field, not per-band — it must stay accurate
+// in both bands even though these three hold a different role in each, so
+// it never bakes in a role (that used to say "Bob (member)" even in Second
+// Fiddle, where he's the owner).
 const DEMO_USERS = [
-  { email: 'alice@bandstand.local', name: 'Alice (owner)', role: 'owner' as const },
-  { email: 'bob@bandstand.local', name: 'Bob (member)', role: 'member' as const },
+  { email: 'alice@bandstand.local', name: 'Alice', role: 'owner' as const },
+  { email: 'bob@bandstand.local', name: 'Bob', role: 'member' as const },
   // Also an admin here (not just in Second Fiddle) so the calendar/poll
   // admin-gated actions (event:create/delete, poll:create/close) have a
   // non-owner admin to exercise in the main demo band too.
-  { email: 'carol@bandstand.local', name: 'Carol (admin)', role: 'admin' as const },
+  { email: 'carol@bandstand.local', name: 'Carol', role: 'admin' as const },
 ];
 // In the second band, the same three people have different roles —
 // bob owns it, alice is just a member, and carol (new) is an admin.
 const SECOND_BAND_USERS = [
-  { email: 'bob@bandstand.local', name: 'Bob (member)', role: 'owner' as const },
-  { email: 'alice@bandstand.local', name: 'Alice (owner)', role: 'member' as const },
-  { email: 'carol@bandstand.local', name: 'Carol (admin)', role: 'admin' as const },
+  { email: 'bob@bandstand.local', name: 'Bob', role: 'owner' as const },
+  { email: 'alice@bandstand.local', name: 'Alice', role: 'member' as const },
+  { email: 'carol@bandstand.local', name: 'Carol', role: 'admin' as const },
 ];
 
 async function ensureUser(email: string, name: string): Promise<string> {
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-  if (existing) return existing.id;
+  const [existing] = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.email, email));
+  if (existing) {
+    // A demo user's identity is reused across reseeds, but its name isn't
+    // frozen at first creation either — otherwise a name fixed here (like
+    // dropping the old "Bob (member)" role suffix) would never actually
+    // take effect on an already-seeded database, only on a fresh one.
+    if (existing.name !== name) await db.update(users).set({ name }).where(eq(users.id, existing.id));
+    return existing.id;
+  }
 
   const result = await auth.api.signUpEmail({
     body: { email, password: DEMO_PASSWORD, name },
@@ -268,7 +279,7 @@ async function main() {
 
   createEvent(doc, {
     type: 'other',
-    title: 'Studio day (cancelled)',
+    title: 'Studio day',
     startsAt: seedNow + 10 * DAY_MS,
     allDay: false,
     status: 'cancelled',
