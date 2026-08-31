@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { BarChartIcon, CalendarIcon } from '../components/icons';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import { useBandDoc } from '../hooks/useBandDoc';
@@ -64,9 +65,7 @@ function EventRow({ bandId, occurrence }: { bandId: string; occurrence: Resolved
       <div className="min-w-0">
         <p className="wrap-break-word">
           {event.title}
-          {event.status === 'cancelled' && (
-            <span className="ml-2 text-muted-foreground">{t('calendarList.cancelledLabel')}</span>
-          )}
+          <EventStatusSuffix status={event.status} />
         </p>
         <p className="text-xs text-muted-foreground">{formatEventWhen(event, i18n.language)}</p>
       </div>
@@ -191,7 +190,10 @@ function MonthGrid({
                           className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                           aria-label={t('calendarList.openAria', { name: occ.event.title })}
                         />
-                        <span className="wrap-break-word text-sm">{occ.event.title}</span>
+                        <span className="wrap-break-word text-sm">
+                          {occ.event.title}
+                          <EventStatusSuffix status={occ.event.status} />
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -229,7 +231,10 @@ function MonthGrid({
                             className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                             aria-label={t('calendarList.openAria', { name: occ.event.title })}
                           />
-                          <span>{occ.event.title}</span>
+                          <span>
+                            {occ.event.title}
+                            <EventStatusSuffix status={occ.event.status} />
+                          </span>
                         </li>
                       ))}
                     </ul>

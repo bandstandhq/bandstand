@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { OfflineReadiness } from '../components/OfflineReadiness';
 import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
 import { useBandDoc } from '../hooks/useBandDoc';
@@ -52,7 +53,10 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
                 aria-label={t('dashboard.openEventAria', { name: occ.event.title })}
               />
               <div className="min-w-0">
-                <p className="wrap-break-word">{occ.event.title}</p>
+                <p className="wrap-break-word">
+                  {occ.event.title}
+                  <EventStatusSuffix status={occ.event.status} />
+                </p>
                 <p className="text-xs text-muted-foreground">{formatEventWhen(occ.event, i18n.language)}</p>
               </div>
               {!hasAnswered && (

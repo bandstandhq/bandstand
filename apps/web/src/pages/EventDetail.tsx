@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
@@ -169,18 +170,25 @@ export function EventDetail() {
   }
 
   return (
-    <PageShell title={event.title}>
+    <PageShell
+      title={
+        <>
+          {event.title}
+          <EventStatusSuffix status={event.status} />
+        </>
+      }
+    >
       <Link to={`/bands/${bandId}/calendar`} className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('eventDetail.back')}
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        <div className="flex flex-wrap gap-2 text-xs">
-          {event.status === 'cancelled' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.cancelledBadge')}</span>}
-          {event.status === 'tentative' && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.tentativeBadge')}</span>}
-          {event.allDay && <span className="rounded bg-muted px-2 py-1">{t('eventDetail.allDayBadge')}</span>}
+      {event.allDay && (
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded bg-muted px-2 py-1">{t('eventDetail.allDayBadge')}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <p className="mt-2 text-sm text-muted-foreground">{formatEventWhen(event, i18n.language)}</p>
 
