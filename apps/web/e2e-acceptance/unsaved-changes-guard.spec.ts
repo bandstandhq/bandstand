@@ -69,7 +69,7 @@ test('a link, the back button, and the back arrow all prompt to save/discard/con
   }
 });
 
-test('the calendar page guards its create-event and create-poll forms too, even though both live on the same page', async ({
+test('the calendar page guards its create-event and create-poll dialogs too, even though both live on the same page', async ({
   page,
 }) => {
   const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
@@ -79,20 +79,29 @@ test('the calendar page guards its create-event and create-poll forms too, even 
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/calendar`);
 
-    // Typing into the create-event form and trying to leave prompts.
+    // Both create forms now live behind an icon button, opened as a modal
+    // dialog — which, being a real modal, hides the rest of the page (the
+    // nav links) from interaction while it's open. So the way to "leave"
+    // a dirty create-event dialog is to close the dialog itself (its own X,
+    // Escape, or the overlay), not to click a link elsewhere on the page.
+    await page.getByRole('button', { name: 'New event' }).click();
     await page.getByPlaceholder('Event title').fill('Unsaved Rehearsal');
-    await page.getByRole('link', { name: 'Repertoire', exact: true }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('heading', { name: 'Unsaved changes' })).toBeVisible();
     await page.getByRole('button', { name: 'Discard' }).click();
-    await expect(page).toHaveURL(/\/repertoire$/);
+    await expect(page.getByRole('heading', { name: 'New event' })).not.toBeVisible();
+    // Discarding actually cleared the form, not just closed the dialog.
+    await page.getByRole('button', { name: 'New event' }).click();
+    await expect(page.getByPlaceholder('Event title')).toHaveValue('');
+    await page.getByRole('button', { name: 'Close' }).click();
 
-    // Same for the create-poll form, further down the same page.
-    await page.goto(`/bands/${bandId}/calendar`);
+    // Same for the create-poll dialog, this time choosing to keep editing.
+    await page.getByRole('button', { name: 'New poll' }).click();
     await page.getByPlaceholder('Poll title').fill('Unsaved Poll');
-    await page.getByRole('link', { name: 'Setlists', exact: true }).click();
+    await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('heading', { name: 'Unsaved changes' })).toBeVisible();
     await page.getByRole('button', { name: 'Continue editing' }).click();
-    await expect(page).toHaveURL(/\/calendar$/);
+    await expect(page.getByRole('heading', { name: 'New poll' })).toBeVisible();
     await expect(page.getByPlaceholder('Poll title')).toHaveValue('Unsaved Poll');
   } finally {
     await deleteThrowawayBand(token, bandId);
