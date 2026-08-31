@@ -35,6 +35,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -208,9 +209,11 @@ function SortableSetlistItem({
       <button
         type="button"
         onClick={onRemove}
-        className="flex h-11 shrink-0 items-center px-2 text-xs text-muted-foreground hover:underline"
+        aria-label={t('setlistDetail.remove')}
+        title={t('setlistDetail.remove')}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
       >
-        {t('setlistDetail.remove')}
+        <TrashIcon className="h-5 w-5" />
       </button>
     </li>
   );

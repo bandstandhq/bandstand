@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useIsWideScreen } from '../hooks/useIsWideScreen';
 import { useYArray } from '../hooks/useYArray';
@@ -33,8 +34,15 @@ function DeleteSetlistButton({ bandId, setlistId, setlistName }: { bandId: strin
   }
 
   return (
-    <button type="button" disabled={deleting} onClick={() => void handleDelete()} className="text-xs text-destructive hover:underline">
-      {t('setlistList.delete')}
+    <button
+      type="button"
+      disabled={deleting}
+      onClick={() => void handleDelete()}
+      aria-label={t('setlistList.delete')}
+      title={t('setlistList.delete')}
+      className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
+    >
+      <TrashIcon className="h-5 w-5" />
     </button>
   );
 }

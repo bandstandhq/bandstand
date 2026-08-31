@@ -10,6 +10,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { RequireBandRole } from '../components/RequireBandRole';
+import { TrashIcon } from '../components/icons';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
@@ -819,9 +820,16 @@ function InviteRow({
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? t('bandSettings.invites.copied') : t('bandSettings.invites.copy')}
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleRevoke} disabled={revoking}>
-            {t('bandSettings.invites.revoke')}
-          </Button>
+          <button
+            type="button"
+            onClick={handleRevoke}
+            disabled={revoking}
+            aria-label={t('bandSettings.invites.revoke')}
+            title={t('bandSettings.invites.revoke')}
+            className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
         </div>
       )}
     </li>
