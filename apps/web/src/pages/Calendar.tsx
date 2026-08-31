@@ -15,14 +15,14 @@ import type {
   SeriesRule,
   Setlist,
 } from '@bandstand/core';
-import { Button, Input, Textarea } from '@bandstand/ui';
+import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
 import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
-import { BarChartIcon, CalendarIcon } from '../components/icons';
+import { BarChartIcon, CalendarIcon, PlusIcon } from '../components/icons';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -254,11 +254,13 @@ function CreateEventForm({
   setlists,
   onDirtyChange,
   saveRef,
+  onSaved,
 }: {
   doc: import('yjs').Doc;
   setlists: Record<string, Setlist>;
   onDirtyChange: (dirty: boolean) => void;
   saveRef: RefObject<(() => boolean) | null>;
+  onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
@@ -333,12 +335,11 @@ function CreateEventForm({
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
-    trySave();
+    if (trySave()) onSaved();
   }
 
   return (
-    <form onSubmit={handleCreate} className="mt-6 space-y-3 rounded-md border border-border p-4">
-      <h2 className="font-medium">{t('calendarList.createTitle')}</h2>
+    <form onSubmit={handleCreate} className="space-y-3">
       <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -471,10 +472,12 @@ function CreatePollForm({
   doc,
   onDirtyChange,
   saveRef,
+  onSaved,
 }: {
   doc: import('yjs').Doc;
   onDirtyChange: (dirty: boolean) => void;
   saveRef: RefObject<(() => boolean) | null>;
+  onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
@@ -507,12 +510,11 @@ function CreatePollForm({
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
-    trySave();
+    if (trySave()) onSaved();
   }
 
   return (
-    <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border p-4">
-      <h2 className="font-medium">{t('calendarList.createPollTitle')}</h2>
+    <form onSubmit={handleCreate} className="space-y-3">
       <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -587,10 +589,37 @@ export function Calendar() {
   const pollFormSaveRef = useRef<(() => boolean) | null>(null);
   const unsavedGuard = useUnsavedChangesGuard(eventFormDirty || pollFormDirty);
 
+  // Each create form now lives behind its own icon button, opened as a
+  // modal — a second, independent unsaved-changes prompt for just closing
+  // that one dialog (Escape, the overlay, or its own X) while dirty, on
+  // top of the page-wide guard above for actually navigating away. Nested
+  // rather than replacing: the dialog stays open underneath, matching how
+  // a native "leave without saving?" prompt stacks over its own page.
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [pollDialogOpen, setPollDialogOpen] = useState(false);
+  const [eventCloseConfirmOpen, setEventCloseConfirmOpen] = useState(false);
+  const [pollCloseConfirmOpen, setPollCloseConfirmOpen] = useState(false);
+
   function handleSaveFromUnsavedDialog() {
     const eventOk = !eventFormDirty || (eventFormSaveRef.current?.() ?? false);
     const pollOk = !pollFormDirty || (pollFormSaveRef.current?.() ?? false);
     if (eventOk && pollOk) unsavedGuard.leave();
+  }
+
+  function handleEventDialogOpenChange(open: boolean) {
+    if (open || !eventFormDirty) {
+      setEventDialogOpen(open);
+      return;
+    }
+    setEventCloseConfirmOpen(true);
+  }
+
+  function handlePollDialogOpenChange(open: boolean) {
+    if (open || !pollFormDirty) {
+      setPollDialogOpen(open);
+      return;
+    }
+    setPollCloseConfirmOpen(true);
   }
 
   useEffect(() => {
@@ -634,6 +663,17 @@ export function Calendar() {
         >
           {viewMode === 'month' ? t('calendarList.listView') : t('calendarList.monthView')}
         </Button>
+        {canCreate && doc && (
+          <button
+            type="button"
+            onClick={() => setEventDialogOpen(true)}
+            aria-label={t('calendarList.createTitle')}
+            title={t('calendarList.createTitle')}
+            className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
+          >
+            <PlusIcon className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {viewMode === 'month' ? (
@@ -648,11 +688,54 @@ export function Calendar() {
       )}
 
       {canCreate && doc && (
-        <CreateEventForm doc={doc} setlists={setlists} onDirtyChange={setEventFormDirty} saveRef={eventFormSaveRef} />
+        <>
+          <Dialog
+            open={eventDialogOpen}
+            onOpenChange={handleEventDialogOpenChange}
+            title={t('calendarList.createTitle')}
+            closeLabel={t('common.close')}
+          >
+            <CreateEventForm
+              doc={doc}
+              setlists={setlists}
+              onDirtyChange={setEventFormDirty}
+              saveRef={eventFormSaveRef}
+              onSaved={() => setEventDialogOpen(false)}
+            />
+          </Dialog>
+          <UnsavedChangesDialog
+            open={eventCloseConfirmOpen}
+            onSave={() => {
+              if (eventFormSaveRef.current?.()) {
+                setEventCloseConfirmOpen(false);
+                setEventDialogOpen(false);
+              }
+            }}
+            onDiscard={() => {
+              setEventFormDirty(false);
+              setEventCloseConfirmOpen(false);
+              setEventDialogOpen(false);
+            }}
+            onContinueEditing={() => setEventCloseConfirmOpen(false)}
+          />
+        </>
       )}
 
       <div className="mt-8">
-        <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
+          {canCreatePoll && doc && (
+            <button
+              type="button"
+              onClick={() => setPollDialogOpen(true)}
+              aria-label={t('calendarList.createPollTitle')}
+              title={t('calendarList.createPollTitle')}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
+            >
+              <PlusIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
         {pollEntries.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">{t('calendarList.noPolls')}</p>
         ) : (
@@ -662,7 +745,38 @@ export function Calendar() {
             ))}
           </ul>
         )}
-        {canCreatePoll && doc && <CreatePollForm doc={doc} onDirtyChange={setPollFormDirty} saveRef={pollFormSaveRef} />}
+        {canCreatePoll && doc && (
+          <>
+            <Dialog
+              open={pollDialogOpen}
+              onOpenChange={handlePollDialogOpenChange}
+              title={t('calendarList.createPollTitle')}
+              closeLabel={t('common.close')}
+            >
+              <CreatePollForm
+                doc={doc}
+                onDirtyChange={setPollFormDirty}
+                saveRef={pollFormSaveRef}
+                onSaved={() => setPollDialogOpen(false)}
+              />
+            </Dialog>
+            <UnsavedChangesDialog
+              open={pollCloseConfirmOpen}
+              onSave={() => {
+                if (pollFormSaveRef.current?.()) {
+                  setPollCloseConfirmOpen(false);
+                  setPollDialogOpen(false);
+                }
+              }}
+              onDiscard={() => {
+                setPollFormDirty(false);
+                setPollCloseConfirmOpen(false);
+                setPollDialogOpen(false);
+              }}
+              onContinueEditing={() => setPollCloseConfirmOpen(false)}
+            />
+          </>
+        )}
       </div>
     </PageShell>
   );
