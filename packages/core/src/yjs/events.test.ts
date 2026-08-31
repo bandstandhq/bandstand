@@ -50,6 +50,19 @@ describe('createEvent / updateEvent', () => {
     const doc = new Y.Doc();
     expect(() => updateEvent(doc, 'missing', { status: 'cancelled' })).toThrow('Event not found');
   });
+
+  it('sets createdAt on creation and never changes it on a later edit', () => {
+    const doc = new Y.Doc();
+    const before = Date.now();
+    const id = createEvent(doc, baseInput());
+    const createdAt = listEvents(doc)[id]?.createdAt;
+    expect(createdAt).toBeGreaterThanOrEqual(before);
+    expect(createdAt).toBeLessThanOrEqual(Date.now());
+
+    updateEvent(doc, id, { title: 'Renamed' });
+
+    expect(listEvents(doc)[id]?.createdAt).toBe(createdAt);
+  });
 });
 
 describe('createRecurringEvent', () => {
@@ -98,49 +111,66 @@ describe('createSeriesException / cancelOccurrence', () => {
     const id = createEvent(doc, baseInput());
     expect(() => createSeriesException(doc, id, '2026-09-14')).toThrow('not a series template');
   });
+
+  it('gives the exception its own fresh createdAt, not the template\'s', async () => {
+    const doc = new Y.Doc();
+    const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    const templateCreatedAt = listEvents(doc)[templateId]!.createdAt!;
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const exceptionId = createSeriesException(doc, templateId, '2026-09-14');
+
+    expect(listEvents(doc)[exceptionId]?.createdAt).toBeGreaterThan(templateCreatedAt);
+  });
 });
 
 describe('updateOccurrence', () => {
-  it('patches a plain event in place, same as updateEvent', () => {
+  it('patches a plain event in place, same as updateEvent, returning the same id', () => {
     const doc = new Y.Doc();
     const id = createEvent(doc, baseInput());
 
-    updateOccurrence(doc, id, { title: 'Renamed practice' });
+    const result = updateOccurrence(doc, id, { title: 'Renamed practice' });
 
+    expect(result).toBe(id);
     expect(listEvents(doc)[id]).toMatchObject({ title: 'Renamed practice' });
   });
 
-  it('patches the series template when the occurrence id is the template itself', () => {
+  it('patches the series template when the occurrence id is the template itself, returning the same id', () => {
     const doc = new Y.Doc();
     const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
 
-    updateOccurrence(doc, templateId, { location: 'New venue' });
+    const result = updateOccurrence(doc, templateId, { location: 'New venue' });
 
+    expect(result).toBe(templateId);
     expect(listEvents(doc)[templateId]).toMatchObject({ location: 'New venue', seriesId: templateId });
   });
 
-  it('patches an already-materialized exception in place, not the template', () => {
+  it('patches an already-materialized exception in place, not the template, returning the same id', () => {
     const doc = new Y.Doc();
     const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
     const exceptionId = createSeriesException(doc, templateId, '2026-09-14', { title: 'Extra long practice' });
 
-    updateOccurrence(doc, exceptionId, { location: 'Different room' });
+    const result = updateOccurrence(doc, exceptionId, { location: 'Different room' });
 
+    expect(result).toBe(exceptionId);
     expect(listEvents(doc)[exceptionId]).toMatchObject({ title: 'Extra long practice', location: 'Different room' });
     expect(listEvents(doc)[templateId]).not.toHaveProperty('location');
   });
 
-  it('materializes a fresh exception for a virtual (never-created) occurrence', () => {
+  it('materializes a fresh exception for a virtual (never-created) occurrence, returning its new real id', () => {
     const doc = new Y.Doc();
     const templateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
     const virtualOccurrenceId = `${templateId}@2026-09-14`;
     expect(listEvents(doc)[virtualOccurrenceId]).toBeUndefined();
 
-    updateOccurrence(doc, virtualOccurrenceId, { title: 'Extra long practice' });
+    const result = updateOccurrence(doc, virtualOccurrenceId, { title: 'Extra long practice' });
 
+    // Never the synthetic id passed in — a caller still showing that page
+    // needs the real id to navigate to, since the synthetic one now
+    // resolves to nothing (see EventDetail.tsx's own use of this).
+    expect(result).not.toBe(virtualOccurrenceId);
     const events = listEvents(doc);
-    const created = Object.entries(events).find(([id, e]) => id !== templateId && e.seriesId === templateId);
-    expect(created?.[1]).toMatchObject({ occurrenceDate: '2026-09-14', title: 'Extra long practice' });
+    expect(events[result]).toMatchObject({ occurrenceDate: '2026-09-14', title: 'Extra long practice', seriesId: templateId });
     expect(events[templateId]).toMatchObject({ title: 'Weekly practice' });
   });
 

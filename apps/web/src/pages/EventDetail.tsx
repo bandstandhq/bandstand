@@ -4,7 +4,6 @@ import {
   type BandMember,
   type BandRole,
   buildLocationHref,
-  cancelOccurrence,
   can,
   type CalendarEvent,
   type EventStatus,
@@ -12,7 +11,6 @@ import {
   findOccurrenceEvent,
   respondAvailability,
   type Setlist,
-  updateEvent,
   updateOccurrence,
 } from '@bandstand/core';
 import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
@@ -27,6 +25,13 @@ import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+
+// The single trash button permanently deletes only within this window after
+// the event was created (never after an edit — createdAt is set once and
+// never touched again, see the schema's own comment); past it, or for an
+// event that was never actually created for real yet (a virtual, unmaterialized
+// occurrence), the same button cancels instead.
+const DELETE_GRACE_PERIOD_MS = 5 * 60 * 1000;
 
 const ANSWERS: AvailabilityAnswer[] = ['yes', 'maybe', 'no'];
 const ANSWER_LABEL_KEY: Record<AvailabilityAnswer, string> = {
@@ -86,7 +91,7 @@ function EditEventForm({
   event: CalendarEvent;
   occurrenceId: string;
   setlists: Record<string, Setlist>;
-  onSaved: () => void;
+  onSaved: (savedOccurrenceId: string) => void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(event.title);
@@ -114,7 +119,7 @@ function EditEventForm({
         : new Date(endsAt).getTime()
       : undefined;
 
-    updateOccurrence(doc, occurrenceId, {
+    const savedOccurrenceId = updateOccurrence(doc, occurrenceId, {
       type,
       title: title.trim(),
       startsAt: startMs,
@@ -125,7 +130,7 @@ function EditEventForm({
       setlistId: setlistId || undefined,
       status,
     });
-    onSaved();
+    onSaved(savedOccurrenceId);
   }
 
   return (
@@ -277,6 +282,11 @@ export function EventDetail() {
   const [members, setMembers] = useState<BandMember[]>([]);
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Captured once at mount, not read fresh on every render — Date.now() is
+  // an impure call React's render purity rules disallow directly in the
+  // component body (same reasoning as Calendar.tsx's own `now` state); the
+  // five-minute grace period below doesn't need tighter precision than that.
+  const [now] = useState(() => Date.now());
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -307,6 +317,8 @@ export function EventDetail() {
   // its own — only its template does. Everything else (a plain event, or a
   // real series exception) has a real entry under `occurrenceId` itself.
   const isVirtualOccurrence = !events[occurrenceId];
+  const canPermanentlyDelete =
+    !isVirtualOccurrence && event.createdAt !== undefined && now - event.createdAt < DELETE_GRACE_PERIOD_MS;
   const linkedSetlist = event.setlistId ? doc?.getMap('setlists').get(event.setlistId) as { name: string } | undefined : undefined;
   const locationHref = event.location ? buildLocationHref(event.location, event.locationGeo) : undefined;
 
@@ -339,19 +351,29 @@ export function EventDetail() {
     }
   }
 
-  function handleCancelOccurrence() {
-    if (!doc || !event?.seriesId || !occurrenceId) return;
-    if (!window.confirm(t('eventDetail.confirmCancelOccurrence', { name: event.title }))) return;
-    // A real entry (an existing exception, or — rare, but possible — the
-    // template's own row if it's the first occurrence) is edited in place;
-    // a virtual occurrence has nothing to edit yet, so a new exception is
-    // created for it instead. Never both, to avoid two exceptions for the
-    // same (seriesId, occurrenceDate).
-    if (isVirtualOccurrence) {
-      const date = occurrenceId.slice(occurrenceId.lastIndexOf('@') + 1);
-      cancelOccurrence(doc, event.seriesId, date);
+  function handleCancel() {
+    if (!doc || !occurrenceId || !event || !bandId) return;
+    const confirmMessage = event.seriesId
+      ? t('eventDetail.confirmCancelOccurrence', { name: event.title })
+      : t('eventDetail.confirmCancel', { name: event.title });
+    if (!window.confirm(confirmMessage)) return;
+    // updateOccurrence already handles a real entry (plain event, template,
+    // or existing exception) vs. a virtual occurrence needing a fresh
+    // exception materialized for it — same logic, one call either way. A
+    // virtual occurrence's cancellation lands under a brand-new real id, so
+    // this page — still showing the old synthetic one — has to follow it
+    // there, same reasoning as the edit dialog's own onSaved above.
+    const savedOccurrenceId = updateOccurrence(doc, occurrenceId, { status: 'cancelled' });
+    if (savedOccurrenceId !== occurrenceId) {
+      navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
+    }
+  }
+
+  function handleTrashClick() {
+    if (canPermanentlyDelete) {
+      void handleDelete();
     } else {
-      updateEvent(doc, occurrenceId, { status: 'cancelled' });
+      handleCancel();
     }
   }
 
@@ -440,25 +462,22 @@ export function EventDetail() {
               <PencilIcon className="h-5 w-5" />
             </button>
           )}
-          {canEdit && event.seriesId && (
-            <button
-              type="button"
-              onClick={handleCancelOccurrence}
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              {t('eventDetail.cancelOccurrence')}
-            </button>
-          )}
-          {canDelete && !isVirtualOccurrence && (
-            // A virtual occurrence has no real entry of its own to delete —
-            // only "cancel this date" (creates one) or delete the series
-            // apply to it.
+          {canDelete && (
+            // One button, two behaviors depending on age: within
+            // DELETE_GRACE_PERIOD_MS of creation (never of a later edit) it
+            // deletes for good, same as a fresh mistake being undone; after
+            // that — or for a virtual occurrence, which has no real entry
+            // yet to delete — it cancels instead.
             <button
               type="button"
               disabled={deleting}
-              onClick={() => void handleDelete()}
-              aria-label={deleting ? t('eventDetail.deleting') : t('eventDetail.delete')}
-              title={deleting ? t('eventDetail.deleting') : t('eventDetail.delete')}
+              onClick={handleTrashClick}
+              aria-label={
+                canPermanentlyDelete ? (deleting ? t('eventDetail.deleting') : t('eventDetail.delete')) : t('eventDetail.cancel')
+              }
+              title={
+                canPermanentlyDelete ? (deleting ? t('eventDetail.deleting') : t('eventDetail.delete')) : t('eventDetail.cancel')
+              }
               className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
               <TrashIcon className="h-5 w-5" />
@@ -491,7 +510,17 @@ export function EventDetail() {
             event={event}
             occurrenceId={occurrenceId}
             setlists={setlists}
-            onSaved={() => setEditDialogOpen(false)}
+            onSaved={(savedOccurrenceId) => {
+              setEditDialogOpen(false);
+              // Editing a virtual occurrence materializes a fresh exception
+              // under its own real id, never the synthetic templateId@date
+              // one this page is currently showing — stay there and the
+              // page would resolve to "not found" the moment `events`
+              // updates, since that synthetic id no longer maps to anything.
+              if (savedOccurrenceId !== occurrenceId && bandId) {
+                navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
+              }
+            }}
           />
         </Dialog>
       )}

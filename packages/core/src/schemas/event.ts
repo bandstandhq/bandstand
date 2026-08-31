@@ -61,6 +61,14 @@ export const calendarEventSchema = z.object({
   // Present only on an exception entry — the generated date (from the
   // template's `seriesRule`) that this entry overrides or cancels.
   occurrenceDate: z.iso.date().optional(),
+  // Epoch milliseconds, set once by the create function that made this
+  // entry (a plain event, a series template, or a materialized exception —
+  // each gets its own, not the template's) and never touched afterward,
+  // including by an edit — see `updateOccurrence`'s own note. Optional only
+  // for backward compatibility with entries created before this field
+  // existed; the delete-vs-cancel grace period (EventDetail.tsx) treats a
+  // missing value as "old enough," never as "just created."
+  createdAt: z.number().int().nonnegative().optional(),
 });
 
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;

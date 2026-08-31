@@ -8,7 +8,7 @@ import * as Y from 'yjs';
 import { type AvailabilityAnswer } from '../schemas/availabilityAnswer';
 import { type CalendarEvent, calendarEventSchema, type SeriesRule } from '../schemas/event';
 
-type NewEventInput = Omit<CalendarEvent, 'seriesId' | 'seriesRule' | 'occurrenceDate'>;
+type NewEventInput = Omit<CalendarEvent, 'seriesId' | 'seriesRule' | 'occurrenceDate' | 'createdAt'>;
 
 function getEventOrThrow(doc: Y.Doc, eventId: string): CalendarEvent {
   const existing = doc.getMap('events').get(eventId) as CalendarEvent | undefined;
@@ -23,7 +23,7 @@ export function listEvents(doc: Y.Doc): Record<string, CalendarEvent> {
 /** A plain, non-recurring event. */
 export function createEvent(doc: Y.Doc, input: NewEventInput): string {
   const id = crypto.randomUUID();
-  const event = calendarEventSchema.parse(input);
+  const event = calendarEventSchema.parse({ ...input, createdAt: Date.now() });
   doc.getMap('events').set(id, event);
   return id;
 }
@@ -31,7 +31,7 @@ export function createEvent(doc: Y.Doc, input: NewEventInput): string {
 /** The series' template entry — `seriesId` is set to its own generated id, per docs/adr/0011-calendar-events.md. */
 export function createRecurringEvent(doc: Y.Doc, input: NewEventInput, seriesRule: SeriesRule): string {
   const id = crypto.randomUUID();
-  const event = calendarEventSchema.parse({ ...input, seriesId: id, seriesRule });
+  const event = calendarEventSchema.parse({ ...input, seriesId: id, seriesRule, createdAt: Date.now() });
   doc.getMap('events').set(id, event);
   return id;
 }
@@ -51,11 +51,19 @@ export function createSeriesException(
 ): string {
   const template = getEventOrThrow(doc, seriesTemplateId);
   if (!template.seriesId) throw new Error(`Event is not a series template: ${seriesTemplateId}`);
-  // Drop the template's own series fields explicitly rather than spreading
-  // them and overwriting — an explicit `seriesRule: undefined` in the
-  // spread source would still leave that key present with an undefined
-  // value, which Yjs's Map encoding isn't guaranteed to round-trip cleanly.
-  const { seriesId: _templateSeriesId, seriesRule: _seriesRule, occurrenceDate: _templateDate, ...templateFields } = template;
+  // Drop the template's own series fields (and its createdAt — this
+  // exception is its own entry, materialized just now, not a continuation
+  // of the template's age) explicitly rather than spreading them and
+  // overwriting — an explicit `seriesRule: undefined` in the spread source
+  // would still leave that key present with an undefined value, which
+  // Yjs's Map encoding isn't guaranteed to round-trip cleanly.
+  const {
+    seriesId: _templateSeriesId,
+    seriesRule: _seriesRule,
+    occurrenceDate: _templateDate,
+    createdAt: _templateCreatedAt,
+    ...templateFields
+  } = template;
 
   const id = crypto.randomUUID();
   const event = calendarEventSchema.parse({
@@ -63,6 +71,7 @@ export function createSeriesException(
     ...overrides,
     seriesId: seriesTemplateId,
     occurrenceDate,
+    createdAt: Date.now(),
   });
   doc.getMap('events').set(id, event);
   return id;
@@ -89,15 +98,23 @@ export function updateEvent(doc: Y.Doc, eventId: string, patch: Partial<Calendar
  * series template itself (`occurrenceId === event.seriesId`) is a template
  * edit, affecting every occurrence that doesn't already have its own
  * exception — not a same-occurrence-only edit.
+ *
+ * Returns the id the edited data now actually lives under — the same
+ * `occurrenceId` for a real entry, but a brand-new exception id for a
+ * virtual one, since `resolveEventOccurrences` surfaces a materialized
+ * exception under its own real id, never the synthetic `templateId@date`
+ * one it replaces. A caller still showing a virtual occurrence's own page
+ * needs this to navigate to where the data actually ended up — see
+ * EventDetail.tsx's own use of it after cancelling one.
  */
-export function updateOccurrence(doc: Y.Doc, occurrenceId: string, patch: Partial<NewEventInput>): void {
+export function updateOccurrence(doc: Y.Doc, occurrenceId: string, patch: Partial<NewEventInput>): string {
   if (doc.getMap('events').has(occurrenceId)) {
     updateEvent(doc, occurrenceId, patch);
-    return;
+    return occurrenceId;
   }
   const atIndex = occurrenceId.lastIndexOf('@');
   if (atIndex === -1) throw new Error(`Occurrence not found: ${occurrenceId}`);
-  createSeriesException(doc, occurrenceId.slice(0, atIndex), occurrenceId.slice(atIndex + 1), patch);
+  return createSeriesException(doc, occurrenceId.slice(0, atIndex), occurrenceId.slice(atIndex + 1), patch);
 }
 
 function deleteAvailabilityForOccurrence(doc: Y.Doc, occurrenceId: string): void {
