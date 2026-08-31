@@ -74,8 +74,69 @@ test('searching filters by title, artist, and key; archiving and restoring move 
     // Restoring puts it back in the active list.
     await page.locator('tr', { hasText: 'Yesterday' }).getByRole('button', { name: 'Restore' }).click();
     await expect(page.getByRole('cell', { name: 'Yesterday' })).toHaveCount(0); // gone from Archive view
-    await page.getByRole('button', { name: 'Active' }).click();
+    await page.getByRole('button', { name: 'Back to songs' }).click();
     await expect(page.getByRole('cell', { name: 'Yesterday' })).toBeVisible();
+  } finally {
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('a suggestion and an archived song are labeled; an ordinary song needs no label', async ({ page }) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'repertoire-status');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  addSong(setup.doc, {
+    title: 'Suggestion Song',
+    artist: 'Someone',
+    key: 'C',
+    bpm: 100,
+    durationSec: 180,
+    status: 'idea',
+    body: '',
+  });
+  addSong(setup.doc, {
+    title: 'Normal Song',
+    artist: 'Someone',
+    key: 'C',
+    bpm: 100,
+    durationSec: 180,
+    status: 'active',
+    body: '',
+  });
+  addSong(setup.doc, {
+    title: 'Old Song',
+    artist: 'Someone',
+    key: 'C',
+    bpm: 100,
+    durationSec: 180,
+    status: 'archived',
+    body: '',
+  });
+  await flush();
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/repertoire`);
+
+    // No "Active" tab anywhere in the UI.
+    await expect(page.getByRole('button', { name: 'Active', exact: true })).toHaveCount(0);
+
+    const suggestionRow = page.locator('tr', { hasText: 'Suggestion Song' });
+    await expect(suggestionRow.getByRole('cell', { name: 'Suggestion', exact: true })).toBeVisible();
+
+    // An ordinary song's status column is blank — "active" needs no label.
+    const normalRow = page.locator('tr', { hasText: 'Normal Song' });
+    await expect(normalRow.getByRole('cell').nth(3)).toHaveText('');
+
+    // Archived songs stay out of the default view...
+    await expect(page.getByRole('cell', { name: 'Old Song' })).toHaveCount(0);
+    // ...and are labeled once you switch into the archive.
+    await page.getByRole('button', { name: /Archive \(\d+\)/ }).click();
+    const archivedRow = page.locator('tr', { hasText: 'Old Song' });
+    await expect(archivedRow.getByRole('cell', { name: 'Archived', exact: true })).toBeVisible();
   } finally {
     await deleteThrowawayBand(token, bandId);
     setup.provider.destroy();

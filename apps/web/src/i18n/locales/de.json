@@ -253,13 +253,12 @@
   "repertoire": {
     "back": "Zurück zum Dashboard",
     "title": "Repertoire",
-    "tabActive": "Aktiv",
     "tabArchive": "Archiv ({{count}})",
+    "backToActive": "Zurück zu den Songs",
     "searchPlaceholder": "Titel, Interpret oder Tonart suchen",
     "statusFilter": "Status",
     "statusAll": "Alle",
-    "statusIdea": "Idee",
-    "statusActive": "Aktiv",
+    "statusIdea": "Vorschlag",
     "statusArchived": "Archiviert",
     "columnTitle": "Titel",
     "columnArtist": "Interpret",
@@ -310,7 +309,7 @@
     "down": "Dagegen",
     "votesCount": "{{votes}}/{{total}} abgestimmt",
     "promote": "Ins Repertoire aufnehmen",
-    "archiveVote": "Idee archivieren",
+    "archiveVote": "Vorschlag archivieren",
     "tieAdminOnly": "Unentschieden — ein Admin entscheidet"
   },
   "songEditor": {
@@ -328,7 +327,7 @@
     "tapTempo": "Tempo tippen",
     "duration": "Dauer (Sekunden)",
     "status": "Status",
-    "statusIdea": "Idee",
+    "statusIdea": "Vorschlag",
     "statusActive": "Aktiv",
     "statusArchived": "Archiviert",
     "bandNotes": "Band-Notizen",
