@@ -7,21 +7,12 @@
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { clearDocument, IndexeddbPersistence } from 'y-indexeddb';
 import * as Y from 'yjs';
-import { withRuntimeHost } from './networkHost';
+import { getActiveServerConfig } from './serverConfig';
 
 export interface BandDocConnection {
   doc: Y.Doc;
   indexeddb: IndexeddbPersistence;
   provider: HocuspocusProvider;
-}
-
-// The sync server URL is configurable per account/device, same as the REST
-// API's — this is only the build-time default (see docs/ARCHITECTURE.md).
-// Its host is swapped at runtime when it's a loopback address (see
-// networkHost.ts) so the app keeps working when opened from another device
-// on the LAN.
-function getDefaultHocuspocusUrl(): string {
-  return withRuntimeHost(import.meta.env.VITE_DEFAULT_HOCUSPOCUS_URL ?? 'ws://localhost:3002');
 }
 
 // Scoped by user, not just band — see docs/adr/0006-offline-cache-scoping.md.
@@ -56,7 +47,7 @@ export function connectBandDoc(userId: string, bandId: string, token: string): B
   const doc = new Y.Doc();
   const indexeddb = new IndexeddbPersistence(bandIndexedDbName(userId, bandId), doc);
   const provider = new HocuspocusProvider({
-    url: getDefaultHocuspocusUrl(),
+    url: getActiveServerConfig().hocuspocusUrl,
     name: bandId,
     document: doc,
     token,

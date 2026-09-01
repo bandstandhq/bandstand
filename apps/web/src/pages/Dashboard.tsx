@@ -12,7 +12,8 @@ import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient, getDefaultServerUrl } from '../lib/auth-client';
+import { authClient } from '../lib/auth-client';
+import { getActiveServerConfig } from '../lib/serverConfig';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
 
@@ -109,7 +110,7 @@ export function CalendarSubscribePanel() {
   }
 
   if (!token) return null;
-  const url = `${getDefaultServerUrl()}/calendar/${token}.ics`;
+  const url = `${getActiveServerConfig().serverUrl}/calendar/${token}.ics`;
 
   return (
     <div className="mt-8 rounded-md border border-border p-4">
