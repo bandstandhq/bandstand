@@ -13,7 +13,7 @@
 // plain event it opens a real (not window.confirm) yes/no dialog, and for
 // an occurrence of a recurring series it opens a choice between acting on
 // just this date or the entire series.
-import { createEvent, createRecurringEvent, listEvents, type CalendarEvent } from '@bandstand/core';
+import { createEvent, createRecurringEvent, listEvents, resolveEventOccurrences, type CalendarEvent } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
@@ -141,15 +141,67 @@ test('choosing "delete entire series" from the trash button removes every occurr
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/calendar/${seriesId}`);
 
-    // The series template itself is a real, seconds-old entry — its own
-    // "just this date" action would be a permanent delete, not a cancel
-    // (see canPermanentlyDelete), but that's not the action under test here.
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    // The series template's own occurrence is never eligible for a
+    // same-occurrence permanent delete, regardless of age (see
+    // isSeriesTemplateOccurrence) — its "just this date" action is always
+    // "Cancel event", but that's not the action under test here.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'Delete entire series' }).click();
 
     await page.waitForURL(/\/calendar$/);
     expect(listEvents(setup.doc)[seriesId]).toBeUndefined();
+  } finally {
+    setup.provider.destroy();
+    await deleteThrowawayBand(ownerToken, bandId);
+  }
+});
+
+test('cancelling just the series template\'s own first occurrence leaves the rest of the series untouched', async ({
+  page,
+}) => {
+  const ownerToken = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(ownerToken, 'event-trash-template-occurrence');
+  const setup = connectTestBandDoc(bandId, ownerToken);
+  await setup.waitForSynced();
+
+  const now = Date.now();
+  // The template's own occurrence (opened at /calendar/:seriesId, same as
+  // clicking the first entry of a weekly series in the calendar list) is a
+  // real `events` entry, not a virtual one — cancelling it used to patch
+  // the template record's own `status` in place, which every later virtual
+  // occurrence then inherited by spreading the (now cancelled) template,
+  // making the entire series vanish instead of just this one date.
+  const seriesId = createRecurringEvent(
+    setup.doc,
+    { type: 'rehearsal', title: 'Weekly Rehearsal Not To Vanish', startsAt: now + 24 * 60 * 60 * 1000, allDay: false, status: 'confirmed' },
+    { freq: 'weekly' },
+  );
+  await flush();
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/calendar/${seriesId}`);
+
+    // canPermanentlyDelete is false for the template's own occurrence (see
+    // EventDetail.tsx), so this is "Cancel", not "Delete".
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Cancel event' }).click();
+
+    await expect(page.getByText('(cancelled)')).toBeVisible();
+
+    // The template record itself is untouched — only a fresh exception for
+    // that one date carries the cancellation.
+    expect(listEvents(setup.doc)[seriesId]?.status).not.toBe('cancelled');
+
+    // A later occurrence, three weeks out, is still a normal, active one —
+    // the whole series didn't vanish along with the first date.
+    const laterWindowStart = now + 20 * 24 * 60 * 60 * 1000;
+    const laterWindowEnd = now + 24 * 24 * 60 * 60 * 1000;
+    const laterOccurrences = resolveEventOccurrences(listEvents(setup.doc), laterWindowStart, laterWindowEnd);
+    expect(laterOccurrences).toHaveLength(1);
+    expect(laterOccurrences[0]?.event.status).toBe('confirmed');
   } finally {
     setup.provider.destroy();
     await deleteThrowawayBand(ownerToken, bandId);

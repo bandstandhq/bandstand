@@ -5,6 +5,7 @@ import {
   type BandRole,
   buildLocationHref,
   can,
+  cancelOccurrence,
   type CalendarEvent,
   type EventStatus,
   type EventType,
@@ -320,8 +321,28 @@ export function EventDetail() {
   // its own — only its template does. Everything else (a plain event, or a
   // real series exception) has a real entry under `occurrenceId` itself.
   const isVirtualOccurrence = !events[occurrenceId];
+  // The series' own template record IS that real entry when its own first
+  // occurrence is open (occurrenceId === event.seriesId) — never eligible
+  // for a same-occurrence permanent delete, unlike a genuine materialized
+  // exception: deleting the template row would delete the recurrence rule
+  // itself, taking the whole series with it. See performCancel's own
+  // comment for the matching fix on the cancel side of this.
+  const isSeriesTemplateOccurrence = event.seriesId !== undefined && occurrenceId === event.seriesId;
+  // Once an occurrence is already cancelled, offering to "cancel" it again
+  // makes no sense — the only thing left to do is remove the cancellation
+  // record outright (a plain event goes away entirely; a cancelled series
+  // exception reverts that date to a normal, active occurrence again, same
+  // as if it had never been cancelled). Always a real, hard delete: a
+  // cancelled occurrence is never virtual (only a real exception carries a
+  // status at all) and never the template (which can no longer end up
+  // `cancelled` itself after the fix above).
+  const isAlreadyCancelled = event.status === 'cancelled';
   const canPermanentlyDelete =
-    !isVirtualOccurrence && event.createdAt !== undefined && now - event.createdAt < DELETE_GRACE_PERIOD_MS;
+    isAlreadyCancelled ||
+    (!isVirtualOccurrence &&
+      !isSeriesTemplateOccurrence &&
+      event.createdAt !== undefined &&
+      now - event.createdAt < DELETE_GRACE_PERIOD_MS);
   const linkedSetlist = event.setlistId ? doc?.getMap('setlists').get(event.setlistId) as { name: string } | undefined : undefined;
   const locationHref = event.location ? buildLocationHref(event.location, event.locationGeo) : undefined;
 
@@ -342,14 +363,20 @@ export function EventDetail() {
   }
 
   function performCancel() {
-    if (!doc || !occurrenceId || !bandId) return;
-    // updateOccurrence already handles a real entry (plain event, template,
-    // or existing exception) vs. a virtual occurrence needing a fresh
-    // exception materialized for it — same logic, one call either way. A
-    // virtual occurrence's cancellation lands under a brand-new real id, so
-    // this page — still showing the old synthetic one — has to follow it
-    // there, same reasoning as the edit dialog's own onSaved above.
-    const savedOccurrenceId = updateOccurrence(doc, occurrenceId, { status: 'cancelled' });
+    if (!doc || !occurrenceId || !bandId || !event) return;
+    // Cancelling the series template's own occurrence must never patch the
+    // template record itself — updateOccurrence patches any real entry in
+    // place, and the template IS a real entry, but a `status: 'cancelled'`
+    // there is a property of the *template*, which resolveEventOccurrences
+    // then spreads onto every future virtual occurrence it generates —
+    // cancelling one date this way silently cancelled the entire series.
+    // cancelOccurrence always creates a proper per-date exception instead,
+    // exactly like a virtual occurrence's own cancellation does, leaving
+    // the template (and every other date) untouched.
+    const savedOccurrenceId =
+      isSeriesTemplateOccurrence && event.seriesId
+        ? cancelOccurrence(doc, event.seriesId, toDateValue(event.startsAt))
+        : updateOccurrence(doc, occurrenceId, { status: 'cancelled' });
     if (savedOccurrenceId !== occurrenceId) {
       navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
     }

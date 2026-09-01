@@ -137,8 +137,19 @@ app.use(
 // above: a plain 429 doesn't reveal anything about who's already
 // registered, so the existing `createRateLimiter` is enough, no custom
 // response shape needed.
-app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20 })(clientIp));
-app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 100 })(clientIp));
+//
+// Overridable via env (unlike the other thresholds in this file) because
+// the acceptance test suite is itself exactly the kind of "many real
+// signups from one shared address in a short window" traffic this is
+// meant to tell apart from a bot — every request in one CI job shares a
+// single IP, and the suite creates dozens of throwaway accounts in a few
+// minutes, comfortably over the production default. This was silently
+// failing a chunk of the acceptance suite in CI (whichever specs happened
+// to run after the 20th signup) until it was noticed and traced here.
+const MAX_SIGNUPS_PER_HOUR = Number(process.env.MAX_SIGNUPS_PER_HOUR ?? 20);
+const MAX_SIGNUPS_PER_DAY = Number(process.env.MAX_SIGNUPS_PER_DAY ?? 100);
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: MAX_SIGNUPS_PER_HOUR })(clientIp));
+app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: MAX_SIGNUPS_PER_DAY })(clientIp));
 
 // Same layered reasoning as request-password-reset above, adapted for an
 // already-authenticated caller — see accountActionRateLimit.ts.

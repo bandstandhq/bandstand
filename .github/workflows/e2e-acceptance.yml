@@ -56,6 +56,12 @@ jobs:
       MINIO_ACCESS_KEY: ci-minio-test
       MINIO_SECRET_KEY: ci-minio-test-do-not-use-in-production
       MINIO_BUCKET: bandstand
+      # The production default (20/hour) was silently failing a chunk of
+      # this very suite: every request in this job shares one IP, and the
+      # suite signs up dozens of throwaway accounts in a few minutes — see
+      # apps/server/src/app.ts's own comment on MAX_SIGNUPS_PER_HOUR.
+      MAX_SIGNUPS_PER_HOUR: "300"
+      MAX_SIGNUPS_PER_DAY: "300"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
