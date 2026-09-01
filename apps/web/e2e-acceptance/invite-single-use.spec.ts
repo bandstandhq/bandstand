@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { INVITE_CODE_ALPHABET, INVITE_CODE_LENGTH } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
 import {
   createThrowawayBand,
@@ -12,7 +13,7 @@ import {
 } from './fixtures';
 import { signInForToken } from './hocuspocusTestClient';
 
-const INVITE_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
+const INVITE_CODE_PATTERN = new RegExp(`^[${INVITE_CODE_ALPHABET}]{${INVITE_CODE_LENGTH}}$`);
 
 test('an invite code redeems exactly once', async ({ page }) => {
   const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);

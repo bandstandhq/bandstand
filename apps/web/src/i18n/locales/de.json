@@ -307,7 +307,9 @@
   },
   "repertoireExport": {
     "chordProButton": "ChordPro exportieren",
-    "jsonButton": "JSON exportieren"
+    "jsonButton": "JSON exportieren",
+    "fullExportButton": "Alles als ZIP exportieren",
+    "fullExportInProgress": "Wird exportiert…"
   },
   "ideaVoting": {
     "up": "Dafür",
@@ -494,6 +496,10 @@
       "open": "Offen",
       "status": "Status",
       "noInvites": "Noch keine Einladungen."
+    },
+    "export": {
+      "title": "Repertoire exportieren",
+      "description": "Lädt den ChordPro-Text jedes Songs, die vollständigen Daten als JSON und jede hochgeladene Datei gebündelt als ein ZIP herunter."
     },
     "danger": {
       "title": "Gefahrenzone",

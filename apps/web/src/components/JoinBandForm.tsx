@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Band } from '@bandstand/core';
+import { INVITE_CODE_LENGTH, type Band } from '@bandstand/core';
 import { Button, Input } from '@bandstand/ui';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api-client';
 import { joinBandErrorKey } from '../lib/joinBandError';
 
-/** A 6-character invite code, entered by hand — not a link/QR tap (that's JoinBand.tsx's job). */
+/** An `INVITE_CODE_LENGTH`-character invite code, entered by hand — not a link/QR tap (that's JoinBand.tsx's job). */
 export function JoinBandForm({
   initialCode = '',
   onJoined,
@@ -44,7 +44,7 @@ export function JoinBandForm({
         placeholder={t('joinBand.manualCodePlaceholder')}
         aria-label={t('joinBand.manualCodeLabel')}
         className="w-40 uppercase"
-        maxLength={8}
+        maxLength={INVITE_CODE_LENGTH}
       />
       <Button type="submit" size="sm" disabled={submitting || !code.trim()}>
         {submitting ? t('joinBand.joining') : t('joinBand.manualSubmit')}

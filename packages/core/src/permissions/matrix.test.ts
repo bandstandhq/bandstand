@@ -35,6 +35,7 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['poll:create', true, true, false],
   ['poll:edit', true, true, false],
   ['poll:close', true, true, false],
+  ['repertoire:export', true, true, false],
 ];
 
 const ROLES: BandRole[] = ['owner', 'admin', 'member'];

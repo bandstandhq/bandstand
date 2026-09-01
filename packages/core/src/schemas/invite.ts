@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
-import { isValidInviteCodeFormat } from '../invites/code';
+import { INVITE_CODE_LENGTH, isValidInviteCodeFormat } from '../invites/code';
 import { bandRoleSchema } from './band';
 
 export const createInviteInputSchema = z.strictObject({
@@ -32,6 +32,6 @@ export const inviteSchema = z.object({
 export type Invite = z.infer<typeof inviteSchema>;
 
 export const redeemInviteInputSchema = z.strictObject({
-  code: z.string().refine(isValidInviteCodeFormat, 'must be a valid 6-character invite code'),
+  code: z.string().refine(isValidInviteCodeFormat, `must be a valid ${INVITE_CODE_LENGTH}-character invite code`),
 });
 export type RedeemInviteInput = z.infer<typeof redeemInviteInputSchema>;

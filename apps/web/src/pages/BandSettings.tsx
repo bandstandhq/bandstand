@@ -9,8 +9,10 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
+import { FullRepertoireExport } from '../components/FullRepertoireExport';
 import { RequireBandRole } from '../components/RequireBandRole';
 import { PencilIcon, TrashIcon } from '../components/icons';
+import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
 import { apiClient } from '../lib/api-client';
@@ -69,6 +71,11 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const canRename = myBand ? can(myBand.role, 'band:rename') : false;
   const canManageInvites = myBand ? can(myBand.role, 'invite:create') : false;
   const canDelete = myBand ? can(myBand.role, 'band:delete') : false;
+  const canExportRepertoire = myBand ? can(myBand.role, 'repertoire:export') : false;
+  // Only connected when actually needed — every other section here is
+  // plain REST, and the full export is the one feature that needs the live
+  // Yjs doc (see FullRepertoireExport.tsx).
+  const { doc } = useBandDoc(canExportRepertoire ? bandId : null);
 
   async function handleRename(e: FormEvent) {
     e.preventDefault();
@@ -151,6 +158,14 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
               setInvites((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
             }
           />
+        </section>
+      )}
+
+      {canExportRepertoire && (
+        <section className="mt-8 rounded-md border border-border p-4">
+          <h2 className="text-lg font-medium">{t('bandSettings.export.title')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('bandSettings.export.description')}</p>
+          <div className="mt-3">{doc && <FullRepertoireExport bandId={bandId} doc={doc} />}</div>
         </section>
       )}
 
