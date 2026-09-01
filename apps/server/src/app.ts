@@ -16,6 +16,7 @@ import { ZodError } from 'zod';
 import { auth } from './lib/auth';
 import { parseAllowedOrigins } from './lib/corsOrigins';
 import { assertProductionOriginIsRestricted } from './lib/envGuard';
+import { accountActionRateLimit } from './lib/accountActionRateLimit';
 import { passwordResetRateLimit } from './lib/passwordResetRateLimit';
 import { clientIp, createRateLimiter } from './lib/rateLimit';
 import { bandsRoute } from './routes/bands';
@@ -117,4 +118,18 @@ app.use(
 // response shape needed.
 app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20 })(clientIp));
 app.use('/api/auth/sign-up/email', createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 100 })(clientIp));
+
+// Same layered reasoning as request-password-reset above, adapted for an
+// already-authenticated caller — see accountActionRateLimit.ts.
+app.use(
+  '/api/auth/change-password',
+  accountActionRateLimit({
+    name: 'change-password',
+    perAccountMax: 5,
+    perAccountWindowMs: 60 * 60 * 1000,
+    perIpMax: 15,
+    perIpWindowMs: 60 * 60 * 1000,
+  }),
+);
+
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));

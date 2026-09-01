@@ -59,3 +59,32 @@ test('the wake-lock and language settings persist across reloads', async ({ page
     await deleteTestAccount(email);
   }
 });
+
+test('changing the display name in account settings persists and is reflected immediately', async ({ page }) => {
+  const email = freshEmail('account-settings-name');
+  const password = 'account-settings-password-1';
+  const name = freshName('Account Settings Name User');
+  const newName = freshName('Renamed User');
+
+  try {
+    await page.goto('/signup');
+    await page.getByLabel('Name').fill(name);
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Sign up' }).click();
+    await page.waitForURL(/\/(bands\/.+\/dashboard|dashboard)$/);
+
+    await page.goto('/settings');
+    const nameInput = page.getByLabel('Display name');
+    await expect(nameInput).toHaveValue(name);
+
+    await nameInput.fill(newName);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Saved.')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByLabel('Display name')).toHaveValue(newName);
+  } finally {
+    await deleteTestAccount(email);
+  }
+});

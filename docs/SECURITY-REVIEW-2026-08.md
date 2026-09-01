@@ -301,6 +301,34 @@ verifiziert (400/413 durch den jeweiligen Fix ersetzt gegen 500/401 ohne ihn).
 
 ---
 
+## Nachtrag 2026-09: Passwort-Implementierung (im Zuge der Account-Settings-Erweiterung geprüft)
+
+Kein Teil des ursprünglichen August-Reviews — eine gezielte Nachprüfung der Passwort-Mechanik vor
+dem Bau von Anzeigename-/Passwort-/E-Mail-Änderung in den Kontoeinstellungen.
+
+- **Hashing**: better-auth nutzt scrypt (`@better-auth/utils`, N=16384, r=16, p=1, 64-Byte-Derivat)
+  — ein solides, mitgeliefertes Standard-Setup, von Bandstand nicht überschrieben. Kein Befund.
+- **Mindestlänge**: 8 Zeichen, server- und clientseitig — better-auths eigener Default, von
+  Bandstand nicht angehoben. Das ist NIST 800-63B als absolutes Minimum konform, nicht die dort
+  empfohlenen ≥12. Bewusst nicht angehoben in diesem Zuge (reine Policy-Entscheidung, kein Bug) —
+  vorgemerkt als mögliche künftige Härtung, keine offene Advisory.
+- **Bekannt kompromittierte Passwörter**: werden nicht geprüft (kein HaveIBeenPwned-Abgleich, kein
+  zxcvbn, keine Deny-Liste). Echte, aber eigenständige Lücke — nicht im Rahmen dieser
+  Account-Settings-Arbeit behoben, da sie einen neuen externen Abgleich erfordert statt einer
+  lokalen Korrektur. Vorgemerkt als offener Punkt für ein künftiges Review.
+- **Sitzungs-Invalidierung bei Passwortänderung — Status: behoben in #166**: Weder der bestehende
+  Passwort-Reset-Flow noch das (zu diesem Zeitpunkt noch nicht existierende) Ändern-Passwort-Flow
+  invalidierten andere Sitzungen serverseitig — better-auth lässt das standardmäßig aus
+  (`revokeSessionsOnPasswordReset` global unset, `revokeOtherSessions` pro Aufruf optional und
+  nirgends gesetzt). Eine gestohlene Sitzung/ein gestohlenes Bearer-Token hätte sowohl einen
+  Reset als auch eine Änderung unbeschadet überlebt. Behoben: `revokeSessionsOnPasswordReset: true`
+  in `apps/server/src/lib/auth.ts`, sowie `revokeOtherSessions: true` beim neuen
+  Ändern-Passwort-Aufruf (`apps/web/src/components/ChangePasswordForm.tsx`).
+- **Logging**: keine Stelle gefunden, an der ein Klartext-Passwort geloggt werden könnte (kein
+  Request-Body-Logging, Zod-Fehler geben nie den Wert zurück). Kein Befund.
+
+---
+
 ## Zusammenfassung
 
 **Was in Ordnung ist**: Die REST-Autorisierungsschicht ist durchgängig sauber (kein einziger IDOR

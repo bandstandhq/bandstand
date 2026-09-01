@@ -63,6 +63,13 @@ export const auth = betterAuth({
         `<p>Click <a href="${url}">here</a> to reset your password. If you didn't request this, ignore this email.</p>`,
       );
     },
+    // Left unset, this defaults to false — a stolen session cookie/bearer
+    // token would otherwise survive both a self-service password change and
+    // a forgot-password reset. Found during the 2026-09 account-settings
+    // security pass alongside the equivalent gap in change-password (fixed
+    // at its call site with revokeOtherSessions: true instead, since that
+    // one is a per-request option, not global config).
+    revokeSessionsOnPasswordReset: true,
   },
   plugins: [jwt(), bearer()],
 });
