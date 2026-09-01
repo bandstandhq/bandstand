@@ -2,6 +2,7 @@
   "common": {
     "loading": "Loading…",
     "close": "Close",
+    "cancel": "Cancel",
     "showPassword": "Show password",
     "hidePassword": "Hide password"
   },
@@ -639,10 +640,11 @@
     "deleting": "Deleting…",
     "confirmDelete": "Delete \"{{name}}\"? This can't be undone.",
     "deleteSeries": "Delete entire series",
-    "confirmDeleteSeries": "Delete the entire recurring series \"{{name}}\"? This removes every occurrence and can't be undone.",
+    "deleteChoiceTitle": "Remove \"{{name}}\"",
+    "deleteChoiceDescription": "This is part of a recurring series. Choose whether to remove just this date or the entire series — either way, this can't be undone.",
     "cancel": "Cancel",
+    "cancelEventAction": "Cancel event",
     "confirmCancel": "Cancel \"{{name}}\"?",
-    "confirmCancelOccurrence": "Cancel this occurrence of \"{{name}}\"? The rest of the series is unaffected.",
     "edit": "Edit",
     "editTitle": "Edit event",
     "saveChanges": "Save changes",

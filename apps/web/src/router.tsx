@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ConfirmDialogProvider } from '@bandstand/ui';
 import type { ComponentType } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router';
 import { GlobalPrefsEffects } from './components/GlobalPrefsEffects';
 import { RequireAuth } from './components/RequireAuth';
@@ -60,10 +62,13 @@ function KeyedByBandId({ Component }: { Component: ComponentType }) {
 }
 
 export function AppRouter() {
+  const { t } = useTranslation();
+
   return (
     <BrowserRouter>
-      <GlobalPrefsEffects />
-      <Routes>
+      <ConfirmDialogProvider closeLabel={t('common.close')}>
+        <GlobalPrefsEffects />
+        <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -108,7 +113,8 @@ export function AppRouter() {
           );
         })}
         <Route path="/join/:code" element={<JoinBand />} />
-      </Routes>
+        </Routes>
+      </ConfirmDialogProvider>
     </BrowserRouter>
   );
 }

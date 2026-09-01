@@ -13,7 +13,7 @@ import {
   type Setlist,
   updateOccurrence,
 } from '@bandstand/core';
-import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
+import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -273,6 +273,7 @@ function AvailabilityRow({
 
 export function EventDetail() {
   const { t, i18n } = useTranslation();
+  const { confirm, chooseAction } = useConfirmDialog();
   const navigate = useNavigate();
   const { bandId, occurrenceId } = useParams<{ bandId: string; occurrenceId: string }>();
   const { data: session } = authClient.useSession();
@@ -329,9 +330,8 @@ export function EventDetail() {
     respondAvailability(doc, occurrenceId, currentUserId, answer);
   }
 
-  async function handleDelete() {
-    if (!bandId || !occurrenceId || !event) return;
-    if (!window.confirm(t('eventDetail.confirmDelete', { name: event.title }))) return;
+  async function performDelete() {
+    if (!bandId || !occurrenceId) return;
     setDeleting(true);
     try {
       await apiClient.deleteEvent(bandId, occurrenceId);
@@ -341,24 +341,8 @@ export function EventDetail() {
     }
   }
 
-  async function handleDeleteSeries() {
-    if (!bandId || !event?.seriesId) return;
-    if (!window.confirm(t('eventDetail.confirmDeleteSeries', { name: event.title }))) return;
-    setDeleting(true);
-    try {
-      await apiClient.deleteEvent(bandId, event.seriesId, 'series');
-      navigate(`/bands/${bandId}/calendar`);
-    } catch {
-      setDeleting(false);
-    }
-  }
-
-  function handleCancel() {
-    if (!doc || !occurrenceId || !event || !bandId) return;
-    const confirmMessage = event.seriesId
-      ? t('eventDetail.confirmCancelOccurrence', { name: event.title })
-      : t('eventDetail.confirmCancel', { name: event.title });
-    if (!window.confirm(confirmMessage)) return;
+  function performCancel() {
+    if (!doc || !occurrenceId || !bandId) return;
     // updateOccurrence already handles a real entry (plain event, template,
     // or existing exception) vs. a virtual occurrence needing a fresh
     // exception materialized for it — same logic, one call either way. A
@@ -371,12 +355,63 @@ export function EventDetail() {
     }
   }
 
-  function handleTrashClick() {
+  async function performDeleteOrCancelOccurrence() {
     if (canPermanentlyDelete) {
-      void handleDelete();
+      await performDelete();
     } else {
-      handleCancel();
+      performCancel();
     }
+  }
+
+  async function performDeleteSeries() {
+    if (!bandId || !event?.seriesId) return;
+    setDeleting(true);
+    try {
+      await apiClient.deleteEvent(bandId, event.seriesId, 'series');
+      navigate(`/bands/${bandId}/calendar`);
+    } catch {
+      setDeleting(false);
+    }
+  }
+
+  // One trash button, one dialog — a plain event asks a single yes/no
+  // (delete for good, or cancel, depending on canPermanentlyDelete); an
+  // occurrence of a recurring series instead asks which scope to act on,
+  // since "delete this button" is genuinely ambiguous there (see the
+  // previous two-icon layout this replaced).
+  async function handleTrashClick() {
+    if (!event) return;
+
+    if (event.seriesId) {
+      const choice = await chooseAction<'occurrence' | 'series'>({
+        title: t('eventDetail.deleteChoiceTitle', { name: event.title }),
+        description: t('eventDetail.deleteChoiceDescription'),
+        cancelLabel: t('common.cancel'),
+        actions: [
+          {
+            label: canPermanentlyDelete ? t('eventDetail.delete') : t('eventDetail.cancelEventAction'),
+            value: 'occurrence',
+          },
+          { label: t('eventDetail.deleteSeries'), value: 'series' },
+        ],
+      });
+      if (choice === 'occurrence') await performDeleteOrCancelOccurrence();
+      else if (choice === 'series') await performDeleteSeries();
+      return;
+    }
+
+    // Not eventDetail.cancel for the confirmLabel below — that's the trash
+    // icon's own short tooltip text, and in English it's the same word as
+    // this dialog's own generic dismiss button (common.cancel), which would
+    // otherwise put two buttons both labeled "Cancel" in the same dialog.
+    const confirmed = await confirm({
+      title: canPermanentlyDelete
+        ? t('eventDetail.confirmDelete', { name: event.title })
+        : t('eventDetail.confirmCancel', { name: event.title }),
+      confirmLabel: canPermanentlyDelete ? t('eventDetail.delete') : t('eventDetail.cancelEventAction'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (confirmed) await performDeleteOrCancelOccurrence();
   }
 
   return (
@@ -465,33 +500,25 @@ export function EventDetail() {
             </button>
           )}
           {canDelete && (
-            // One button, two behaviors depending on age: within
-            // DELETE_GRACE_PERIOD_MS of creation (never of a later edit) it
-            // deletes for good, same as a fresh mistake being undone; after
-            // that — or for a virtual occurrence, which has no real entry
-            // yet to delete — it cancels instead.
+            // One button. For a plain event: within DELETE_GRACE_PERIOD_MS
+            // of creation (never of a later edit) a confirm dialog deletes
+            // for good, same as a fresh mistake being undone; after that —
+            // or for a virtual occurrence, which has no real entry yet to
+            // delete — it cancels instead. For an occurrence that belongs to
+            // a recurring series, the dialog instead asks whether to act on
+            // just this date or the entire series (see handleTrashClick) —
+            // previously a second, identically-styled trash icon sat next
+            // to this one for that case, indistinguishable at a glance.
             <button
               type="button"
               disabled={deleting}
-              onClick={handleTrashClick}
+              onClick={() => void handleTrashClick()}
               aria-label={
                 canPermanentlyDelete ? (deleting ? t('eventDetail.deleting') : t('eventDetail.delete')) : t('eventDetail.cancel')
               }
               title={
                 canPermanentlyDelete ? (deleting ? t('eventDetail.deleting') : t('eventDetail.delete')) : t('eventDetail.cancel')
               }
-              className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          )}
-          {canDelete && event.seriesId && (
-            <button
-              type="button"
-              disabled={deleting}
-              onClick={() => void handleDeleteSeries()}
-              aria-label={t('eventDetail.deleteSeries')}
-              title={t('eventDetail.deleteSeries')}
               className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
               <TrashIcon className="h-5 w-5" />

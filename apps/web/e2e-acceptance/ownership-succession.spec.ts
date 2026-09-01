@@ -32,14 +32,15 @@ test('the owner leaving is told who takes over, and that member becomes the new 
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/settings`);
 
-    let dialogMessage = '';
-    page.on('dialog', (dialog) => {
-      dialogMessage = dialog.message();
-      void dialog.accept();
-    });
-
     await page.getByRole('button', { name: 'Leave band' }).click();
-    await expect.poll(() => dialogMessage).toContain('Future Owner Admin');
+
+    // Leaving as owner now goes through the app's own styled confirm
+    // dialog (ConfirmDialog/useConfirmDialog), not a native window.confirm
+    // — scoped to the dialog itself since its own confirm action is also
+    // labeled "Leave band", same as the trigger button behind it.
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Future Owner Admin')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Leave band' }).click();
 
     await page.waitForURL(/\/dashboard/);
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { can, createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
 import type { BandRole, Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
-import { Button, Input } from '@bandstand/ui';
+import { Button, Input, useConfirmDialog } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
@@ -18,10 +18,16 @@ import type * as Y from 'yjs';
 
 function DeleteSetlistButton({ bandId, setlistId, setlistName }: { bandId: string; setlistId: string; setlistName: string }) {
   const { t } = useTranslation();
+  const { confirm } = useConfirmDialog();
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
-    if (!window.confirm(t('setlistList.confirmDelete', { name: setlistName }))) return;
+    const confirmed = await confirm({
+      title: t('setlistList.confirmDelete', { name: setlistName }),
+      confirmLabel: t('setlistList.delete'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await apiClient.deleteSetlist(bandId, setlistId);

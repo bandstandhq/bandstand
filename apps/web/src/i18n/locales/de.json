@@ -2,6 +2,7 @@
   "common": {
     "loading": "Lädt…",
     "close": "Schließen",
+    "cancel": "Abbrechen",
     "showPassword": "Passwort anzeigen",
     "hidePassword": "Passwort verbergen"
   },
@@ -639,10 +640,11 @@
     "deleting": "Wird gelöscht…",
     "confirmDelete": "\"{{name}}\" löschen? Das kann nicht rückgängig gemacht werden.",
     "deleteSeries": "Gesamte Serie löschen",
-    "confirmDeleteSeries": "Die gesamte Serie \"{{name}}\" löschen? Dadurch werden alle Termine entfernt — das kann nicht rückgängig gemacht werden.",
+    "deleteChoiceTitle": "\"{{name}}\" entfernen",
+    "deleteChoiceDescription": "Das ist Teil einer wiederkehrenden Serie. Wähle, ob nur dieser Termin oder die gesamte Serie entfernt werden soll — in beiden Fällen kann das nicht rückgängig gemacht werden.",
     "cancel": "Absagen",
+    "cancelEventAction": "Absagen",
     "confirmCancel": "\"{{name}}\" absagen?",
-    "confirmCancelOccurrence": "Diesen Termin von \"{{name}}\" absagen? Der Rest der Serie ist davon nicht betroffen.",
     "edit": "Bearbeiten",
     "editTitle": "Termin bearbeiten",
     "saveChanges": "Änderungen speichern",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type AvailabilityAnswer, type CalendarEvent, resolveEventOccurrences } from '@bandstand/core';
-import { Button } from '@bandstand/ui';
+import { Button, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
@@ -79,6 +79,7 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
  */
 export function CalendarSubscribePanel() {
   const { t } = useTranslation();
+  const { confirm } = useConfirmDialog();
   const [token, setToken] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -88,7 +89,12 @@ export function CalendarSubscribePanel() {
   }, []);
 
   async function handleRegenerate() {
-    if (!window.confirm(t('dashboard.icsRegenerateConfirm'))) return;
+    const confirmed = await confirm({
+      title: t('dashboard.icsRegenerateConfirm'),
+      confirmLabel: t('dashboard.icsRegenerate'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     setRegenerating(true);
     try {
       const { token: newToken } = await apiClient.regenerateIcsToken();

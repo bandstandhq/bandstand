@@ -2,7 +2,7 @@
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
 import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
-import { Button, Dialog, Input } from '@bandstand/ui';
+import { Button, Dialog, Input, useConfirmDialog } from '@bandstand/ui';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -353,6 +353,7 @@ function useMemberActions({
   onLeftBand: () => void;
 }) {
   const { t } = useTranslation();
+  const { confirm } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -373,13 +374,24 @@ function useMemberActions({
     void run(() => apiClient.changeMemberRole(bandId, member.userId, { role }));
   }
 
-  function handleRemove() {
-    if (!window.confirm(t('bandSettings.members.confirmRemove', { name: member.name }))) return;
+  async function handleRemove() {
+    const confirmed = await confirm({
+      title: t('bandSettings.members.confirmRemove', { name: member.name }),
+      confirmLabel: t('bandSettings.members.remove'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     void run(() => apiClient.removeMember(bandId, member.userId));
   }
 
-  function handleTransfer() {
-    if (!window.confirm(t('bandSettings.members.confirmTransfer', { name: member.name }))) return;
+  async function handleTransfer() {
+    const confirmed = await confirm({
+      title: t('bandSettings.members.confirmTransfer', { name: member.name }),
+      confirmLabel: t('bandSettings.members.transferOwnership'),
+      cancelLabel: t('common.cancel'),
+      variant: 'default',
+    });
+    if (!confirmed) return;
     void run(() => apiClient.transferOwnership(bandId, member.userId));
   }
 
@@ -406,9 +418,19 @@ function useMemberActions({
         setError(t('bandSettings.members.soleOwnerCannotLeave'));
         return;
       }
-      if (!window.confirm(t('bandSettings.members.confirmLeaveAsOwner', { name: successor.name }))) return;
-    } else if (!window.confirm(t('bandSettings.members.confirmLeave'))) {
-      return;
+      const confirmedAsOwner = await confirm({
+        title: t('bandSettings.members.confirmLeaveAsOwner', { name: successor.name }),
+        confirmLabel: t('bandSettings.members.leave'),
+        cancelLabel: t('common.cancel'),
+      });
+      if (!confirmedAsOwner) return;
+    } else {
+      const confirmedLeave = await confirm({
+        title: t('bandSettings.members.confirmLeave'),
+        confirmLabel: t('bandSettings.members.leave'),
+        cancelLabel: t('common.cancel'),
+      });
+      if (!confirmedLeave) return;
     }
 
     setBusy(true);
@@ -484,7 +506,7 @@ function MemberActionButtons({
         <button
           type="button"
           disabled={busy}
-          onClick={handleTransfer}
+          onClick={() => void handleTransfer()}
           className="text-primary hover:underline"
         >
           {t('bandSettings.members.transferOwnership')}
@@ -494,7 +516,7 @@ function MemberActionButtons({
         <button
           type="button"
           disabled={busy}
-          onClick={handleRemove}
+          onClick={() => void handleRemove()}
           className="text-destructive hover:underline"
         >
           {t('bandSettings.members.remove')}
