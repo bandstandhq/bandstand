@@ -22,6 +22,7 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useNicknames } from '../hooks/useNicknames';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
@@ -234,12 +235,12 @@ function EditEventForm({
 }
 
 function AvailabilityRow({
-  member,
+  displayName,
   answer,
   isSelf,
   onRespond,
 }: {
-  member: BandMember;
+  displayName: string;
   answer: AvailabilityAnswer | undefined;
   isSelf: boolean;
   onRespond?: (answer: AvailabilityAnswer) => void;
@@ -247,7 +248,7 @@ function AvailabilityRow({
   const { t } = useTranslation();
   return (
     <li className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-center sm:justify-between">
-      <span className="wrap-break-word">{member.name}</span>
+      <span className="wrap-break-word">{displayName}</span>
       {isSelf && onRespond ? (
         <div className="flex flex-wrap gap-1">
           {ANSWERS.map((option) => (
@@ -279,6 +280,7 @@ export function EventDetail() {
   const events = useYMap<CalendarEvent>(doc?.getMap('events'));
   const availability = useYMap<AvailabilityAnswer>(doc?.getMap('availability'));
   const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
+  const nicknames = useNicknames(bandId);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -440,7 +442,7 @@ export function EventDetail() {
           {members.map((member) => (
             <AvailabilityRow
               key={member.userId}
-              member={member}
+              displayName={nicknames.displayName(member)}
               answer={availability[`${occurrenceId}:${member.userId}`]}
               isSelf={member.userId === currentUserId}
               onRespond={member.userId === currentUserId ? handleRespond : undefined}

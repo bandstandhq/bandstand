@@ -7,6 +7,7 @@ export * from './invites';
 export * from './bandDocs';
 export * from './attachments';
 export * from './userPrefs';
+export * from './memberNicknames';
 export * from './voiceAnnotationLayers';
 export * from './icsFeedTokens';
 export * from './pendingUploads';

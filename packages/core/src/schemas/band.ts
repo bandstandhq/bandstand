@@ -38,3 +38,15 @@ export const updateMyInstrumentsInputSchema = z.strictObject({
   instruments: z.array(z.string().min(1)),
 });
 export type UpdateMyInstrumentsInput = z.infer<typeof updateMyInstrumentsInputSchema>;
+
+// A nickname is strictly private to whoever set it — every member may give
+// any other member one, seen only by themself, stored in Postgres
+// (member_nicknames), never synced to the shared band doc.
+export const setNicknameInputSchema = z.strictObject({
+  nickname: z.string().trim().min(1).max(80),
+});
+export type SetNicknameInput = z.infer<typeof setNicknameInputSchema>;
+
+/** Keyed by targetUserId — the caller's own nicknames for other members of one band. */
+export const memberNicknamesSchema = z.record(z.string(), z.string());
+export type MemberNicknames = z.infer<typeof memberNicknamesSchema>;
