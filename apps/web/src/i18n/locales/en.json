@@ -457,7 +457,13 @@
       "addInstrument": "Add instrument…",
       "removeInstrument": "Remove {{instrument}}",
       "customInstrumentPlaceholder": "Other instrument",
-      "addCustomInstrument": "Add"
+      "addCustomInstrument": "Add",
+      "editNickname": "Set nickname for {{name}}",
+      "nicknamePlaceholder": "Nickname",
+      "saveNickname": "Save",
+      "cancelNickname": "Cancel",
+      "clearNickname": "Clear nickname",
+      "realName": "Real name: {{name}}"
     },
     "invites": {
       "title": "Invites",

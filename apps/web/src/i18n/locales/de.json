@@ -457,7 +457,13 @@
       "addInstrument": "Instrument hinzufügen…",
       "removeInstrument": "{{instrument}} entfernen",
       "customInstrumentPlaceholder": "Anderes Instrument",
-      "addCustomInstrument": "Hinzufügen"
+      "addCustomInstrument": "Hinzufügen",
+      "editNickname": "Spitzname für {{name}} vergeben",
+      "nicknamePlaceholder": "Spitzname",
+      "saveNickname": "Speichern",
+      "cancelNickname": "Abbrechen",
+      "clearNickname": "Spitzname entfernen",
+      "realName": "Echter Name: {{name}}"
     },
     "invites": {
       "title": "Einladungen",

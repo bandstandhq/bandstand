@@ -42,6 +42,7 @@ import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useNicknames } from '../hooks/useNicknames';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -617,6 +618,7 @@ export function StageMode() {
     apiClient.listBandMembers(bandId).then(setMembers);
   }, [bandId]);
   const myInstruments = members.find((m) => m.userId === localUserId)?.instruments ?? [];
+  const nicknames = useNicknames(bandId);
   const songs = useYMap<Song>(doc?.getMap('songs'));
   // Raw Yjs values, not run through voiceSchema — see the matching comment
   // in SongEditor.tsx for why that parse has to happen here explicitly.
@@ -661,7 +663,7 @@ export function StageMode() {
   const virtualElapsedMsRef = useRef(0);
   const liveTransposeRef = useRef(0);
 
-  const memberNames = Object.fromEntries(members.map((member) => [member.userId, member.name]));
+  const memberNames = Object.fromEntries(members.map((member) => [member.userId, nicknames.displayName(member)]));
   const [peerStates, setPeerStates] = useState<StageAwarenessState[]>([]);
   const [following, setFollowing] = useState<string | null>(null);
   const [pausedFollowUserId, setPausedFollowUserId] = useState<string | null>(null);

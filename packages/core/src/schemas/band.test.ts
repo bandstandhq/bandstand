@@ -5,6 +5,7 @@ import {
   changeMemberRoleInputSchema,
   createBandInputSchema,
   renameBandInputSchema,
+  setNicknameInputSchema,
   updateMyInstrumentsInputSchema,
 } from './band';
 
@@ -60,5 +61,20 @@ describe('updateMyInstrumentsInputSchema', () => {
 
   it('rejects an empty-string instrument', () => {
     expect(() => updateMyInstrumentsInputSchema.parse({ instruments: [''] })).toThrow();
+  });
+});
+
+describe('setNicknameInputSchema', () => {
+  it('trims surrounding whitespace', () => {
+    expect(setNicknameInputSchema.parse({ nickname: '  Big Bob  ' })).toEqual({ nickname: 'Big Bob' });
+  });
+
+  it('rejects an empty or whitespace-only nickname', () => {
+    expect(() => setNicknameInputSchema.parse({ nickname: '' })).toThrow();
+    expect(() => setNicknameInputSchema.parse({ nickname: '   ' })).toThrow();
+  });
+
+  it('rejects a nickname over 80 characters', () => {
+    expect(() => setNicknameInputSchema.parse({ nickname: 'x'.repeat(81) })).toThrow();
   });
 });

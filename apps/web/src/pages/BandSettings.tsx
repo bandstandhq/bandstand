@@ -10,8 +10,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { RequireBandRole } from '../components/RequireBandRole';
-import { TrashIcon } from '../components/icons';
+import { PencilIcon, TrashIcon } from '../components/icons';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useNicknames } from '../hooks/useNicknames';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 
@@ -38,6 +39,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [renameSaved, setRenameSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const nicknames = useNicknames(bandId);
 
   async function refreshMembers() {
     const [freshMembers, myBands] = await Promise.all([
@@ -127,6 +129,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
             members={members}
             viewerRole={myBand.role}
             viewerUserId={currentUserId}
+            nicknames={nicknames}
             onRefresh={refreshMembers}
             onLeftBand={() => navigate('/dashboard')}
           />
@@ -199,6 +202,7 @@ function MemberList({
   members,
   viewerRole,
   viewerUserId,
+  nicknames,
   onRefresh,
   onLeftBand,
 }: {
@@ -206,6 +210,7 @@ function MemberList({
   members: BandMember[];
   viewerRole: BandRole;
   viewerUserId: string;
+  nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
   onLeftBand: () => void;
 }) {
@@ -227,6 +232,7 @@ function MemberList({
             member={member}
             isSelf={member.userId === viewerUserId}
             viewerRole={viewerRole}
+            nicknames={nicknames}
             onRefresh={onRefresh}
             onLeftBand={onLeftBand}
           />
@@ -254,6 +260,7 @@ function MemberList({
             member={member}
             isSelf={member.userId === viewerUserId}
             viewerRole={viewerRole}
+            nicknames={nicknames}
             onRefresh={onRefresh}
             onLeftBand={onLeftBand}
           />
@@ -423,11 +430,79 @@ function MemberActionButtons({
   );
 }
 
+/** Toggles between the display name (nickname if set, else the real name) and an inline editor. */
+function NicknameEditor({
+  member,
+  nicknames,
+}: {
+  member: BandMember;
+  nicknames: ReturnType<typeof useNicknames>;
+}) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const hasNickname = Object.hasOwn(nicknames.nicknames, member.userId);
+
+  if (editing) {
+    return (
+      <form
+        className="flex flex-wrap items-center gap-1"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await nicknames.setNickname(member.userId, value);
+          setEditing(false);
+        }}
+      >
+        <Input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={t('bandSettings.members.nicknamePlaceholder')}
+          className="h-7 w-32 text-sm"
+        />
+        <Button type="submit" size="sm">
+          {t('bandSettings.members.saveNickname')}
+        </Button>
+        <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setEditing(false)}>
+          {t('bandSettings.members.cancelNickname')}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      {hasNickname && <span className="text-xs text-muted-foreground">{t('bandSettings.members.realName', { name: member.name })}</span>}
+      <button
+        type="button"
+        aria-label={t('bandSettings.members.editNickname', { name: member.name })}
+        className="text-muted-foreground hover:text-foreground"
+        onClick={() => {
+          setValue(nicknames.nicknames[member.userId] ?? '');
+          setEditing(true);
+        }}
+      >
+        <PencilIcon className="size-3.5" />
+      </button>
+      {hasNickname && (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:underline"
+          onClick={() => void nicknames.clearNickname(member.userId)}
+        >
+          {t('bandSettings.members.clearNickname')}
+        </button>
+      )}
+    </span>
+  );
+}
+
 function MemberCard({
   bandId,
   member,
   isSelf,
   viewerRole,
+  nicknames,
   onRefresh,
   onLeftBand,
 }: {
@@ -435,6 +510,7 @@ function MemberCard({
   member: BandMember;
   isSelf: boolean;
   viewerRole: BandRole;
+  nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
   onLeftBand: () => void;
 }) {
@@ -443,7 +519,10 @@ function MemberCard({
 
   return (
     <li className="rounded-md border border-border p-3">
-      <p className="wrap-break-word font-medium">{member.name}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="wrap-break-word font-medium">{nicknames.displayName(member)}</p>
+        {!isSelf && <NicknameEditor member={member} nicknames={nicknames} />}
+      </div>
       <p className="wrap-break-word text-sm text-muted-foreground">{member.email}</p>
       <div className="mt-1">
         <RoleBadge role={member.role} />
@@ -475,6 +554,7 @@ function MemberRow({
   member,
   isSelf,
   viewerRole,
+  nicknames,
   onRefresh,
   onLeftBand,
 }: {
@@ -482,6 +562,7 @@ function MemberRow({
   member: BandMember;
   isSelf: boolean;
   viewerRole: BandRole;
+  nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
   onLeftBand: () => void;
 }) {
@@ -490,7 +571,12 @@ function MemberRow({
   return (
     <>
       <tr className="border-t border-border align-top">
-        <td className="py-1 pr-4 wrap-break-word">{member.name}</td>
+        <td className="py-1 pr-4 wrap-break-word">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{nicknames.displayName(member)}</span>
+            {!isSelf && <NicknameEditor member={member} nicknames={nicknames} />}
+          </div>
+        </td>
         <td className="py-1 pr-4 wrap-break-word">{member.email}</td>
         <td className="py-1 pr-4">
           <RoleBadge role={member.role} />

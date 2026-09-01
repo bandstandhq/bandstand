@@ -11,11 +11,13 @@ import type {
   CreateBandInput,
   CreateInviteInput,
   Invite,
+  MemberNicknames,
   PresignUploadInput,
   PushTriggers,
   RedeemInviteInput,
   RenameBandInput,
   ResolveIdeaTieInput,
+  SetNicknameInput,
   SubscribePushInput,
   UpdateAnnotationLayerInput,
   UpdateMyInstrumentsInput,
@@ -146,6 +148,18 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     transferOwnership: (bandId: string, userId: string) =>
       req<{ ok: true }>(`/bands/${bandId}/members/${userId}/transfer-ownership`, { method: 'POST' }),
+
+    // Self-scoped, private to the caller — see apps/server/src/routes/nicknames.ts.
+    listMyNicknames: (bandId: string) => req<MemberNicknames>(`/bands/${bandId}/nicknames`),
+
+    setNickname: (bandId: string, targetUserId: string, input: SetNicknameInput) =>
+      req<{ targetUserId: string; nickname: string }>(`/bands/${bandId}/nicknames/${targetUserId}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+
+    clearNickname: (bandId: string, targetUserId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/nicknames/${targetUserId}`, { method: 'DELETE' }),
 
     resolveIdeaTie: (bandId: string, songId: string, input: ResolveIdeaTieInput) =>
       req<{ resolution: ResolveIdeaTieInput['resolution'] }>(`/bands/${bandId}/songs/${songId}/resolve-tie`, {

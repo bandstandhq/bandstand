@@ -13,6 +13,7 @@ import { eventsRoute } from './events';
 import { filesRoute } from './files';
 import { inviteManagementRoute } from './invites';
 import { membersRoute } from './members';
+import { nicknamesRoute } from './nicknames';
 import { pollsRoute } from './polls';
 import { setlistsRoute } from './setlists';
 import { songsRoute } from './songs';
@@ -91,6 +92,7 @@ bandScoped.delete('/', requireBandRole('member'), async (c) => {
 });
 
 bandScoped.route('/members', membersRoute);
+bandScoped.route('/nicknames', nicknamesRoute);
 bandScoped.route('/invites', inviteManagementRoute);
 bandScoped.route('/songs', songsRoute);
 bandScoped.route('/setlists', setlistsRoute);
