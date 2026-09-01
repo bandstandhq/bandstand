@@ -111,6 +111,11 @@
     "title": "Settings",
     "bandsTitle": "Bands",
     "bandsDescription": "Join another band with an invite code, or start a new one.",
+    "archivedTitle": "Recently deleted bands",
+    "archivedDescription": "You can restore any of these until its permanent deletion date.",
+    "archivedPermanentDeletionAt": "Permanently deleted on {{date}}",
+    "archivedRestore": "Restore",
+    "archivedRestoring": "Restoring…",
     "themeTitle": "Theme",
     "localDataTitle": "Local data",
     "localDataDescription": "This removes every band's offline cache from this device — your account and bands themselves are unaffected.",
@@ -450,10 +455,11 @@
       "transferOwnership": "Transfer ownership",
       "remove": "Remove",
       "leave": "Leave band",
-      "ownerMustTransfer": "Transfer ownership before leaving",
       "confirmRemove": "Remove {{name}} from this band?",
       "confirmTransfer": "Make {{name}} the new owner of this band? You'll become an admin.",
       "confirmLeave": "Leave this band?",
+      "confirmLeaveAsOwner": "{{name}} will become the new owner. Leave this band?",
+      "soleOwnerCannotLeave": "You're the only member left — there's no one to take over. Delete the band instead if you want to leave it.",
       "addInstrument": "Add instrument…",
       "removeInstrument": "Remove {{instrument}}",
       "customInstrumentPlaceholder": "Other instrument",
@@ -491,10 +497,14 @@
     },
     "danger": {
       "title": "Danger zone",
-      "description": "Deleting a band removes it, its members, songs, setlists, and invites for everyone. This can't be undone.",
+      "description": "Deleting a band removes it for everyone. It's archived for 30 days first — you can restore it from Account Settings any time before then. (In development or for test data, it's removed immediately instead, with no grace period.)",
       "delete": "Delete this band",
       "deleting": "Deleting…",
-      "confirm": "Permanently delete \"{{name}}\" for everyone? This can't be undone."
+      "dialogTitle": "Delete \"{{name}}\"?",
+      "dialogDescription": "Type the band's name to confirm.",
+      "typeNamePlaceholder": "Band name",
+      "cancel": "Cancel",
+      "confirmTyped": "Delete this band"
     }
   },
   "calendarList": {

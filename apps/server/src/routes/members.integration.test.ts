@@ -144,12 +144,8 @@ describe('band member management (integration)', () => {
     expect(owners).toHaveLength(1);
   });
 
-  it('rejects the owner leaving without transferring ownership first, but lets a member or admin leave', async () => {
-    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
-
-    const ownerLeave = await req(`/${band.id}/members/me`, 'DELETE', owner.token);
-    expect(ownerLeave.status).toBe(409);
-    expect(await roleOf(band.id, owner.userId)).toBe('owner');
+  it('lets a member or admin leave normally', async () => {
+    const { band, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
 
     const memberLeave = await req(`/${band.id}/members/me`, 'DELETE', member.token);
     expect(memberLeave.status).toBe(200);
@@ -157,6 +153,74 @@ describe('band member management (integration)', () => {
 
     const adminLeave = await req(`/${band.id}/members/me`, 'DELETE', admin.token);
     expect(adminLeave.status).toBe(200);
+  });
+
+  it('rejects the owner leaving when no one else is left to take over', async () => {
+    const owner = await signUpTestUser();
+    cleanupUserIds.push(owner.userId);
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Sole Owner Band', slug: `test-sole-owner-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+    await db.insert(bandMembers).values({ bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] });
+
+    const res = await req(`/${band.id}/members/me`, 'DELETE', owner.token);
+    expect(res.status).toBe(409);
+    expect(await roleOf(band.id, owner.userId)).toBe('owner');
+  });
+
+  it('owner leaving automatically transfers ownership to the highest-ranked remaining member', async () => {
+    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const res = await req(`/${band.id}/members/me`, 'DELETE', owner.token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, newOwner: { userId: admin.userId, name: 'Members Tester' } });
+    expect(await roleOf(band.id, owner.userId)).toBeUndefined();
+    expect(await roleOf(band.id, admin.userId)).toBe('owner');
+    expect(await roleOf(band.id, member.userId)).toBe('member');
+  });
+
+  it('breaks a same-role succession tie by whoever joined the band earliest', async () => {
+    const owner = await signUpTestUser();
+    const earlierMember = await signUpTestUser();
+    const laterMember = await signUpTestUser();
+    cleanupUserIds.push(owner.userId, earlierMember.userId, laterMember.userId);
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Succession Tie Band', slug: `test-succession-tie-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    const now = Date.now();
+    await db.insert(bandMembers).values([
+      { bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] },
+      // Both plain members — inserted out of join order, joinedAt set
+      // explicitly so the test doesn't depend on insert order or timing.
+      { bandId: band.id, userId: laterMember.userId, role: 'member', instruments: [], joinedAt: new Date(now - 1000 * 60 * 60 * 24) },
+      { bandId: band.id, userId: earlierMember.userId, role: 'member', instruments: [], joinedAt: new Date(now - 1000 * 60 * 60 * 24 * 2) },
+    ]);
+
+    const res = await req(`/${band.id}/members/me`, 'DELETE', owner.token);
+    expect(res.status).toBe(200);
+    expect(await roleOf(band.id, earlierMember.userId)).toBe('owner');
+    expect(await roleOf(band.id, laterMember.userId)).toBe('member');
+  });
+
+  it('lets the owner preview who would take over, but no one else', async () => {
+    const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const ownerPreview = await req(`/${band.id}/members/successor`, 'GET', owner.token);
+    expect(ownerPreview.status).toBe(200);
+    expect(await ownerPreview.json()).toEqual({ successor: { userId: admin.userId, name: 'Members Tester', role: 'admin' } });
+
+    const adminPreview = await req(`/${band.id}/members/successor`, 'GET', admin.token);
+    expect(adminPreview.status).toBe(403);
+
+    const memberPreview = await req(`/${band.id}/members/successor`, 'GET', member.token);
+    expect(memberPreview.status).toBe(403);
   });
 
   it('lists members ordered by role (owner, admin, member) then alphabetically by name — not insertion order', async () => {

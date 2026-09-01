@@ -3,7 +3,7 @@
 // Personal, cross-band settings — everything here lives in user_prefs, so
 // it follows the user to any device, unlike a band's own settings
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
-import type { MyBand } from '@bandstand/api-client';
+import type { ArchivedBand, MyBand } from '@bandstand/api-client';
 import type { Band, Locale } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
@@ -32,6 +32,8 @@ export function AccountSettings() {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const [bands, setBands] = useState<MyBand[] | null>(null);
+  const [archivedBands, setArchivedBands] = useState<ArchivedBand[] | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loaded) void load();
@@ -39,7 +41,19 @@ export function AccountSettings() {
 
   useEffect(() => {
     apiClient.listMyBands().then(setBands);
+    apiClient.listArchivedBands().then(setArchivedBands);
   }, []);
+
+  async function handleRestore(bandId: string) {
+    setRestoringId(bandId);
+    try {
+      await apiClient.restoreBand(bandId);
+      setArchivedBands((prev) => prev?.filter((b) => b.id !== bandId) ?? null);
+      apiClient.listMyBands().then(setBands);
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   function handleJoined(band: Band) {
     setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
@@ -75,6 +89,30 @@ export function AccountSettings() {
               <JoinBandForm onJoined={handleJoined} />
               <CreateBandForm onCreated={handleCreated} />
             </div>
+          </div>
+        )}
+
+        {archivedBands !== null && archivedBands.length > 0 && (
+          <div className="mt-4 rounded-md border border-border p-4">
+            <h2 className="font-medium">{t('accountSettings.archivedTitle')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.archivedDescription')}</p>
+            <ul className="mt-3 space-y-3">
+              {archivedBands.map((band) => (
+                <li key={band.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3">
+                  <div>
+                    <p className="font-medium">{band.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('accountSettings.archivedPermanentDeletionAt', {
+                        date: new Date(band.permanentDeletionAt).toLocaleDateString(),
+                      })}
+                    </p>
+                  </div>
+                  <Button size="sm" disabled={restoringId === band.id} onClick={() => void handleRestore(band.id)}>
+                    {restoringId === band.id ? t('accountSettings.archivedRestoring') : t('accountSettings.archivedRestore')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

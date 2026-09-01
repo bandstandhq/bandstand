@@ -84,6 +84,14 @@ async function request<T>(
 
 export type MyBand = Band & { role: BandRole };
 
+export interface ArchivedBand {
+  id: string;
+  name: string;
+  slug: string;
+  archivedAt: string;
+  permanentDeletionAt: string;
+}
+
 /**
  * 'member' and 'not-member' are authoritative (the server answered);
  * 'unknown' means the check itself failed (offline, timeout, 5xx) and
@@ -128,14 +136,29 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     renameBand: (bandId: string, input: RenameBandInput) =>
       req<Band>(`/bands/${bandId}`, { method: 'PATCH', body: JSON.stringify(input) }),
 
-    deleteBand: (bandId: string) => req<{ ok: true }>(`/bands/${bandId}`, { method: 'DELETE' }),
+    // `archived: false` means it was deleted immediately (a test fixture or
+    // a non-production server); `archived: true` carries `permanentDeletionAt`
+    // — see docs/adr/0005-permissions.md.
+    deleteBand: (bandId: string) =>
+      req<{ ok: true; archived: boolean; permanentDeletionAt?: string }>(`/bands/${bandId}`, { method: 'DELETE' }),
+
+    listArchivedBands: () => req<ArchivedBand[]>('/bands/archived'),
+
+    restoreBand: (bandId: string) => req<Band>(`/bands/${bandId}/restore`, { method: 'POST' }),
+
+    // Owner-only preview of who DELETE /members/me would hand ownership to.
+    previewOwnershipSuccessor: (bandId: string) =>
+      req<{ successor: { userId: string; name: string; role: BandRole } | null }>(`/bands/${bandId}/members/successor`),
 
     listBandMembers: (bandId: string) => req<BandMember[]>(`/bands/${bandId}/members`),
 
     updateMyInstruments: (bandId: string, input: UpdateMyInstrumentsInput) =>
       req<{ instruments: string[] }>(`/bands/${bandId}/members/me`, { method: 'PATCH', body: JSON.stringify(input) }),
 
-    leaveBand: (bandId: string) => req<{ ok: true }>(`/bands/${bandId}/members/me`, { method: 'DELETE' }),
+    // `newOwner` is present when the caller was the owner — ownership
+    // transfers automatically to whoever `previewOwnershipSuccessor` named.
+    leaveBand: (bandId: string) =>
+      req<{ ok: true; newOwner?: { userId: string; name: string } }>(`/bands/${bandId}/members/me`, { method: 'DELETE' }),
 
     changeMemberRole: (bandId: string, userId: string, input: ChangeMemberRoleInput) =>
       req<{ userId: string; role: BandRole }>(`/bands/${bandId}/members/${userId}/role`, {

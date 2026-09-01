@@ -15,6 +15,7 @@
     "blobs:gc": "pnpm --filter @bandstand/server blobs:gc",
     "push:keys": "pnpm --filter @bandstand/server push:keys",
     "push:due": "pnpm --filter @bandstand/server push:due",
+    "bands:sweep-archived": "pnpm --filter @bandstand/server bands:sweep-archived",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

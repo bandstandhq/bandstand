@@ -111,6 +111,11 @@
     "title": "Einstellungen",
     "bandsTitle": "Bands",
     "bandsDescription": "Einer weiteren Band mit einem Einladungscode beitreten oder eine neue anlegen.",
+    "archivedTitle": "Kürzlich gelöschte Bands",
+    "archivedDescription": "Du kannst jede davon bis zu ihrem endgültigen Löschdatum wiederherstellen.",
+    "archivedPermanentDeletionAt": "Endgültig gelöscht am {{date}}",
+    "archivedRestore": "Wiederherstellen",
+    "archivedRestoring": "Wird wiederhergestellt…",
     "themeTitle": "Design",
     "localDataTitle": "Lokale Daten",
     "localDataDescription": "Dadurch wird der Offline-Zwischenspeicher aller Bands auf diesem Gerät gelöscht — dein Konto und deine Bands selbst bleiben unberührt.",
@@ -450,10 +455,11 @@
       "transferOwnership": "Inhaberschaft übertragen",
       "remove": "Entfernen",
       "leave": "Band verlassen",
-      "ownerMustTransfer": "Vor dem Verlassen die Inhaberschaft übertragen",
       "confirmRemove": "{{name}} aus dieser Band entfernen?",
       "confirmTransfer": "{{name}} zum neuen Inhaber dieser Band machen? Du wirst dann Admin.",
       "confirmLeave": "Diese Band verlassen?",
+      "confirmLeaveAsOwner": "{{name}} wird der neue Inhaber. Diese Band verlassen?",
+      "soleOwnerCannotLeave": "Du bist das einzige verbliebene Mitglied — es gibt niemanden, der übernehmen könnte. Lösche die Band stattdessen, wenn du sie verlassen willst.",
       "addInstrument": "Instrument hinzufügen…",
       "removeInstrument": "{{instrument}} entfernen",
       "customInstrumentPlaceholder": "Anderes Instrument",
@@ -491,10 +497,14 @@
     },
     "danger": {
       "title": "Gefahrenzone",
-      "description": "Das Löschen einer Band entfernt sie, ihre Mitglieder, Songs, Setlists und Einladungen für alle. Das kann nicht rückgängig gemacht werden.",
+      "description": "Das Löschen einer Band entfernt sie für alle. Sie wird zunächst 30 Tage lang archiviert — in dieser Zeit kannst du sie in den Kontoeinstellungen jederzeit wiederherstellen. (In der Entwicklungsumgebung oder bei Testdaten wird stattdessen sofort und ohne Frist gelöscht.)",
       "delete": "Diese Band löschen",
       "deleting": "Wird gelöscht…",
-      "confirm": "\"{{name}}\" für alle endgültig löschen? Das kann nicht rückgängig gemacht werden."
+      "dialogTitle": "\"{{name}}\" löschen?",
+      "dialogDescription": "Tippe den Namen der Band ein, um zu bestätigen.",
+      "typeNamePlaceholder": "Bandname",
+      "cancel": "Abbrechen",
+      "confirmTyped": "Diese Band löschen"
     }
   },
   "calendarList": {

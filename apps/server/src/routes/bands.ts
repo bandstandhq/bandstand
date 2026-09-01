@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { can, createBandInputSchema, generateInviteCode, renameBandInputSchema, slugify } from '@bandstand/core';
-import { eq } from 'drizzle-orm';
+import { can, createBandInputSchema, generateInviteCode, permanentDeletionAt, renameBandInputSchema, slugify } from '@bandstand/core';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
 import { bandMembers, bands } from '../db/schema/index';
@@ -52,13 +52,35 @@ bandsRoute.get('/', async (c) => {
     .select({ id: bands.id, name: bands.name, slug: bands.slug, role: bandMembers.role })
     .from(bandMembers)
     .innerJoin(bands, eq(bandMembers.bandId, bands.id))
-    .where(eq(bandMembers.userId, userId))
+    // Archived (pending permanent deletion — see the DELETE route below)
+    // bands are excluded, same as if they were already gone; `GET
+    // /bands/archived` is the separate, owner-only view that surfaces them
+    // again for a restore.
+    .where(and(eq(bandMembers.userId, userId), isNull(bands.archivedAt)))
     // Deterministic order matters here — the web client defaults to the
     // first result as the active band (BandSwitcher.tsx) when none is
     // already selected, and a plain unordered SELECT's row order isn't
     // guaranteed by Postgres to stay stable across query plans/versions.
     .orderBy(bandMembers.joinedAt);
   return c.json(rows);
+});
+
+// Owner-only, across every band this user owns — a "recently deleted"
+// view so an owner can find and restore a band they archived, without it
+// cluttering the normal band list/switcher.
+bandsRoute.get('/archived', async (c) => {
+  const userId = c.get('userId');
+  const rows = await db
+    .select({ id: bands.id, name: bands.name, slug: bands.slug, archivedAt: bands.archivedAt })
+    .from(bandMembers)
+    .innerJoin(bands, eq(bandMembers.bandId, bands.id))
+    .where(and(eq(bandMembers.userId, userId), eq(bandMembers.role, 'owner'), isNotNull(bands.archivedAt)));
+  return c.json(
+    rows.map((row) => ({
+      ...row,
+      permanentDeletionAt: new Date(permanentDeletionAt(row.archivedAt!.getTime())).toISOString(),
+    })),
+  );
 });
 
 const bandScoped = new Hono<{ Variables: BandVariables }>();
@@ -79,16 +101,49 @@ bandScoped.patch('/', requireBandRole('admin'), async (c) => {
 // No Yjs-doc bypass vector here — band membership/invites live only in
 // Postgres, which a client can only ever reach through this same REST API
 // (see docs/adr/0005-permissions.md). Plain role-check is the whole story.
+//
+// A real, production band is archived rather than deleted outright — the
+// owner has 30 days to restore it (POST /restore below) before
+// sweepArchived.ts's cron job permanently removes it. Test fixtures (the
+// "test-" slug prefix — see CONTRIBUTING.md) and anything created against a
+// non-production server skip the grace period and delete immediately,
+// exactly as before: the undo window protects a real band's real data, not
+// cleanup scripts or local development.
 bandScoped.delete('/', requireBandRole('member'), async (c) => {
   const bandId = c.req.param('bandId');
   if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
   if (!can(c.get('bandRole'), 'band:delete')) return c.json({ error: 'Forbidden' }, 403);
 
-  const [band] = await db.delete(bands).where(eq(bands.id, bandId)).returning();
-  if (!band) return c.json({ error: 'Not found' }, 404);
+  const [existing] = await db.select({ slug: bands.slug }).from(bands).where(eq(bands.id, bandId));
+  if (!existing) return c.json({ error: 'Not found' }, 404);
 
+  const deleteImmediately = existing.slug.startsWith('test-') || process.env.NODE_ENV !== 'production';
+  if (deleteImmediately) {
+    await db.delete(bands).where(eq(bands.id, bandId));
+    hocuspocusServer.hocuspocus.closeConnections(bandId);
+    return c.json({ ok: true, archived: false });
+  }
+
+  const [band] = await db.update(bands).set({ archivedAt: new Date() }).where(eq(bands.id, bandId)).returning();
+  if (!band) return c.json({ error: 'Not found' }, 404);
   hocuspocusServer.hocuspocus.closeConnections(bandId);
-  return c.json({ ok: true });
+  return c.json({
+    ok: true,
+    archived: true,
+    permanentDeletionAt: new Date(permanentDeletionAt(band.archivedAt!.getTime())).toISOString(),
+  });
+});
+
+bandScoped.post('/restore', requireBandRole('owner'), async (c) => {
+  const bandId = c.req.param('bandId');
+  if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
+
+  const [existing] = await db.select({ archivedAt: bands.archivedAt }).from(bands).where(eq(bands.id, bandId));
+  if (!existing) return c.json({ error: 'Not found' }, 404);
+  if (!existing.archivedAt) return c.json({ error: 'Band is not archived' }, 400);
+
+  const [band] = await db.update(bands).set({ archivedAt: null }).where(eq(bands.id, bandId)).returning();
+  return c.json(band);
 });
 
 bandScoped.route('/members', membersRoute);

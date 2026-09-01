@@ -57,6 +57,18 @@ export async function removeBandMember(client: Client, bandId: string, userId: s
   await client.query('delete from band_members where band_id = $1 and user_id = $2', [bandId, userId]);
 }
 
+/**
+ * Marks a band archived directly, bypassing the real DELETE route — that
+ * route only archives (rather than deleting immediately) under
+ * `NODE_ENV=production`, which the acceptance webServer never runs under.
+ * This exercises the archived-band UI (Account Settings' "recently
+ * deleted" section, restore) against a band in that state without needing
+ * to control the running server's environment.
+ */
+export async function archiveBand(client: Client, bandId: string, archivedAt: Date): Promise<void> {
+  await client.query('update bands set archived_at = $2 where id = $1', [bandId, archivedAt]);
+}
+
 /** Reads a setlist's id out of the band doc's stored snapshot (see packages/core/src/yjs/snapshot.ts). */
 export async function getSetlistIdByName(client: Client, bandId: string, setlistName: string): Promise<string> {
   const { rows } = await client.query('select snapshot from band_docs where band_id = $1', [bandId]);

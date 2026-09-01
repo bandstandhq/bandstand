@@ -18,6 +18,7 @@ import { db } from '../db/client';
 import { bandMembers, users } from '../db/schema/index';
 import type { BandVariables } from '../lib/bandAuthz';
 import { getBandMembership, requireBandRole } from '../lib/bandAuthz';
+import { findOwnershipSuccessor } from '../lib/ownershipSuccession';
 
 export const membersRoute = new Hono<{ Variables: BandVariables }>();
 
@@ -59,6 +60,19 @@ membersRoute.patch('/me', requireBandRole('member'), async (c) => {
   return c.json({ instruments: updated.instruments });
 });
 
+// Owner-only preview of who `DELETE /me` would hand ownership to — so the
+// web UI can name the successor in its confirmation dialog *before* the
+// owner commits to leaving, per the brief ("informed who takes over before
+// they confirm"). Re-run at commit time by the DELETE handler itself
+// rather than trusted from a prior call — the membership list can change
+// between the two requests.
+membersRoute.get('/successor', requireBandRole('owner'), async (c) => {
+  const bandId = c.req.param('bandId');
+  const userId = c.get('userId');
+  if (!bandId) return c.json({ error: 'Missing bandId' }, 400);
+  return c.json({ successor: await findOwnershipSuccessor(bandId, userId) });
+});
+
 membersRoute.delete('/me', requireBandRole('member'), async (c) => {
   const bandId = c.req.param('bandId');
   const userId = c.get('userId');
@@ -66,10 +80,32 @@ membersRoute.delete('/me', requireBandRole('member'), async (c) => {
   const role = c.get('bandRole');
 
   // can(role, 'band:leave') is unconditionally true for every role — the
-  // owner precondition below is band *state*, not a role check, so it's
-  // enforced here rather than expressed as a matrix cell.
+  // owner case below is band *state*, not a role check, so it's handled
+  // here rather than expressed as a matrix cell. Ownership transfers
+  // automatically to the highest-ranked remaining member (ties broken by
+  // seniority — see ownershipSuccession.ts) rather than blocking the
+  // owner from leaving at all; only a sole remaining owner (no one else
+  // left to hand it to) is still rejected.
   if (role === 'owner') {
-    return c.json({ error: 'owner_must_transfer_first' }, 409);
+    const successor = await findOwnershipSuccessor(bandId, userId);
+    if (!successor) {
+      return c.json({ error: 'owner_must_transfer_first' }, 409);
+    }
+    // Order matters: band_members_one_owner_idx is a plain (non-deferred)
+    // unique index, checked per-statement — the leaving owner's row must be
+    // gone *before* the successor's role flips to 'owner', or both
+    // statements would momentarily describe two owners at once and the
+    // second UPDATE would violate the constraint (transfer-ownership's own
+    // two updates avoid this the same way, by demoting the old owner
+    // first).
+    await db.transaction(async (tx) => {
+      await tx.delete(bandMembers).where(and(eq(bandMembers.bandId, bandId), eq(bandMembers.userId, userId)));
+      await tx
+        .update(bandMembers)
+        .set({ role: 'owner' })
+        .where(and(eq(bandMembers.bandId, bandId), eq(bandMembers.userId, successor.userId)));
+    });
+    return c.json({ ok: true, newOwner: { userId: successor.userId, name: successor.name } });
   }
 
   await db.delete(bandMembers).where(and(eq(bandMembers.bandId, bandId), eq(bandMembers.userId, userId)));
