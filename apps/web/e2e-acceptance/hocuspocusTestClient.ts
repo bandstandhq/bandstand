@@ -25,6 +25,25 @@ export async function signInForToken(email: string, password: string): Promise<s
   return body.token;
 }
 
+/**
+ * Creates a brand-new real account with a chosen display name and returns
+ * its session token — for scenarios that need several distinctly-named,
+ * genuinely separate users (e.g. proving a member-list sort order) rather
+ * than reusing the seeded demo accounts. `email` must carry the `test-`
+ * prefix (see fixtures.ts's `freshEmail`) so cleanup scripts recognize it.
+ */
+export async function signUpForToken(name: string, email: string, password: string): Promise<{ userId: string; token: string }> {
+  const res = await fetch(`${SERVER_URL}/api/auth/sign-up/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:4173' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  if (!res.ok) throw new Error(`Sign-up failed with status ${res.status}: ${await res.text()}`);
+  const body = (await res.json()) as { token?: string; user?: { id?: string } };
+  if (!body.token || !body.user?.id) throw new Error('Sign-up response had no token/user id');
+  return { userId: body.user.id, token: body.token };
+}
+
 export interface TestBandDoc {
   doc: Y.Doc;
   provider: HocuspocusProvider;

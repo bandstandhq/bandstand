@@ -11,3 +11,15 @@ const ROLE_RANK: Record<BandRole, number> = { member: 1, admin: 2, owner: 3 };
 export function hasAtLeastRole(role: BandRole, minRole: BandRole): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[minRole];
 }
+
+/**
+ * Owner, then admin, then member; alphabetically by name within a role
+ * (case-insensitive, locale-aware). Used to give every member list a fixed,
+ * deterministic order instead of whatever order the source happened to
+ * return rows in — the same ordering everywhere a member list renders.
+ */
+export function compareMembersByRoleThenName(a: { role: BandRole; name: string }, b: { role: BandRole; name: string }): number {
+  const roleDiff = ROLE_RANK[b.role] - ROLE_RANK[a.role];
+  if (roleDiff !== 0) return roleDiff;
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}

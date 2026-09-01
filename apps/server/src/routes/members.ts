@@ -5,7 +5,13 @@
 // enforcement story. requireBandRole('member') is the baseline every
 // band-scoped route uses; the actual authorization decision is the inline
 // can()/canRemoveMember() check against the one permissions matrix.
-import { can, canRemoveMember, changeMemberRoleInputSchema, updateMyInstrumentsInputSchema } from '@bandstand/core';
+import {
+  can,
+  canRemoveMember,
+  changeMemberRoleInputSchema,
+  compareMembersByRoleThenName,
+  updateMyInstrumentsInputSchema,
+} from '@bandstand/core';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
@@ -29,6 +35,11 @@ membersRoute.get('/', requireBandRole('member'), async (c) => {
     .from(bandMembers)
     .innerJoin(users, eq(bandMembers.userId, users.id))
     .where(eq(bandMembers.bandId, bandId));
+  // Postgres gives no ordering guarantee without ORDER BY, and every
+  // consumer (BandSettings, availability lists, follow-mode) renders
+  // whatever order this returns — sort here once so the order is fixed and
+  // deterministic everywhere, instead of drifting on unrelated writes.
+  rows.sort(compareMembersByRoleThenName);
   return c.json(rows);
 });
 
