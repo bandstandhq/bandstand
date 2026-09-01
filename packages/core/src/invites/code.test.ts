@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   generateInviteCode,
   INVITE_CODE_ALPHABET,
+  INVITE_CODE_LENGTH,
   isValidInviteCodeFormat,
   normalizeInviteCode,
 } from './code';
@@ -21,9 +22,10 @@ describe('INVITE_CODE_ALPHABET', () => {
 });
 
 describe('generateInviteCode', () => {
-  it('generates a 6-character code from the confusion-resistant alphabet', () => {
+  it('generates an 8-character code from the confusion-resistant alphabet', () => {
     const code = generateInviteCode();
-    expect(code).toHaveLength(6);
+    expect(code).toHaveLength(8);
+    expect(code).toHaveLength(INVITE_CODE_LENGTH);
     expect([...code].every((char) => INVITE_CODE_ALPHABET.includes(char))).toBe(true);
   });
 
@@ -35,34 +37,34 @@ describe('generateInviteCode', () => {
 
 describe('normalizeInviteCode', () => {
   it('uppercases and trims', () => {
-    expect(normalizeInviteCode(' ab3d9z ')).toBe('AB3D9Z');
+    expect(normalizeInviteCode(' ab3d9zkm ')).toBe('AB3D9ZKM');
   });
 
   it('strips whitespace anywhere, not just leading/trailing', () => {
-    expect(normalizeInviteCode('ab3 d9z')).toBe('AB3D9Z');
-    expect(normalizeInviteCode('a b 3 d 9 z')).toBe('AB3D9Z');
+    expect(normalizeInviteCode('ab3 d9zkm')).toBe('AB3D9ZKM');
+    expect(normalizeInviteCode('a b 3 d 9 z k m')).toBe('AB3D9ZKM');
   });
 });
 
 describe('isValidInviteCodeFormat', () => {
   it('accepts a well-formed code regardless of case', () => {
-    expect(isValidInviteCodeFormat('ab3d9z')).toBe(true);
-    expect(isValidInviteCodeFormat('AB3D9Z')).toBe(true);
+    expect(isValidInviteCodeFormat('ab3d9zkm')).toBe(true);
+    expect(isValidInviteCodeFormat('AB3D9ZKM')).toBe(true);
   });
 
   it('accepts a code with stray internal whitespace', () => {
-    expect(isValidInviteCodeFormat('AB3 D9Z')).toBe(true);
-    expect(isValidInviteCodeFormat(' AB3D9Z ')).toBe(true);
+    expect(isValidInviteCodeFormat('AB3 D9ZKM')).toBe(true);
+    expect(isValidInviteCodeFormat(' AB3D9ZKM ')).toBe(true);
   });
 
   it('rejects the wrong length', () => {
-    expect(isValidInviteCodeFormat('AB3D9')).toBe(false);
-    expect(isValidInviteCodeFormat('AB3D9ZZ')).toBe(false);
+    expect(isValidInviteCodeFormat('AB3D9ZK')).toBe(false);
+    expect(isValidInviteCodeFormat('AB3D9ZKMM')).toBe(false);
   });
 
   it('rejects excluded/unknown characters', () => {
-    expect(isValidInviteCodeFormat('AB3D9O')).toBe(false); // O excluded
-    expect(isValidInviteCodeFormat('AB3D91')).toBe(false); // 1 excluded
-    expect(isValidInviteCodeFormat('AB3D9!')).toBe(false); // not alphanumeric
+    expect(isValidInviteCodeFormat('AB3D9ZKO')).toBe(false); // O excluded
+    expect(isValidInviteCodeFormat('AB3D9ZK1')).toBe(false); // 1 excluded
+    expect(isValidInviteCodeFormat('AB3D9ZK!')).toBe(false); // not alphanumeric
   });
 });

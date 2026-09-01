@@ -34,12 +34,12 @@ describe('createInviteInputSchema', () => {
 
 describe('redeemInviteInputSchema', () => {
   it('accepts a well-formed code, case-insensitively', () => {
-    expect(() => redeemInviteInputSchema.parse({ code: 'ab3d9z' })).not.toThrow();
-    expect(() => redeemInviteInputSchema.parse({ code: 'AB3D9Z' })).not.toThrow();
+    expect(() => redeemInviteInputSchema.parse({ code: 'ab3d9zkm' })).not.toThrow();
+    expect(() => redeemInviteInputSchema.parse({ code: 'AB3D9ZKM' })).not.toThrow();
   });
 
   it('rejects a malformed code', () => {
-    expect(() => redeemInviteInputSchema.parse({ code: 'AB3D9O' })).toThrow();
+    expect(() => redeemInviteInputSchema.parse({ code: 'AB3D9ZKO' })).toThrow();
     expect(() => redeemInviteInputSchema.parse({ code: 'short' })).toThrow();
   });
 });

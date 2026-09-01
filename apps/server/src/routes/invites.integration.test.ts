@@ -58,7 +58,7 @@ describe('POST /invites/redeem (integration)', () => {
       .insert(invites)
       .values({
         bandId: band.id,
-        code: 'AB3D9Z',
+        code: generateInviteCode(),
         label: 'Race Tester',
         role: 'member',
         createdBy: creator.userId,
@@ -99,7 +99,7 @@ describe('POST /invites/redeem (integration)', () => {
       .insert(invites)
       .values({
         bandId: band.id,
-        code: 'AB3D9Y',
+        code: generateInviteCode(),
         label: 'Race Tester',
         role: 'member',
         createdBy: creator.userId,

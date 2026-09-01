@@ -30,6 +30,7 @@ owner.
 | Create, edit, or delete a calendar event | ✅ | ✅ | — |
 | Create, edit, or close a scheduling poll | ✅ | ✅ | — |
 | Respond to your own availability, or vote in a poll ³ | ✅ | ✅ | ✅ |
+| Export the full repertoire (ChordPro + JSON + files) as a ZIP ⁴ | ✅ | ✅ | — |
 
 ¹ An admin can remove a member, but never the owner or another admin.
 ² Leaving automatically hands ownership to the highest-ranked remaining member (admin over
@@ -38,6 +39,9 @@ owner.
 ³ Always for yourself, never someone else's — enforced at the CRDT layer (a server-side guard keyed
   by userId), not just hidden in the UI, since these are live document edits with no REST route in
   front of them to check a role against. See [ADR-0011](adr/0011-calendar-events.md).
+⁴ A UI-level convenience gate, not a new access boundary — every member can already read every
+  song and download any individual attachment on their own; this only restricts the one-click bulk
+  export of everything at once.
 
 ## Enforcement
 

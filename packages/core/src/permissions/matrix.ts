@@ -37,7 +37,8 @@ export type Action =
   | 'event:delete'
   | 'poll:create'
   | 'poll:edit'
-  | 'poll:close';
+  | 'poll:close'
+  | 'repertoire:export';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -75,6 +76,13 @@ export type Action =
  * someone else's" is enforced at the CRDT layer (a hocuspocus onChange guard
  * keyed by userId), not just left unchecked, since there's no REST route in
  * front of these live doc edits to gate it otherwise.
+ *
+ * `repertoire:export` (the full ChordPro+JSON+attachments ZIP in Band
+ * Settings) is a UI-level organizational gate, not a new access boundary:
+ * every member can already read the band's songs and download any
+ * individual attachment one at a time (`file:upload`'s own presigned
+ * download has no role check beyond plain membership). What this restricts
+ * is the *bulk, one-click* convenience, not the underlying data access.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -107,6 +115,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'poll:create': 'admin',
   'poll:edit': 'admin',
   'poll:close': 'admin',
+  'repertoire:export': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */

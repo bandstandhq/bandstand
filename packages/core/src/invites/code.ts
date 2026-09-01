@@ -6,9 +6,9 @@
 // alphabet index via `byte % 32` is perfectly uniform, no rejection
 // sampling needed.
 export const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-export const INVITE_CODE_LENGTH = 6;
+export const INVITE_CODE_LENGTH = 8;
 
-/** Generates a random 6-character invite code from the confusion-resistant alphabet. */
+/** Generates a random 8-character invite code from the confusion-resistant alphabet. */
 export function generateInviteCode(): string {
   const bytes = new Uint8Array(INVITE_CODE_LENGTH);
   crypto.getRandomValues(bytes);
