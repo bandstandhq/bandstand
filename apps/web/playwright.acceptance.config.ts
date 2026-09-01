@@ -3,6 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e-acceptance',
+  // Self-heals stale `test-`-prefixed data a previous interrupted run left
+  // behind (see globalSetup.ts) before every invocation — a no-op in CI,
+  // where the acceptance workflow's own Postgres always starts fresh.
+  globalSetup: './e2e-acceptance/globalSetup.ts',
   // Scenarios share one seeded band/server and mutate real state (invites,
   // membership, Awareness) — unlike playwright.config.ts's static-bundle
   // smoke test, running them in parallel would let them race each other.
