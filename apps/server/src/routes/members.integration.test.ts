@@ -11,10 +11,10 @@ import { db } from '../db/client';
 import { bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
-async function signUpTestUser() {
+async function signUpTestUser(name = 'Members Tester') {
   const email = `test-members-${randomUUID()}@bandstand.local`;
   const result = await auth.api.signUpEmail({
-    body: { email, password: 'test-password-123', name: 'Members Tester' },
+    body: { email, password: 'test-password-123', name },
   });
   if (!result.token) throw new Error('Sign-up did not return a session token');
   return { userId: result.user.id, token: result.token };
@@ -157,6 +157,36 @@ describe('band member management (integration)', () => {
 
     const adminLeave = await req(`/${band.id}/members/me`, 'DELETE', admin.token);
     expect(adminLeave.status).toBe(200);
+  });
+
+  it('lists members ordered by role (owner, admin, member) then alphabetically by name — not insertion order', async () => {
+    const owner = await signUpTestUser('Zed Owner');
+    const adminA = await signUpTestUser('Bob Admin');
+    const adminB = await signUpTestUser('Alice Admin');
+    const memberA = await signUpTestUser('Yara Member');
+    const memberB = await signUpTestUser('Xavier Member');
+    cleanupUserIds.push(owner.userId, adminA.userId, adminB.userId, memberA.userId, memberB.userId);
+
+    const [band] = await db
+      .insert(bands)
+      .values({ name: 'Members Order Test Band', slug: `test-members-order-${randomUUID()}` })
+      .returning();
+    if (!band) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(band.id);
+
+    // Inserted deliberately out of both role and alphabetical order.
+    await db.insert(bandMembers).values([
+      { bandId: band.id, userId: memberA.userId, role: 'member', instruments: [] },
+      { bandId: band.id, userId: adminA.userId, role: 'admin', instruments: [] },
+      { bandId: band.id, userId: memberB.userId, role: 'member', instruments: [] },
+      { bandId: band.id, userId: owner.userId, role: 'owner', instruments: [] },
+      { bandId: band.id, userId: adminB.userId, role: 'admin', instruments: [] },
+    ]);
+
+    const res = await req(`/${band.id}/members`, 'GET', owner.token);
+    expect(res.status).toBe(200);
+    const names = (await res.json()) as Array<{ name: string }>;
+    expect(names.map((m) => m.name)).toEqual(['Zed Owner', 'Alice Admin', 'Bob Admin', 'Xavier Member', 'Yara Member']);
   });
 
   it('lets a member update their own instruments', async () => {
