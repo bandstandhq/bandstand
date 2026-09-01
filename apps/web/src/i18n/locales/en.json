@@ -36,6 +36,20 @@
     "done": "Your password has been changed.",
     "goToLogin": "Go to log in"
   },
+  "confirmEmailChange": {
+    "title": "Confirm your new email address",
+    "pending": "Confirming…",
+    "done": "Your Bandstand account's email address is now {{email}}.",
+    "error": "This link is invalid, has expired, or has already been used.",
+    "continue": "Go to Bandstand"
+  },
+  "cancelEmailChange": {
+    "title": "Cancel email address change",
+    "pending": "Cancelling…",
+    "done": "The email address change has been cancelled. Your account's email address is unchanged.",
+    "error": "This link is invalid or has already been used.",
+    "continue": "Go to Bandstand"
+  },
   "signup": {
     "title": "Create your Bandstand account",
     "name": "Name",
@@ -149,7 +163,17 @@
     "passwordError_wrongCurrent": "Current password is incorrect.",
     "passwordError_tooShort": "New password is too short.",
     "passwordError_mismatch": "New password and confirmation don't match.",
-    "passwordError_generic": "Couldn't change your password. Try again."
+    "passwordError_generic": "Couldn't change your password. Try again.",
+    "emailTitle": "Email address",
+    "emailCurrent": "Current: {{email}}",
+    "emailNewLabel": "New email address",
+    "emailSave": "Send confirmation",
+    "emailSaving": "Sending…",
+    "emailSent": "If that address is available, we've sent a confirmation link to it. Your current address also gets a notice with a cancel link, in case this wasn't you.",
+    "emailError_network": "Couldn't reach the server. Check your connection and try again.",
+    "emailError_rateLimit": "Too many attempts. Wait a while and try again.",
+    "emailError_sameEmail": "That's already your email address.",
+    "emailError_generic": "Couldn't start the email change. Try again."
   },
   "pushNotifications": {
     "title": "Push notifications",

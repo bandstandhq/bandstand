@@ -6,6 +6,8 @@ import { RequireAuth } from './components/RequireAuth';
 import { AccountSettings } from './pages/AccountSettings';
 import { BandSettings } from './pages/BandSettings';
 import { Calendar } from './pages/Calendar';
+import { CancelEmailChange } from './pages/CancelEmailChange';
+import { ConfirmEmailChange } from './pages/ConfirmEmailChange';
 import { Dashboard } from './pages/Dashboard';
 import { DashboardRedirect } from './pages/DashboardRedirect';
 import { EventDetail } from './pages/EventDetail';
@@ -67,6 +69,8 @@ export function AppRouter() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/account/confirm-email-change" element={<ConfirmEmailChange />} />
+        <Route path="/account/cancel-email-change" element={<CancelEmailChange />} />
         <Route
           path="/settings"
           element={

@@ -4,8 +4,10 @@ import type {
   Band,
   BandMember,
   BandRole,
+  CancelEmailChangeInput,
   ChangeMemberRoleInput,
   ClosePollInput,
+  ConfirmEmailChangeInput,
   ConfirmFileInput,
   CreateAnnotationLayerInput,
   CreateBandInput,
@@ -16,6 +18,7 @@ import type {
   PushTriggers,
   RedeemInviteInput,
   RenameBandInput,
+  RequestEmailChangeInput,
   ResolveIdeaTieInput,
   SetNicknameInput,
   SubscribePushInput,
@@ -237,6 +240,18 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
     getIcsToken: () => req<{ token: string }>('/me/ics-token'),
 
     regenerateIcsToken: () => req<{ token: string }>('/me/ics-token/regenerate', { method: 'POST' }),
+
+    // Hybrid confirm-new/notify-old flow — see apps/server/src/routes/emailChange.ts.
+    // Always resolves (no thrown enumeration signal for an already-taken
+    // newEmail); confirmUrl/cancelUrl must be on a server-trusted origin.
+    requestEmailChange: (input: RequestEmailChangeInput) =>
+      req<{ status: true }>('/me/email-change', { method: 'POST', body: JSON.stringify(input) }),
+
+    confirmEmailChange: (input: ConfirmEmailChangeInput) =>
+      req<{ email: string }>('/me/email-change/confirm', { method: 'POST', body: JSON.stringify(input) }),
+
+    cancelEmailChange: (input: CancelEmailChangeInput) =>
+      req<{ status: true }>('/me/email-change/cancel', { method: 'POST', body: JSON.stringify(input) }),
 
     // Web push — see apps/server/src/routes/push.ts. `publicKey` is `null`
     // when the self-hoster hasn't run `pnpm push:keys` yet.

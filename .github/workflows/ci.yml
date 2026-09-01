@@ -53,6 +53,14 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Its default CMD (unlike MinIO's) already starts SMTP+web with no
+      # extra args, same as postgres above — so unlike MinIO below, this can
+      # be a plain services: container. Needed since emailChange.integration.test.ts
+      # is the first integration test that actually calls sendMail().
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
     env:
       DATABASE_URL: postgres://bandstand:bandstand@localhost:5432/bandstand
       BETTER_AUTH_SECRET: ci-integration-test-secret-do-not-use-in-production
@@ -62,6 +70,11 @@ jobs:
       MINIO_ACCESS_KEY: ci-minio-test
       MINIO_SECRET_KEY: ci-minio-test-do-not-use-in-production
       MINIO_BUCKET: bandstand
+      # 127.0.0.1, not localhost — nodemailer's SMTP connection failed
+      # against ::1 (IPv6 loopback) in this job, which nothing listens on;
+      # forcing IPv4 sidesteps that resolution order instead of relying on it.
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: 1025
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
