@@ -5,6 +5,7 @@ export * from './setlist';
 export * from './setlistItem';
 export * from './band';
 export * from './invite';
+export * from './emailChange';
 export * from './userPrefs';
 export * from './stagePosition';
 export * from './stageAwareness';

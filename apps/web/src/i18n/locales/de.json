@@ -36,6 +36,20 @@
     "done": "Dein Passwort wurde geändert.",
     "goToLogin": "Zur Anmeldung"
   },
+  "confirmEmailChange": {
+    "title": "Neue E-Mail-Adresse bestätigen",
+    "pending": "Bestätigt…",
+    "done": "Die E-Mail-Adresse deines Bandstand-Kontos ist jetzt {{email}}.",
+    "error": "Dieser Link ist ungültig, abgelaufen oder wurde bereits verwendet.",
+    "continue": "Zu Bandstand"
+  },
+  "cancelEmailChange": {
+    "title": "E-Mail-Änderung abbrechen",
+    "pending": "Wird abgebrochen…",
+    "done": "Die E-Mail-Änderung wurde abgebrochen. Die E-Mail-Adresse deines Kontos bleibt unverändert.",
+    "error": "Dieser Link ist ungültig oder wurde bereits verwendet.",
+    "continue": "Zu Bandstand"
+  },
   "signup": {
     "title": "Bandstand-Konto erstellen",
     "name": "Name",
@@ -149,7 +163,17 @@
     "passwordError_wrongCurrent": "Aktuelles Passwort ist falsch.",
     "passwordError_tooShort": "Neues Passwort ist zu kurz.",
     "passwordError_mismatch": "Neues Passwort und Bestätigung stimmen nicht überein.",
-    "passwordError_generic": "Passwort konnte nicht geändert werden. Bitte erneut versuchen."
+    "passwordError_generic": "Passwort konnte nicht geändert werden. Bitte erneut versuchen.",
+    "emailTitle": "E-Mail-Adresse",
+    "emailCurrent": "Aktuell: {{email}}",
+    "emailNewLabel": "Neue E-Mail-Adresse",
+    "emailSave": "Bestätigung senden",
+    "emailSaving": "Wird gesendet…",
+    "emailSent": "Falls diese Adresse verfügbar ist, haben wir einen Bestätigungslink dorthin gesendet. Deine aktuelle Adresse erhält außerdem einen Hinweis mit Abbrechen-Link, falls das nicht du warst.",
+    "emailError_network": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
+    "emailError_rateLimit": "Zu viele Versuche. Bitte warte und versuch es dann erneut.",
+    "emailError_sameEmail": "Das ist bereits deine E-Mail-Adresse.",
+    "emailError_generic": "E-Mail-Änderung konnte nicht gestartet werden. Bitte erneut versuchen."
   },
   "pushNotifications": {
     "title": "Push-Benachrichtigungen",

@@ -10,6 +10,7 @@ export * from './userPrefs';
 export * from './memberNicknames';
 export * from './voiceAnnotationLayers';
 export * from './icsFeedTokens';
+export * from './pendingEmailChanges';
 export * from './pendingUploads';
 export * from './pushReminderLog';
 export * from './pushSubscriptions';

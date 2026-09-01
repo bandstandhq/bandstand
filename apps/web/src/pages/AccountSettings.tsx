@@ -8,6 +8,7 @@ import type { Band, Locale } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChangeEmailForm } from '../components/ChangeEmailForm';
 import { ChangeNameForm } from '../components/ChangeNameForm';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import { CreateBandForm } from '../components/CreateBandForm';
@@ -94,6 +95,15 @@ export function AccountSettings() {
             <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.passwordDescription')}</p>
             <div className="mt-3">
               <ChangePasswordForm />
+            </div>
+          </div>
+        )}
+
+        {session && (
+          <div className="mt-4 rounded-md border border-border p-4">
+            <h2 className="font-medium">{t('accountSettings.emailTitle')}</h2>
+            <div className="mt-3">
+              <ChangeEmailForm currentEmail={session.user.email} />
             </div>
           </div>
         )}

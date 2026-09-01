@@ -23,6 +23,7 @@ import { bandsRoute } from './routes/bands';
 import { calendarFeedRoute } from './routes/calendarFeed';
 import { health } from './routes/health';
 import { icsTokenRoute } from './routes/icsToken';
+import { emailChangeRoute } from './routes/emailChange';
 import { inviteRedemptionRoute } from './routes/invites';
 import { pushRoute } from './routes/push';
 import { userPrefsRoute } from './routes/userPrefs';
@@ -86,6 +87,26 @@ app.route('/me/prefs', userPrefsRoute);
 app.route('/me/ics-token', icsTokenRoute);
 app.route('/calendar', calendarFeedRoute);
 app.route('/push', pushRoute);
+
+// Same layered reasoning as /api/auth/change-password below — an
+// already-authenticated caller, no enumeration concern, but a stolen
+// session could otherwise hammer this to spam a victim's old inbox or
+// probe which addresses are already registered via response timing. Only
+// the initiate endpoint (exact path, not /me/email-change/confirm or
+// /cancel) needs this — those two are gated by an unguessable mailed
+// token instead, the same way a reset-password token itself isn't rate
+// limited, only requesting one is.
+app.use(
+  '/me/email-change',
+  accountActionRateLimit({
+    name: 'email-change',
+    perAccountMax: 5,
+    perAccountWindowMs: 60 * 60 * 1000,
+    perIpMax: 15,
+    perIpWindowMs: 60 * 60 * 1000,
+  }),
+);
+app.route('/me/email-change', emailChangeRoute);
 
 // Registered on this one literal path, ahead of the catch-all below —
 // Hono runs matching middleware in registration order, so a reject here
