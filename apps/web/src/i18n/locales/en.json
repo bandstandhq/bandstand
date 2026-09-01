@@ -5,6 +5,17 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password"
   },
+  "serverPicker": {
+    "current": "Server: {{server}}",
+    "default": "Default server",
+    "custom": "Custom server",
+    "change": "Change",
+    "cancel": "Cancel",
+    "save": "Save",
+    "serverUrlLabel": "Server URL",
+    "hocuspocusUrlLabel": "Sync URL",
+    "invalidUrl": "Enter a valid server URL (http/https) and sync URL (ws/wss)."
+  },
   "login": {
     "title": "Log in to Bandstand",
     "email": "Email",
@@ -173,7 +184,11 @@
     "emailError_network": "Couldn't reach the server. Check your connection and try again.",
     "emailError_rateLimit": "Too many attempts. Wait a while and try again.",
     "emailError_sameEmail": "That's already your email address.",
-    "emailError_generic": "Couldn't start the email change. Try again."
+    "emailError_generic": "Couldn't start the email change. Try again.",
+    "serverTitle": "Server",
+    "serverDefault": "Using the default server.",
+    "serverCustom": "Using {{server}}.",
+    "serverChangeHint": "To change this, log out first — it's only changeable while signed out."
   },
   "pushNotifications": {
     "title": "Push notifications",

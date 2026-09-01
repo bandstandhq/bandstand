@@ -3,6 +3,7 @@ import { Button, Input, PasswordInput } from '@bandstand/ui';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import { ServerPicker } from '../components/ServerPicker';
 import { authClient } from '../lib/auth-client';
 
 export function Login() {
@@ -57,7 +58,10 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm">
+        <ServerPicker />
+      </div>
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6"

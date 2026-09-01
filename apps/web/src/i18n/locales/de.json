@@ -5,6 +5,17 @@
     "showPassword": "Passwort anzeigen",
     "hidePassword": "Passwort verbergen"
   },
+  "serverPicker": {
+    "current": "Server: {{server}}",
+    "default": "Standardserver",
+    "custom": "Eigener Server",
+    "change": "Ändern",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "serverUrlLabel": "Server-URL",
+    "hocuspocusUrlLabel": "Sync-URL",
+    "invalidUrl": "Gib eine gültige Server-URL (http/https) und Sync-URL (ws/wss) ein."
+  },
   "login": {
     "title": "Bei Bandstand anmelden",
     "email": "E-Mail",
@@ -173,7 +184,11 @@
     "emailError_network": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
     "emailError_rateLimit": "Zu viele Versuche. Bitte warte und versuch es dann erneut.",
     "emailError_sameEmail": "Das ist bereits deine E-Mail-Adresse.",
-    "emailError_generic": "E-Mail-Änderung konnte nicht gestartet werden. Bitte erneut versuchen."
+    "emailError_generic": "E-Mail-Änderung konnte nicht gestartet werden. Bitte erneut versuchen.",
+    "serverTitle": "Server",
+    "serverDefault": "Verwendet den Standardserver.",
+    "serverCustom": "Verwendet {{server}}.",
+    "serverChangeHint": "Um das zu ändern, melde dich zuerst ab — nur im abgemeldeten Zustand änderbar."
   },
   "pushNotifications": {
     "title": "Push-Benachrichtigungen",

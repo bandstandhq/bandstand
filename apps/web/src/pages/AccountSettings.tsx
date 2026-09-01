@@ -17,6 +17,7 @@ import { PageShell } from '../components/PageShell';
 import { isWakeLockSupported } from '../hooks/useWakeLock';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import { getActiveServerConfig, isUsingCustomServer } from '../lib/serverConfig';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
 import { useThemeStore } from '../stores/theme';
@@ -201,6 +202,16 @@ export function AccountSettings() {
           >
             {theme === 'dark' ? t('appHeader.themeLight') : t('appHeader.themeDark')}
           </Button>
+        </div>
+
+        <div className="mt-4 rounded-md border border-border p-4">
+          <h2 className="font-medium">{t('accountSettings.serverTitle')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isUsingCustomServer()
+              ? t('accountSettings.serverCustom', { server: getActiveServerConfig().serverUrl })
+              : t('accountSettings.serverDefault')}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{t('accountSettings.serverChangeHint')}</p>
         </div>
 
         <div className="mt-4 rounded-md border border-border p-4">
