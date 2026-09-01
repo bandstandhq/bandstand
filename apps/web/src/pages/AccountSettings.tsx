@@ -8,6 +8,8 @@ import type { Band, Locale } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChangeNameForm } from '../components/ChangeNameForm';
+import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import { CreateBandForm } from '../components/CreateBandForm';
 import { JoinBandForm } from '../components/JoinBandForm';
 import { PageShell } from '../components/PageShell';
@@ -77,6 +79,25 @@ export function AccountSettings() {
   return (
     <PageShell title={t('accountSettings.title')}>
       <div className="mx-auto max-w-lg">
+        {session && (
+          <div className="mt-4 rounded-md border border-border p-4">
+            <h2 className="font-medium">{t('accountSettings.profileTitle')}</h2>
+            <div className="mt-3">
+              <ChangeNameForm currentName={session.user.name} />
+            </div>
+          </div>
+        )}
+
+        {session && (
+          <div className="mt-4 rounded-md border border-border p-4">
+            <h2 className="font-medium">{t('accountSettings.passwordTitle')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.passwordDescription')}</p>
+            <div className="mt-3">
+              <ChangePasswordForm />
+            </div>
+          </div>
+        )}
+
         {/* Only once there's at least one band to switch away from —
             joining/creating your very first band has its own, more
             prominent spot on the empty /dashboard instead (see
