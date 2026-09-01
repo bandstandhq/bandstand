@@ -3,6 +3,7 @@ import type { MyBand } from '@bandstand/api-client';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api-client';
+import { bandOptionLabel } from '../lib/bandOptionLabel';
 import { useActiveBandStore } from '../stores/activeBand';
 
 /**
@@ -68,7 +69,7 @@ export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string)
     >
       {bands.map((band) => (
         <option key={band.id} value={band.id}>
-          {band.name}
+          {bandOptionLabel(band, bands)}
         </option>
       ))}
     </select>
