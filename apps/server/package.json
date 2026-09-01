@@ -18,7 +18,8 @@
     "blobs:gc": "tsx --env-file=../../.env src/blobs/gc.ts",
     "cleanup:test-accounts": "tsx --env-file=../../.env src/scripts/cleanupTestAccounts.ts",
     "push:keys": "tsx --env-file=../../.env src/push/generateKeys.ts",
-    "push:due": "tsx --env-file=../../.env src/push/due.ts"
+    "push:due": "tsx --env-file=../../.env src/push/due.ts",
+    "bands:sweep-archived": "tsx --env-file=../../.env src/bands/sweepArchived.ts"
   },
   "devDependencies": {
     "@hocuspocus/provider": "^4.6.0",

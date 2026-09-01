@@ -113,6 +113,17 @@ setup (VAPID + each browser's own push service) with no Firebase or other vendor
    Hourly is what the reminder windows are sized around; a longer interval means an
    occurrence can drift past a reminder's window without ever firing it.
 
+## Deleting a band
+
+Deleting a band archives it rather than removing it outright — the owner can restore it
+(`POST /bands/:bandId/restore`) any time within 30 days, after which it's gone for good.
+Permanent removal isn't automatic; run `pnpm bands:sweep-archived` on a daily schedule:
+```cron
+0 3 * * * cd /path/to/bandstand && pnpm bands:sweep-archived >> /var/log/bandstand-sweep-archived.log 2>&1
+```
+Without this cron entry, archived bands simply accumulate forever instead of ever being
+permanently deleted — restoring still works either way, only the actual cleanup depends on it.
+
 ## Not yet covered here
 
 - TLS/reverse-proxy setup

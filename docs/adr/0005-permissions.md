@@ -49,6 +49,46 @@ the matrix in its own words; both consult the one in `packages/core`.
   has its change reverted server-side, logged with the acting user id, band id, and the restored
   key (see Consequences — the log is deliberate, not a silent fix).
 
+### Deleting a band archives it first; only development/test data skips the grace period
+
+`band:delete`'s underlying action changed from an immediate hard delete to archiving
+(`bands.archivedAt`, set rather than the row being removed): the owner has 30 days
+(`packages/core/src/bands/archive.ts`'s `ARCHIVE_GRACE_PERIOD_MS`) to restore it (`POST
+/bands/:bandId/restore`, also owner-only) before `apps/server/src/bands/sweepArchived.ts` — a
+cron-triggered script, the same "manual/scheduled tool, not an automatic in-process job" shape as
+`push/due.ts` — permanently deletes it. An archived band is excluded from `GET /bands` (so it
+disappears from the switcher and dashboard exactly as a hard delete would) but surfaced again via
+a separate, owner-scoped `GET /bands/archived`, and its Hocuspocus connections are closed
+immediately at archive time, same as the old hard-delete path.
+
+This 30-day safety net exists to protect a real band's real data from an accidental or
+impulsive deletion — it is deliberately skipped (immediate hard delete, exactly the pre-existing
+behavior) whenever the band is plainly not that: its slug starts with `test-` (the repo-wide
+"this row belongs to a test run" convention — see `CONTRIBUTING.md` and
+`cleanupTestAccounts.ts`), or the server isn't running with `NODE_ENV=production`. A self-hosted
+development instance and an automated test suite both need deletion to actually take effect
+immediately, not leave a 30-day trail of archived rows nothing ever sweeps up on purpose.
+
+### Leaving as owner transfers ownership automatically, rather than being blocked
+
+The precondition described below (Consequences) as "the owner must transfer ownership first" has
+been replaced: `DELETE /bands/:bandId/members/me` now computes a successor itself
+(`apps/server/src/lib/ownershipSuccession.ts`) — the highest-ranked remaining member (admin over
+member), ties broken by whoever joined the band earliest (`bandMembers.joinedAt`, already used
+for `GET /bands`' own ordering) — and, in one transaction, removes the leaving owner and promotes
+that successor, rather than rejecting the request outright. `GET /bands/:bandId/members/successor`
+(owner-only) lets the web UI name the successor in a confirmation dialog *before* the owner
+commits to leaving; the `DELETE` handler re-runs the same query at commit time rather than trusting
+whatever the preview call returned, since membership can change between the two requests. Only a
+sole remaining owner — no one else in the band to hand it to — is still rejected (`409
+owner_must_transfer_first`), the one case auto-succession has no answer for.
+
+The leaving owner's row is deleted *before* the successor's role flips to `'owner'`, not after:
+`band_members_one_owner_idx` (the partial unique index backstopping "exactly one owner") is a
+plain, non-deferred index, checked per statement — updating the successor first would momentarily
+describe two owner rows in the same band and fail the same way a bug in `transfer-ownership`'s own
+two-update ordering would.
+
 ### `idea:resolveTie` is a workflow, not a new boundary
 
 `idea:resolveTie`'s underlying mutation is exactly `setSongStatus` — the same function
@@ -73,10 +113,10 @@ right to do.
   maps. Item-level setlist edits (reordering, adding, removing individual items) stay ordinary,
   unguarded CRDT, exactly as the matrix already allows for every role; guarding them would be
   restricting an action nothing in the matrix restricts.
-- `band:leave`'s "owner must transfer ownership first" rule is enforced as a precondition inside
-  the leave-band route handler, not as a matrix cell — `can(role, 'band:leave')` is `true` for
-  every role, by design, since the restriction is about band *state* (is there another owner yet),
-  not about the caller's *role*.
+- `band:leave`'s owner case is a precondition (and, now, an automatic ownership transfer) inside
+  the leave-band route handler, not a matrix cell — `can(role, 'band:leave')` is `true` for every
+  role, by design, since the restriction is about band *state* (is there anyone left to become
+  owner), not about the caller's *role*.
 - A DB-level partial unique index (`band_members` — at most one `role = 'owner'` row per band,
   added alongside the ownership-transfer endpoint) backstops "a band always has exactly one owner"
   independently of any application-level logic getting that transaction wrong.

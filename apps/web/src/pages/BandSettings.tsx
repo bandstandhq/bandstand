@@ -2,7 +2,7 @@
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
 import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
-import { Button, Input } from '@bandstand/ui';
+import { Button, Dialog, Input } from '@bandstand/ui';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [renameSaved, setRenameSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const nicknames = useNicknames(bandId);
 
   async function refreshMembers() {
@@ -78,12 +79,11 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   }
 
   async function handleDelete() {
-    if (!myBand) return;
-    if (!window.confirm(t('bandSettings.danger.confirm', { name: myBand.name }))) return;
     setDeleting(true);
     setDeleteError(null);
     try {
       await apiClient.deleteBand(bandId);
+      setDeleteDialogOpen(false);
       navigate('/dashboard');
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : String(err));
@@ -154,7 +154,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
         </section>
       )}
 
-      {canDelete && (
+      {canDelete && myBand && (
         <section className="mt-8 rounded-md border border-destructive p-4">
           <h2 className="text-lg font-medium text-destructive">{t('bandSettings.danger.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -164,15 +164,67 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
             variant="destructive"
             size="sm"
             className="mt-3"
-            onClick={handleDelete}
-            disabled={deleting}
+            onClick={() => setDeleteDialogOpen(true)}
           >
-            {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.delete')}
+            {t('bandSettings.danger.delete')}
           </Button>
           {deleteError && <p className="mt-2 text-sm text-destructive">{deleteError}</p>}
+          <DeleteBandDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            bandName={myBand.name}
+            deleting={deleting}
+            onConfirm={handleDelete}
+          />
         </section>
       )}
     </PageShell>
+  );
+}
+
+function DeleteBandDialog({
+  open,
+  onOpenChange,
+  bandName,
+  deleting,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bandName: string;
+  deleting: boolean;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  const [typedName, setTypedName] = useState('');
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setTypedName('');
+      }}
+      title={t('bandSettings.danger.dialogTitle', { name: bandName })}
+      description={t('bandSettings.danger.dialogDescription')}
+      closeLabel={t('bandSettings.danger.cancel')}
+    >
+      <Input
+        autoFocus
+        value={typedName}
+        onChange={(e) => setTypedName(e.target.value)}
+        placeholder={t('bandSettings.danger.typeNamePlaceholder')}
+        aria-label={t('bandSettings.danger.typeNamePlaceholder')}
+      />
+      <Button
+        variant="destructive"
+        className="mt-4 w-full"
+        disabled={typedName !== bandName || deleting}
+        onClick={onConfirm}
+      >
+        {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.confirmTyped')}
+      </Button>
+    </Dialog>
   );
 }
 
@@ -317,7 +369,33 @@ function useMemberActions({
   }
 
   async function handleLeave() {
-    if (!window.confirm(t('bandSettings.members.confirmLeave'))) return;
+    if (viewerRole === 'owner') {
+      // Ownership transfers automatically to whoever ranks highest among
+      // the rest of the band — the owner needs to see who that is *before*
+      // committing to leave, not find out after (see docs/adr/0005-
+      // permissions.md). The DELETE call below re-derives the same
+      // successor itself rather than trusting this preview, so a
+      // membership change between the two requests can't desync them.
+      setBusy(true);
+      setError(null);
+      let successor: Awaited<ReturnType<typeof apiClient.previewOwnershipSuccessor>>['successor'];
+      try {
+        ({ successor } = await apiClient.previewOwnershipSuccessor(bandId));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      if (!successor) {
+        setError(t('bandSettings.members.soleOwnerCannotLeave'));
+        return;
+      }
+      if (!window.confirm(t('bandSettings.members.confirmLeaveAsOwner', { name: successor.name }))) return;
+    } else if (!window.confirm(t('bandSettings.members.confirmLeave'))) {
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -333,7 +411,7 @@ function useMemberActions({
   const canRemove = !isSelf && canRemoveMember(viewerRole, member.role);
   const canTransfer =
     !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
-  const canLeave = isSelf && viewerRole !== 'owner' && can(viewerRole, 'band:leave');
+  const canLeave = isSelf && can(viewerRole, 'band:leave');
 
   return {
     busy,
@@ -360,8 +438,6 @@ function MemberActionButtons({
   handleRemove,
   handleTransfer,
   handleLeave,
-  isSelf,
-  viewerRole,
 }: {
   member: BandMember;
   busy: boolean;
@@ -373,8 +449,6 @@ function MemberActionButtons({
   handleRemove: () => void;
   handleTransfer: () => void;
   handleLeave: () => void;
-  isSelf: boolean;
-  viewerRole: BandRole;
 }) {
   const { t } = useTranslation();
   return (
@@ -420,11 +494,6 @@ function MemberActionButtons({
         >
           {t('bandSettings.members.leave')}
         </button>
-      )}
-      {isSelf && viewerRole === 'owner' && (
-        <span className="text-xs text-muted-foreground">
-          {t('bandSettings.members.ownerMustTransfer')}
-        </span>
       )}
     </>
   );
@@ -542,7 +611,7 @@ function MemberCard({
         )}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <MemberActionButtons member={member} isSelf={isSelf} viewerRole={viewerRole} {...actions} />
+        <MemberActionButtons member={member} {...actions} />
       </div>
       {actions.error && <p className="mt-1 text-xs text-destructive">{actions.error}</p>}
     </li>
@@ -594,12 +663,7 @@ function MemberRow({
         </td>
         <td className="py-1">
           <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
-            <MemberActionButtons
-              member={member}
-              isSelf={isSelf}
-              viewerRole={viewerRole}
-              {...actions}
-            />
+            <MemberActionButtons member={member} {...actions} />
           </div>
         </td>
       </tr>

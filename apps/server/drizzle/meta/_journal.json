@@ -148,6 +148,13 @@
       "when": 1788275414202,
       "tag": "0020_complex_black_crow",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788277438620,
+      "tag": "0021_fancy_diamondback",
+      "breakpoints": true
     }
   ]
 }

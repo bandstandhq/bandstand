@@ -6,7 +6,8 @@ owner.
 | Action | owner | admin | member |
 |---|:--:|:--:|:--:|
 | Rename the band | ✅ | ✅ | — |
-| Delete the band | ✅ | — | — |
+| Delete (archive) the band | ✅ | — | — |
+| Restore an archived band | ✅ | — | — |
 | Transfer ownership | ✅ | — | — |
 | Change a member's role | ✅ | — | — |
 | Remove a member | ✅ | ✅ ¹ | — |
@@ -31,7 +32,9 @@ owner.
 | Respond to your own availability, or vote in a poll ³ | ✅ | ✅ | ✅ |
 
 ¹ An admin can remove a member, but never the owner or another admin.
-² The owner can only leave after transferring ownership to someone else.
+² Leaving automatically hands ownership to the highest-ranked remaining member (admin over
+  member, ties broken by seniority) — the owner is shown who that is before confirming. Only a
+  sole remaining owner, with no one else left to take over, is still blocked from leaving.
 ³ Always for yourself, never someone else's — enforced at the CRDT layer (a server-side guard keyed
   by userId), not just hidden in the UI, since these are live document edits with no REST route in
   front of them to check a role against. See [ADR-0011](adr/0011-calendar-events.md).
