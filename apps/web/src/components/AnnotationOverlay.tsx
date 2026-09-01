@@ -10,7 +10,7 @@
 // applied), never a source-file coordinate the way an anchor's yPct is.
 import type { AnnotationLayerDto } from '@bandstand/api-client';
 import type { AnnotationObject, AnnotationPoint } from '@bandstand/core';
-import { Button } from '@bandstand/ui';
+import { Button, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -95,6 +95,7 @@ function drawObject(ctx: CanvasRenderingContext2D, obj: AnnotationObject, w: num
 
 export function AnnotationOverlay({ bandId, voiceId, page }: { bandId: string; voiceId: string; page: number }) {
   const { t } = useTranslation();
+  const { confirm, notify } = useConfirmDialog();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [layers, setLayers] = useState<CachedLayer[]>([]);
@@ -293,11 +294,16 @@ export function AnnotationOverlay({ bandId, voiceId, page }: { bandId: string; v
   }
 
   async function handleDeleteLayer(layerId: string) {
-    if (!window.confirm(t('annotations.confirmDelete'))) return;
+    const confirmed = await confirm({
+      title: t('annotations.confirmDelete'),
+      confirmLabel: t('annotations.delete'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     try {
       await apiClient.deleteAnnotationLayer(bandId, layerId);
     } catch {
-      window.alert(t('annotations.deleteFailed'));
+      await notify({ title: t('annotations.deleteFailed'), okLabel: t('common.close') });
       return;
     }
     await deleteCachedLayer(layerId);

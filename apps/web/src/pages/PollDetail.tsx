@@ -9,7 +9,7 @@ import {
   updatePoll,
   votePoll,
 } from '@bandstand/core';
-import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
+import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -196,6 +196,7 @@ function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string
 
 export function PollDetail() {
   const { t, i18n } = useTranslation();
+  const { confirm } = useConfirmDialog();
   const navigate = useNavigate();
   const { bandId, pollId } = useParams<{ bandId: string; pollId: string }>();
   const { data: session } = authClient.useSession();
@@ -245,7 +246,12 @@ export function PollDetail() {
 
   async function handleDelete() {
     if (!bandId || !pollId || !poll) return;
-    if (!window.confirm(t('pollDetail.confirmDelete', { name: poll.title }))) return;
+    const confirmed = await confirm({
+      title: t('pollDetail.confirmDelete', { name: poll.title }),
+      confirmLabel: t('pollDetail.delete'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await apiClient.deletePoll(bandId, pollId);

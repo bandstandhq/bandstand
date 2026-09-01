@@ -5,7 +5,7 @@
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
 import type { ArchivedBand, MyBand } from '@bandstand/api-client';
 import type { Band, Locale } from '@bandstand/core';
-import { Button } from '@bandstand/ui';
+import { Button, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChangeEmailForm } from '../components/ChangeEmailForm';
@@ -27,6 +27,7 @@ const LOCALES: Locale[] = ['en', 'de'];
 
 export function AccountSettings() {
   const { t } = useTranslation();
+  const { confirm, notify } = useConfirmDialog();
   const { data: session } = authClient.useSession();
   const prefs = useUserPrefsStore((s) => s.prefs);
   const loaded = useUserPrefsStore((s) => s.loaded);
@@ -71,9 +72,14 @@ export function AccountSettings() {
 
   async function handleDeleteLocalData() {
     if (!session) return;
-    if (!window.confirm(t('appHeader.deleteLocalDataConfirm'))) return;
+    const confirmed = await confirm({
+      title: t('appHeader.deleteLocalDataConfirm'),
+      confirmLabel: t('appHeader.deleteLocalData'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
     await deleteAllLocalBandData(session.user.id);
-    window.alert(t('appHeader.deleteLocalDataDone'));
+    await notify({ title: t('appHeader.deleteLocalDataDone'), okLabel: t('common.close') });
   }
 
   const wakeLockSupported = isWakeLockSupported();

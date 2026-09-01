@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Shared three-way prompt for useUnsavedChangesGuard — Save, Discard, or
-// Continue editing, rather than the plain yes/no window.confirm elsewhere
-// in the app (see packages/ui's Dialog for why this is a real dialog and
-// not that).
+// Continue editing. Predates ConfirmDialog/useConfirmDialog (packages/ui),
+// which now covers every plain yes/no and multi-choice confirmation
+// elsewhere in the app; this one stays a bespoke Dialog composition since
+// its "dismiss" (Escape/overlay) has its own distinct meaning (continue
+// editing), not a generic cancel.
 import { Button, Dialog } from '@bandstand/ui';
 import { useTranslation } from 'react-i18next';
 
