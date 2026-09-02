@@ -18,8 +18,8 @@ export function CreateBandForm({ onCreated }: { onCreated: (band: Band) => void 
     try {
       const band = await apiClient.createBand({ name });
       onCreated(band);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+    } catch {
+      setError(t('bandSwitcher.createError'));
     } finally {
       setSubmitting(false);
     }

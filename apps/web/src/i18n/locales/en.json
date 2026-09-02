@@ -317,7 +317,8 @@
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
     "createBandToggle": "Create a new band",
-    "creating": "Creating…"
+    "creating": "Creating…",
+    "createError": "Couldn't create the band. Please try again."
   },
   "repertoire": {
     "back": "Back to dashboard",
