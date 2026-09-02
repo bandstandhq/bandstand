@@ -14,11 +14,18 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 800));
 }
 
-/** A point near the left edge of a row's box — inside the label/drag-handle area on either side of this fix, never on a right-aligned action button. */
+/** A point near the left edge of a row's box — lands on its drag handle (the leftmost element in both the pool and the setlist), never on a right-aligned action button. */
 async function leftEdgePoint(locator: import('@playwright/test').Locator) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Could not measure element for drag point');
   return { x: box.x + 20, y: box.y + box.height / 2 };
+}
+
+/** A point past the row's padding + drag handle (p-2 + w-8 + gap-1 ≈ 44px) — lands on the row's label/tap target instead, never on the handle itself. */
+async function labelPoint(locator: import('@playwright/test').Locator) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Could not measure element for click point');
+  return { x: box.x + 55, y: box.y + box.height / 2 };
 }
 
 /** Drags from one point to another via real incremental pointer moves — dnd-kit's sensors need actual pointermove deltas to recognize an active drag, not a single teleporting move. Leaves the mouse button held; call `page.mouse.up()` to complete the drop. */
@@ -193,7 +200,7 @@ test('a real click on a setlist row still navigates to Stage Mode after that row
     // page — a raw coordinate click sidesteps that entirely, the same way
     // dragTo() already does for the drag itself.
     const targetRow = page.locator('.border-dashed li').first();
-    const { x, y } = await leftEdgePoint(targetRow);
+    const { x, y } = await labelPoint(targetRow);
     await Promise.all([page.waitForURL(/\/stage\//), page.mouse.click(x, y)]);
   } finally {
     await deleteThrowawayBand(token, bandId);
@@ -268,6 +275,57 @@ test('dragging a song from the pool into the setlist works via a real touch gest
 
     await expect(setlistItems).toHaveCount(1);
     await expect(setlistItems.first()).toContainText('Scarborough Fair');
+  } finally {
+    await context.close();
+    await deleteThrowawayBand(token, bandId);
+    setup.provider.destroy();
+  }
+});
+
+test('a touch starting on a row\'s label, not its drag handle, never starts a drag — so a scroll swipe there still reaches the browser', async ({
+  browser,
+}) => {
+  const token = await signInForToken(DEMO_OWNER_EMAIL, DEMO_PASSWORD);
+  const { bandId } = await createThrowawayBand(token, 'setlist-drag-drop-touch-label');
+  const setup = connectTestBandDoc(bandId, token);
+  await setup.waitForSynced();
+
+  const setlistId = createSetlist(setup.doc, 'Touch Label Test');
+  addSong(setup.doc, songFixture('Scarborough Fair'));
+  await flush();
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+
+  try {
+    await login(page, DEMO_OWNER_EMAIL);
+    await page.goto(`/bands/${bandId}/setlists/${setlistId}`);
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.waitForSelector('text=Repertoire');
+
+    const setlistItems = page.locator('.border-dashed li');
+    await expect(setlistItems).toHaveCount(0);
+
+    // Starting the same drag gesture from the *label* text next to the
+    // handle (not the handle itself, see leftEdgePoint vs labelPoint) —
+    // only the handle carries dnd-kit's listeners and touch-action:none
+    // now, so this must never be recognized as a drag. If it were, this
+    // test would see the insertion marker and a new setlist item, exactly
+    // the regression this fix closes: previously the whole row was the
+    // drag surface, so a scroll swipe starting anywhere on it (which is
+    // most of the visible list) fought dnd-kit instead of reaching the
+    // browser's native scroll.
+    const poolCard = page.locator('li', { hasText: 'Scarborough Fair' }).first();
+    const dropZone = page.locator('.border-dashed');
+    const from = await labelPoint(poolCard);
+    const to = await leftEdgePoint(dropZone);
+
+    await touchDragTo(cdp, from, to);
+    await expect(page.getByTestId('setlist-insertion-marker')).toHaveCount(0);
+    await touchDrop(cdp);
+
+    await expect(setlistItems).toHaveCount(0);
   } finally {
     await context.close();
     await deleteThrowawayBand(token, bandId);
