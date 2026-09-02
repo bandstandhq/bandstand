@@ -1,9 +1,8 @@
 # Self-Hosting
 
-> This is a starting point, not a production runbook yet — `docker/compose.yml`
-> covers local development only (Postgres, Mailpit, MinIO). A hardened
-> production compose file, TLS termination, and backup guidance are
-> follow-up work.
+> `docker/compose.prod.yml` brings up a complete production deployment (server, Postgres, MinIO)
+> with one command — see "First start, step by step" below. Backup/restore guidance and
+> multi-instance/scaling are still follow-up work; see "Not yet covered here".
 
 ## Why self-host
 
@@ -19,7 +18,10 @@ rehearsal space or venue with unreliable internet.
 - An SMTP relay for password-reset emails (generic SMTP — see
   `apps/server/src/lib/mailer.ts`; no vendor-specific integration)
 
-## Quick start (development-grade — see the caveat above)
+## Quick start (development-grade)
+
+This is for trying Bandstand out or contributing to it — not for exposing it to the internet, see
+"First start, step by step" below for that.
 
 ```bash
 git clone https://github.com/bandstandhq/bandstand.git
@@ -29,17 +31,61 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` is meant for local development. For an always-on deployment,
-build and run `apps/server`'s Docker image directly instead of using the
-dev script:
+## First start, step by step (production)
 
-```bash
-docker build -f docker/Dockerfile.server -t bandstand-server .
-docker run -p 3001:3001 -p 3002:3002 --env-file .env bandstand-server
-```
+This assumes no prior Docker experience. `docker/compose.prod.yml` brings up three containers —
+the server (which also serves the built web app, see `apps/server/src/app.ts`), Postgres, and
+MinIO — as one unit.
 
-...and serve `apps/web`'s static build (`pnpm --filter @bandstand/web build`,
-then serve `apps/web/dist` with any static file server or CDN) separately.
+1. **Install Docker + Docker Compose**: follow
+   [Docker's own install instructions](https://docs.docker.com/engine/install/) for your OS —
+   the Docker Engine install includes Compose (the `docker compose` subcommand) on every current
+   platform, no separate install step.
+2. **Get the code**:
+   ```bash
+   git clone https://github.com/bandstandhq/bandstand.git
+   cd bandstand
+   cp .env.example .env
+   ```
+3. **Edit `.env`** — exactly these values are not safe to leave as shipped, before the first
+   start:
+   - `BETTER_AUTH_SECRET`: generate one with `openssl rand -base64 32`. **The server refuses to
+     start** with this left as the shipped placeholder, missing, or under 32 characters (see
+     `apps/server/src/lib/envGuard.ts`) — you'll find out immediately, not later.
+   - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`: any two real values (a password manager's generator
+     is fine). **The server also refuses to start** with these left as the shipped placeholder.
+   - `POSTGRES_PASSWORD`: any real value — **and** update `DATABASE_URL`'s embedded password to
+     match. This is the one place nothing enforces consistency for you: get it wrong and the
+     server container starts, then fails every database call, since the two values just silently
+     disagree about what the password is. `DATABASE_URL`'s host also needs to say `postgres` here
+     (that container's name on the compose network), not `localhost`.
+   - `WEB_ORIGIN`: the real public origin you're serving this from (see "File storage" below for
+     why this matters, and "TLS" below for what that origin actually looks like). **The server
+     refuses to start** if this looks like a private/local address instead of a real public one.
+   - `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM`: a real relay. Nothing enforces
+     this one — leave it unset and the server starts fine, password-reset emails just silently go
+     nowhere.
+4. **Start it**:
+   ```bash
+   docker compose --env-file .env -f docker/compose.prod.yml up -d --build
+   ```
+5. **Check it actually worked**:
+   ```bash
+   docker compose --env-file .env -f docker/compose.prod.yml ps
+   ```
+   All three services should show `running`/`healthy`. Then:
+   ```bash
+   docker compose --env-file .env -f docker/compose.prod.yml logs server
+   ```
+   should show `Migrations applied.` followed by `Bandstand API listening on ...` and Hocuspocus's
+   own "Ready." banner — not a crash loop. Finally:
+   ```bash
+   curl http://localhost:3001/health
+   ```
+   should answer `{"status":"ok","db":"ok"}`.
+6. **Next**: put this behind HTTPS (see "TLS / reverse proxy" below — required, not optional, for
+   uploads/offline/push to work at all) and set up the cron jobs under "Reclaiming storage" and
+   "Deleting a band" further down.
 
 ## Configuration
 
@@ -61,11 +107,68 @@ self-hosting step, and it creates three working accounts with a password publish
 repository, plus deletes any band whose slug happens to match one of its demo slugs. It refuses to
 run outside `NODE_ENV=development`/`test` for exactly this reason (`apps/server/src/seed/index.ts`).
 
+### TLS / reverse proxy
+
+Required, not optional: file uploads and offline mode need a secure context (`https:`), and
+`WEB_ORIGIN` is rejected at startup if it isn't a real public origin (see "Configuration" above).
+This needs **two** domains/subdomains, not one — the REST API + served web app (port 3001) and
+Hocuspocus, the band-doc sync connection (port 3002), are genuinely separate processes (see
+`apps/server/src/index.ts`), not one server split by URL path.
+
+**Caddy** (recommended if you're new to this — automatic HTTPS via Let's Encrypt, no separate
+certbot step): put this in `/etc/caddy/Caddyfile` and reload Caddy (`systemctl reload caddy` or
+however your install manages it). Caddy proxies WebSocket upgrades transparently through a plain
+`reverse_proxy` — no extra config needed for the `sync.` block:
+```
+your-domain.example {
+    reverse_proxy localhost:3001
+}
+
+sync.your-domain.example {
+    reverse_proxy localhost:3002
+}
+```
+
+**nginx** (if you already run it): the main block is a standard certbot-managed reverse proxy —
+the part worth calling out is the `sync.` block, which needs the WebSocket upgrade headers nginx
+doesn't add on its own:
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    server_name sync.your-domain.example;
+    # listen 443 ssl; certbot-managed cert directives; ...
+
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+Either way, update `.env` to match the domains you actually used, then restart (`docker compose
+--env-file .env -f docker/compose.prod.yml up -d`, no rebuild needed — see below):
+```
+WEB_ORIGIN=https://your-domain.example
+SERVER_URL=https://your-domain.example
+HOCUSPOCUS_URL=wss://sync.your-domain.example
+TRUST_PROXY_HOPS=1
+```
+`SERVER_URL`/`HOCUSPOCUS_URL` are runtime values the web app fetches from the server at startup
+(`GET /config.json`, see `apps/server/src/routes/config.ts`) — changing your domain later is a
+config edit and a restart, never a rebuild of the web app. `TRUST_PROXY_HOPS=1` matters for a
+different reason than the URLs above: see the next section.
+
 ### Reverse proxy: `TRUST_PROXY_HOPS`
 
-TLS termination and reverse-proxy setup aren't written up here yet (see "Not yet covered here"
-below), but if you put one in front of this server — nginx, Caddy, Traefik, or anything else —
-you need `TRUST_PROXY_HOPS` for the same reason: every IP-based rate limit in this app (signup,
+Whichever reverse proxy you put in front of this server — nginx, Caddy, Traefik, or anything else
+— you need `TRUST_PROXY_HOPS` for the same reason: every IP-based rate limit in this app (signup,
 invite creation/redemption, the ICS feed, password reset) keys off the client's IP address, and
 behind a reverse proxy that address only ever arrives via the `X-Forwarded-For` header, not the
 raw socket connection. `X-Forwarded-For` is also a header the client can send anything it wants
@@ -101,10 +204,10 @@ mc admin config set local api cors_allow_origin=https://your-band.example.com
 mc admin service restart local --json
 ```
 
-`docker/compose.yml`'s `minio-init` service already does this for local
-development, using `WEB_ORIGIN` as the allowed origin. If you self-host
-with the bundled MinIO, you only need to get `WEB_ORIGIN` right; the CORS
-config follows automatically on every `docker compose up`.
+Both `docker/compose.yml` (dev) and `docker/compose.prod.yml` (production) already have their own
+`minio-init` service doing this for you, using `WEB_ORIGIN` as the allowed origin. If you self-host
+with the bundled MinIO, you only need to get `WEB_ORIGIN` right; the CORS config follows
+automatically on every `docker compose up`.
 
 **If you later migrate off MinIO** — to real AWS S3, Backblaze B2, Hetzner
 Object Storage, or any other S3-compatible provider — expect to reconfigure
@@ -129,9 +232,15 @@ setup (VAPID + each browser's own push service) with no Firebase or other vendor
    Don't regenerate these later — every existing subscription silently stops working the
    moment the key pair changes, since it's what a subscription is cryptographically tied to.
 2. The two time-based reminders (missing-response, upcoming-event) aren't sent by the main
-   server process — they're `pnpm push:due`, meant to run on a schedule you set up yourself:
+   server process — they're `pnpm push:due`, meant to run on a schedule you set up yourself. From
+   a full local checkout (`pnpm install` already run):
    ```cron
    0 * * * * cd /path/to/bandstand && pnpm push:due >> /var/log/bandstand-push-due.log 2>&1
+   ```
+   Running `docker/compose.prod.yml` instead, with no local checkout to run `pnpm` from — exec
+   into the already-running `server` container instead:
+   ```cron
+   0 * * * * cd /path/to/bandstand && docker compose --env-file .env -f docker/compose.prod.yml exec server node_modules/.bin/tsx src/push/due.ts >> /var/log/bandstand-push-due.log 2>&1
    ```
    Hourly is what the reminder windows are sized around; a longer interval means an
    occurrence can drift past a reminder's window without ever firing it.
@@ -148,21 +257,29 @@ got a presigned upload URL and then never finished using it — see
 ```bash
 pnpm blobs:gc
 ```
+Or, running `docker/compose.prod.yml` with no local checkout to run `pnpm` from:
+```bash
+docker compose --env-file .env -f docker/compose.prod.yml exec server node_modules/.bin/tsx src/blobs/gc.ts
+```
 
 ## Deleting a band
 
 Deleting a band archives it rather than removing it outright — the owner can restore it
 (`POST /bands/:bandId/restore`) any time within 30 days, after which it's gone for good.
-Permanent removal isn't automatic; run `pnpm bands:sweep-archived` on a daily schedule:
+Permanent removal isn't automatic; run `pnpm bands:sweep-archived` on a daily schedule (from a full
+local checkout):
 ```cron
 0 3 * * * cd /path/to/bandstand && pnpm bands:sweep-archived >> /var/log/bandstand-sweep-archived.log 2>&1
+```
+Or, running `docker/compose.prod.yml` with no local checkout to run `pnpm` from:
+```cron
+0 3 * * * cd /path/to/bandstand && docker compose --env-file .env -f docker/compose.prod.yml exec server node_modules/.bin/tsx src/bands/sweepArchived.ts >> /var/log/bandstand-sweep-archived.log 2>&1
 ```
 Without this cron entry, archived bands simply accumulate forever instead of ever being
 permanently deleted — restoring still works either way, only the actual cleanup depends on it.
 
 ## Not yet covered here
 
-- TLS/reverse-proxy setup (but see `TRUST_PROXY_HOPS` above if you're already running one)
 - Backup/restore for the Postgres volume and the object store's data
 - Multi-instance/scaling guidance
 
