@@ -7,11 +7,13 @@ import {
   can,
   cancelOccurrence,
   type CalendarEvent,
+  changeSeriesRecurrence,
   createSeriesException,
   type EventStatus,
   type EventType,
   findOccurrenceEvent,
   respondAvailability,
+  type SeriesRule,
   type Setlist,
   updateOccurrence,
 } from '@bandstand/core';
@@ -35,6 +37,14 @@ import { authClient } from '../lib/auth-client';
 // event that was never actually created for real yet (a virtual, unmaterialized
 // occurrence), the same button cancels instead.
 const DELETE_GRACE_PERIOD_MS = 5 * 60 * 1000;
+
+// Same set Calendar.tsx's own create-form offers (its own local
+// RepeatOption) — legacy 'monthly' is deliberately never offered going
+// forward, only ever read back from a series created before
+// 'monthlyByWeekday' existed. Kept separate from that type rather than
+// exported/shared: both are a trivial, page-local mapping onto
+// SeriesRule['freq'], not a concept core needs to know about.
+type RepeatOption = 'weekly' | 'biweekly' | 'every4weeks' | 'monthlyByWeekday';
 
 const ANSWERS: AvailabilityAnswer[] = ['yes', 'maybe', 'no'];
 const ANSWER_LABEL_KEY: Record<AvailabilityAnswer, string> = {
@@ -273,6 +283,74 @@ function EditEventForm({
   );
 }
 
+/**
+ * A dedicated flow, deliberately separate from EditEventForm above (see its
+ * own doc comment) — changing a series' pattern restructures the whole
+ * series (see `changeSeriesRecurrence`'s own comment on why it splits the
+ * series into two templates rather than patching the rule in place), which
+ * is a bigger decision than a normal field edit and doesn't fit that form's
+ * per-field patch model. Always scoped to "this date and every following
+ * occurrence" — there's no "just this date" equivalent for a recurrence
+ * rule, so unlike EditEventForm this never asks.
+ */
+function ChangeRecurrenceForm({
+  doc,
+  seriesTemplateId,
+  currentRule,
+  effectiveFromDate,
+  onSaved,
+}: {
+  doc: import('yjs').Doc;
+  seriesTemplateId: string;
+  currentRule: SeriesRule | undefined;
+  effectiveFromDate: string;
+  onSaved: (newTemplateId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [repeat, setRepeat] = useState<RepeatOption>(
+    currentRule && currentRule.freq !== 'monthly' ? currentRule.freq : 'weekly',
+  );
+  const [until, setUntil] = useState(currentRule?.until ?? '');
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    onSaved(changeSeriesRecurrence(doc, seriesTemplateId, effectiveFromDate, { freq: repeat, until: until || undefined }));
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {t('eventDetail.changeRecurrenceDescription', { date: effectiveFromDate })}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.repeats')}
+          <select
+            value={repeat}
+            onChange={(e) => setRepeat(e.target.value as RepeatOption)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="weekly">{t('calendarList.repeatWeekly')}</option>
+            <option value="biweekly">{t('calendarList.repeatBiweekly')}</option>
+            <option value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</option>
+            <option value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.repeatUntil')}
+          <input
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          />
+        </label>
+      </div>
+      <Button type="submit">{t('eventDetail.saveChanges')}</Button>
+    </form>
+  );
+}
+
 function AvailabilityRow({
   displayName,
   answer,
@@ -330,6 +408,7 @@ export function EventDetail() {
   // five-minute grace period below doesn't need tighter precision than that.
   const [now] = useState(() => Date.now());
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [changeRecurrenceDialogOpen, setChangeRecurrenceDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!bandId) return;
@@ -366,6 +445,11 @@ export function EventDetail() {
   // itself, taking the whole series with it. See performCancel's own
   // comment for the matching fix on the cancel side of this.
   const isSeriesTemplateOccurrence = event.seriesId !== undefined && occurrenceId === event.seriesId;
+  // The template's own current rule, for prefilling ChangeRecurrenceForm —
+  // read from the raw template entry, not `event`: a materialized
+  // exception's own `event.seriesRule` is always undefined (createSeriesException
+  // strips it), even though `event.seriesId` still names its template.
+  const seriesTemplate = event.seriesId ? events[event.seriesId] : undefined;
   // Once an occurrence is already cancelled, offering to "cancel" it again
   // makes no sense — the only thing left to do is remove the cancellation
   // record outright (a plain event goes away entirely; a cancelled series
@@ -589,6 +673,11 @@ export function EventDetail() {
               <TrashIcon className="h-5 w-5" />
             </button>
           )}
+          {canEdit && event.seriesId && (
+            <Button variant="outline" size="sm" onClick={() => setChangeRecurrenceDialogOpen(true)}>
+              {t('eventDetail.changeRecurrence')}
+            </Button>
+          )}
         </div>
       )}
 
@@ -615,6 +704,26 @@ export function EventDetail() {
               if (savedOccurrenceId !== occurrenceId && bandId) {
                 navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
               }
+            }}
+          />
+        </Dialog>
+      )}
+
+      {canEdit && doc && event.seriesId && (
+        <Dialog
+          open={changeRecurrenceDialogOpen}
+          onOpenChange={setChangeRecurrenceDialogOpen}
+          title={t('eventDetail.changeRecurrenceTitle')}
+          closeLabel={t('common.close')}
+        >
+          <ChangeRecurrenceForm
+            doc={doc}
+            seriesTemplateId={event.seriesId}
+            currentRule={seriesTemplate?.seriesRule}
+            effectiveFromDate={toDateValue(event.startsAt)}
+            onSaved={(newTemplateId) => {
+              setChangeRecurrenceDialogOpen(false);
+              if (bandId) navigate(`/bands/${bandId}/calendar/${newTemplateId}`, { replace: true });
             }}
           />
         </Dialog>

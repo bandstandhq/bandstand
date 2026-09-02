@@ -22,7 +22,7 @@ export interface ResolvedOccurrence {
 const MAX_SERIES_SPAN_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 const MAX_SERIES_OCCURRENCES = 200;
 
-function toIsoDate(ms: number): string {
+export function toIsoDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 

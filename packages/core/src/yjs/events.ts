@@ -7,6 +7,7 @@
 import * as Y from 'yjs';
 import { type AvailabilityAnswer } from '../schemas/availabilityAnswer';
 import { type CalendarEvent, calendarEventSchema, type SeriesRule } from '../schemas/event';
+import { resolveTemplateGeneratedStartsAt, toIsoDate } from './eventSeries';
 
 type NewEventInput = Omit<CalendarEvent, 'seriesId' | 'seriesRule' | 'occurrenceDate' | 'createdAt'>;
 
@@ -115,6 +116,75 @@ export function updateOccurrence(doc: Y.Doc, occurrenceId: string, patch: Partia
   const atIndex = occurrenceId.lastIndexOf('@');
   if (atIndex === -1) throw new Error(`Occurrence not found: ${occurrenceId}`);
   return createSeriesException(doc, occurrenceId.slice(0, atIndex), occurrenceId.slice(atIndex + 1), patch);
+}
+
+/**
+ * Changes a series' recurrence pattern starting at `effectiveFromDate`,
+ * without reinterpreting anything before it — see the dedicated "change
+ * recurrence" action in EventDetail.tsx (out of scope for `updateOccurrence`/
+ * `EditEventForm`'s own template-patch path, which never touches
+ * `seriesRule` — see that form's own doc comment).
+ *
+ * Splits the series into two templates rather than mutating
+ * `seriesTemplateId`'s own `seriesRule` in place: `resolveEventOccurrences`
+ * generates a template's occurrence dates purely from its own rule, so
+ * replacing the rule in place would silently re-date (or stop generating
+ * entirely) every exception, cancellation, and availability answer already
+ * recorded against a date the *old* rule produced but the new one doesn't.
+ *
+ * The old template is capped, via `until`, to the day before
+ * `effectiveFromDate` — everything before that date (including its own
+ * exceptions/cancellations/availability) is untouched. A brand-new
+ * template, with its own id and `newRule`, starts at `effectiveFromDate`
+ * and carries every other field over from the old template, but has no
+ * exceptions of its own yet. Any *existing* exception/cancellation dated on
+ * or after `effectiveFromDate` stays attached to the old (now-capped)
+ * template — it isn't deleted or migrated, but it also isn't surfaced by
+ * either template anymore, since the old one's own walk no longer reaches
+ * that date and the new one has never heard of it. Accepted as the cost of
+ * a rule change reaching that far back into an already-planned future,
+ * same reasoning as `createSeriesException`'s "existing exceptions are
+ * never touched" default in EditEventForm's edit-scope choice.
+ *
+ * Returns the new template's id — same "where did the data actually end
+ * up" convention as `updateOccurrence`.
+ */
+export function changeSeriesRecurrence(doc: Y.Doc, seriesTemplateId: string, effectiveFromDate: string, newRule: SeriesRule): string {
+  const template = getEventOrThrow(doc, seriesTemplateId);
+  const oldRule = template.seriesRule;
+  if (template.seriesId !== seriesTemplateId || !oldRule) {
+    throw new Error(`Event is not a series template: ${seriesTemplateId}`);
+  }
+
+  const newStartsAt = resolveTemplateGeneratedStartsAt(template, effectiveFromDate);
+  if (newStartsAt === undefined) {
+    throw new Error(`${effectiveFromDate} is not a date this series generates: ${seriesTemplateId}`);
+  }
+  const durationMs = template.endsAt !== undefined ? template.endsAt - template.startsAt : undefined;
+
+  const dayBeforeMs = Date.parse(`${effectiveFromDate}T00:00:00.000Z`) - 24 * 60 * 60 * 1000;
+  const cappedUntil = toIsoDate(dayBeforeMs);
+
+  const {
+    seriesId: _templateSeriesId,
+    seriesRule: _oldRule,
+    occurrenceDate: _templateDate,
+    createdAt: _templateCreatedAt,
+    startsAt: _templateStartsAt,
+    endsAt: _templateEndsAt,
+    ...carriedFields
+  } = template;
+
+  let newTemplateId = '';
+  doc.transact(() => {
+    updateEvent(doc, seriesTemplateId, { seriesRule: { ...oldRule, until: cappedUntil } });
+    newTemplateId = createRecurringEvent(
+      doc,
+      { ...carriedFields, startsAt: newStartsAt, endsAt: durationMs !== undefined ? newStartsAt + durationMs : undefined },
+      newRule,
+    );
+  });
+  return newTemplateId;
 }
 
 function deleteAvailabilityForOccurrence(doc: Y.Doc, occurrenceId: string): void {

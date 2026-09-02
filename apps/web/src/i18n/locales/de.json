@@ -671,7 +671,10 @@
     "status": "Status",
     "statusConfirmed": "Bestätigt",
     "statusTentative": "Vorläufig",
-    "statusCancelled": "Abgesagt"
+    "statusCancelled": "Abgesagt",
+    "changeRecurrence": "Wiederholung ändern…",
+    "changeRecurrenceTitle": "Wiederholungsmuster ändern",
+    "changeRecurrenceDescription": "Gilt ab {{date}}. Frühere Termine sind unberührt. Eine bereits gesetzte Ausnahme oder Absage für {{date}} oder später gilt danach nicht mehr."
   },
   "pollDetail": {
     "back": "Zurück zum Kalender",
