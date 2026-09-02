@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // `pnpm seed` — Definition of Done for Milestone 0, not a stretch goal:
-// two demo users, one band, 12 songs with real ChordPro content, two
+// three demo users, two bands, 12 songs with real ChordPro content, two
 // setlists. Idempotent: re-running it deletes the demo bands (by slug) and
 // everything scoped to them — cascading via each table's own bandId FK —
 // then recreates them fresh, rather than either erroring on unique
@@ -14,6 +14,12 @@
 // have swapped roles between them, and carol only exists in the second —
 // so every role (owner/admin/member) is visible somewhere without having
 // to manually create bands/members while developing role-gated UI.
+//
+// assertNotProduction() below refuses to run this against a real
+// deployment at all: it creates three working accounts with a password
+// published in this repository, and the delete-by-slug step could destroy
+// a real band whose user-chosen name happened to slugify to the same
+// value.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -34,8 +40,36 @@ import { eq, inArray } from 'drizzle-orm';
 import { auth } from '../lib/auth';
 import { db } from '../db/client';
 import { attachments, bandDocs, bandMembers, bands, invites, users } from '../db/schema/index';
+import { isDevelopmentOrTest } from '../lib/envGuard';
 import { putObjectDirect } from '../lib/storage';
 import { seedSongs } from './songs';
+
+const SEED_FORCE_OVERRIDE = 'i-know-what-im-doing';
+
+/**
+ * Same shape as scripts/cleanupTestAccounts.ts's own guard, but fail-closed
+ * like envGuard.ts's (unless NODE_ENV is explicitly development or test)
+ * rather than only firing when NODE_ENV is explicitly 'production' — this
+ * script's risk is sharper than that one's, not milder: it doesn't just
+ * touch test-%-prefixed rows, it creates three real, working accounts
+ * whose password is published in this repository, and deletes any band
+ * whose slug happens to collide with a demo slug — slugs come from
+ * user-chosen band names (slugify), so "demo-band" is a name a real band
+ * could plausibly have taken. `pnpm start`, the real long-running-
+ * deployment path, never sets NODE_ENV at all, so gating only on the
+ * literal 'production' value would leave exactly that path unprotected.
+ */
+export function assertNotProduction(): void {
+  if (isDevelopmentOrTest()) return;
+  if (process.env.SEED_FORCE === SEED_FORCE_OVERRIDE) return;
+
+  throw new Error(
+    'pnpm seed must never run against a non-development database. It creates demo accounts with a ' +
+      'password published in this repository and deletes any band whose slug matches a demo slug. ' +
+      `Set NODE_ENV=development (or NODE_ENV=test), or SEED_FORCE=${SEED_FORCE_OVERRIDE} to override ` +
+      '(e.g. for a throwaway demo instance).',
+  );
+}
 
 const ASSETS_DIR = fileURLToPath(new URL('./assets', import.meta.url));
 
@@ -102,6 +136,20 @@ async function ensureUser(email: string, name: string): Promise<string> {
 }
 
 async function main() {
+  assertNotProduction();
+
+  // Logged *before* the delete, not just as an afterwards count — an
+  // operator watching this run against the wrong database still has a
+  // chance to Ctrl-C before the second (real seeding) half does anything
+  // further, but only if they can see which band, by name, is about to go.
+  const toDelete = await db
+    .select({ slug: bands.slug, name: bands.name })
+    .from(bands)
+    .where(inArray(bands.slug, [DEMO_BAND_SLUG, SECOND_BAND_SLUG]));
+  for (const band of toDelete) {
+    console.log(`Deleting existing band "${band.name}" (slug: ${band.slug}) before reseeding...`);
+  }
+
   const deleted = await db
     .delete(bands)
     .where(inArray(bands.slug, [DEMO_BAND_SLUG, SECOND_BAND_SLUG]))
@@ -322,7 +370,15 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run as a CLI when invoked directly (`pnpm seed`), not when imported
+// by a test — see assertNotProduction's own test file, which imports this
+// module just for that one function. Without this guard, that import alone
+// used to run the real seed against whatever DATABASE_URL the test process
+// had, unconditionally, the same bug class scripts/cleanupTestAccounts.ts
+// and blobs/gc.ts already guard against this same way.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

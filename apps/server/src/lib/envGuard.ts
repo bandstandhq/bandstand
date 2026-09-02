@@ -14,7 +14,10 @@
 // `pnpm dev` and running under a test runner opt back out.
 import { parseAllowedOrigins } from './corsOrigins';
 
-function isDevelopmentOrTest(): boolean {
+// Exported so other fail-closed guards outside this file's own three
+// (currently seed/index.ts's assertNotProduction) can share the exact same
+// "what counts as safe" definition instead of each re-deriving it.
+export function isDevelopmentOrTest(): boolean {
   const env = process.env.NODE_ENV;
   return env === 'development' || env === 'test';
 }
