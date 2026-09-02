@@ -167,6 +167,36 @@ server {
 }
 ```
 
+**Cloudflare Tunnel** (`cloudflared`) — a genuinely different shape from the two above: instead of
+this box holding a public IP and terminating TLS itself, `cloudflared` opens an outbound-only
+connection to Cloudflare's edge, which terminates TLS and proxies traffic back through the tunnel.
+No inbound port-forwarding at all, which is the appealing part behind NAT/CGNAT or on a home
+network — relevant if you're running this in a Proxmox VM/LXC without exposing it directly. It
+proxies WebSocket connections the same transparent way Caddy does, no special config for the
+`sync.` hostname:
+1. `cloudflared tunnel login`, then `cloudflared tunnel create bandstand` (needs a Cloudflare
+   account with the domain already added).
+2. `~/.cloudflared/config.yml`:
+   ```yaml
+   tunnel: <TUNNEL-ID>
+   credentials-file: /root/.cloudflared/<TUNNEL-ID>.json
+
+   ingress:
+     - hostname: your-domain.example
+       service: http://localhost:3001
+     - hostname: sync.your-domain.example
+       service: http://localhost:3002
+     - service: http_status:404
+   ```
+3. Point DNS at the tunnel (once per hostname): `cloudflared tunnel route dns bandstand
+   your-domain.example` and `cloudflared tunnel route dns bandstand sync.your-domain.example`.
+4. Run it: `cloudflared tunnel run bandstand` to test, or `cloudflared service install` to run it
+   as a system service permanently.
+
+Cloudflare's edge is still exactly one hop of the kind `TRUST_PROXY_HOPS` cares about (it appends
+the real client IP to `X-Forwarded-For` before `cloudflared` ever sees the request) — `=1` below
+is correct here too, same as with Caddy or nginx.
+
 Either way, update `.env` to match the domains you actually used, then restart (`docker compose
 --env-file .env -f docker/compose.prod.yml up -d`, no rebuild needed — see below):
 ```
