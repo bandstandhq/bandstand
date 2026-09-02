@@ -113,6 +113,19 @@ setup (VAPID + each browser's own push service) with no Firebase or other vendor
    Hourly is what the reminder windows are sized around; a longer interval means an
    occurrence can drift past a reminder's window without ever firing it.
 
+### Reclaiming storage from deleted/replaced files
+
+Removing a file reference from a voice, or replacing it, never deletes the underlying object
+immediately (see [ADR-0007](adr/0007-content-addressed-files.md)) — run `pnpm blobs:gc` whenever
+you want to reclaim that space. It's manual and unattended by design, not a cron-scheduled job.
+The same run also clears out any abandoned in-progress upload older than 15 minutes (a client that
+got a presigned upload URL and then never finished using it — see
+[ADR-0015](adr/0015-staged-uploads.md)):
+
+```bash
+pnpm blobs:gc
+```
+
 ## Deleting a band
 
 Deleting a band archives it rather than removing it outright — the owner can restore it

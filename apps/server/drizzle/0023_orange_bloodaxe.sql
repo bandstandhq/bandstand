@@ -1,0 +1,1 @@
+ALTER TABLE "pending_uploads" DROP COLUMN "baseline_last_modified";

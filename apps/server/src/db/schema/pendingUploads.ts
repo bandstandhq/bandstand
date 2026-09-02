@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Marks that this band, specifically, asked for a presigned PUT for this
-// hash — `/confirm` (routes/files.ts) requires a row here (recent enough to
-// still match a live presigned URL) and requires proof the object was
-// actually rewritten since. Without this, `/confirm` only ever checked that
-// *some* object existed at the content-addressed key — satisfiable by any
-// band for a hash it never uploaded, since the object store's namespace is
-// global, not band-scoped. See docs/adr/0007-content-addressed-files.md's
-// original design and the security review that found the gap.
+// hash — `/confirm` (routes/files.ts) requires a row here, recent enough to
+// still match a live presigned URL, before it will even look for a staged
+// object. Without this, `/confirm` would accept any band's call for any
+// hash the instant *some* band's staging upload for it happened to still be
+// sitting around. See docs/adr/0007-content-addressed-files.md's original
+// design and docs/adr/0015-staged-uploads.md for the two security-review
+// findings this table has now been part of fixing.
 //
-// `baselineLastModified` is the object's own `LastModified` (from the
-// object store, not this server's clock) at the moment this row was
-// written — `null` if no object existed at this hash yet. `/confirm`
-// requires the *current* `LastModified` to be strictly newer than this
-// baseline, which needs no clock-skew tolerance at all: both readings come
-// from the same clock (the object store's), so they're directly comparable
-// even if this server's own clock disagrees with it.
+// A presigned PUT now lands at a *band-scoped* staging key
+// (`staging/<bandId>/<sha256>`, see storage.ts), not the shared
+// content-addressed one — that staged object's mere existence is already
+// proof this band's own upload happened, so there's nothing left for this
+// table to compare a timestamp against. It previously also stored
+// `baselineLastModified`, the shared object's own `LastModified` at presign
+// time, so `/confirm` could tell "this band's PUT actually rewrote the
+// object" from "someone else's earlier upload is just sitting there" in a
+// namespace with no band-scoping at all — replaced by the staging design,
+// which makes that comparison unnecessary rather than needing a better one.
 import { pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { bands } from './bands';
 
@@ -29,7 +32,6 @@ export const pendingUploads = pgTable(
     // store, same as `attachments.sha256`.
     sha256: text('sha256').notNull(),
     presignedAt: timestamp('presigned_at', { withTimezone: true }).notNull().defaultNow(),
-    baselineLastModified: timestamp('baseline_last_modified', { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.bandId, table.sha256] })],
 );

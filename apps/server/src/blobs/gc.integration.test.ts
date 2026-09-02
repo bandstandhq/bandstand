@@ -79,4 +79,56 @@ describe('runBlobsGc (integration)', () => {
     const remaining = await db.select().from(attachments).where(eq(attachments.bandId, band.id));
     expect(remaining.map((r) => r.sha256)).toEqual([referencedSha256]);
   });
+
+  // Regression test for docs/adr/0015-staged-uploads.md: the object store
+  // has no idea bands exist, so "is this hash still referenced" can only
+  // ever be answered by looking across every band, never one at a time —
+  // the old per-band-only check let a `runBlobsGc(bandA)` run delete a blob
+  // band B still legitimately depends on.
+  it("scoping a gc run to one band never deletes a blob a different band still references", async () => {
+    const sharedSha256 = randomUUID().replace(/-/g, '').padEnd(64, '2');
+
+    const [bandA] = await db.insert(bands).values({ name: 'GC Band A', slug: `test-gc-a-${randomUUID()}` }).returning();
+    const [bandB] = await db.insert(bands).values({ name: 'GC Band B', slug: `test-gc-b-${randomUUID()}` }).returning();
+    if (!bandA || !bandB) throw new Error('Setup insert returned no row');
+    cleanupBandIds.push(bandA.id, bandB.id);
+
+    // Band A no longer references the shared hash (its own voice was
+    // already changed/removed) — only its stale ledger row remains. Band B
+    // still genuinely references it.
+    const songIdA = `song-${randomUUID()}`;
+    const docA = new Y.Doc();
+    docA.getMap('songs').set(songIdA, {
+      title: 'Band A Song', artist: '', key: 'C', bpm: 120, durationSec: 180, status: 'active', bandNotes: '', links: [], votes: {},
+    });
+    docA.getMap('voices').set(getDefaultVoiceId(songIdA), { songId: songIdA, name: 'Vocal', body: '' });
+    await db.insert(bandDocs).values({ bandId: bandA.id, yjsState: Buffer.from(Y.encodeStateAsUpdate(docA)), snapshot: yDocToSnapshot(docA) });
+    await db.insert(attachments).values({ bandId: bandA.id, sha256: sharedSha256, filename: 'shared.pdf', mime: 'application/pdf', size: 10 });
+
+    const songIdB = `song-${randomUUID()}`;
+    const docB = new Y.Doc();
+    docB.getMap('songs').set(songIdB, {
+      title: 'Band B Song', artist: '', key: 'C', bpm: 120, durationSec: 180, status: 'active', bandNotes: '', links: [], votes: {},
+    });
+    docB.getMap('voices').set(getDefaultVoiceId(songIdB), {
+      songId: songIdB, name: 'Trumpet', kind: 'files', files: [{ sha256: sharedSha256, filename: 'shared.pdf', mime: 'application/pdf', pageCount: 1 }],
+    });
+    await db.insert(bandDocs).values({ bandId: bandB.id, yjsState: Buffer.from(Y.encodeStateAsUpdate(docB)), snapshot: yDocToSnapshot(docB) });
+    await db.insert(attachments).values({ bandId: bandB.id, sha256: sharedSha256, filename: 'shared.pdf', mime: 'application/pdf', size: 10 });
+
+    await putObjectDirect(sharedSha256, Buffer.from('shared content'), 'application/pdf');
+
+    await runBlobsGc(bandA.id);
+
+    // Band A's own stale ledger row is gone...
+    const remainingA = await db.select().from(attachments).where(eq(attachments.bandId, bandA.id));
+    expect(remainingA).toEqual([]);
+    // ...band B's is untouched...
+    const remainingB = await db.select().from(attachments).where(eq(attachments.bandId, bandB.id));
+    expect(remainingB.map((r) => r.sha256)).toEqual([sharedSha256]);
+    // ...and the object itself is still there, because band B still
+    // references it — this is the exact case the old per-band-only check
+    // got wrong.
+    expect(await headObject(sharedSha256)).not.toBeNull();
+  });
 });

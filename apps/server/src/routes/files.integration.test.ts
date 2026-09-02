@@ -14,6 +14,7 @@ import { app } from '../app';
 import { db } from '../db/client';
 import { attachments, bandMembers, bands, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
+import { headObject } from '../lib/storage';
 
 async function signUpTestUser() {
   const email = `test-files-${randomUUID()}@bandstand.local`;
@@ -269,5 +270,159 @@ describe('band file uploads (integration)', () => {
 
     const downloadAttempt = await req(`/${band.id}/files/${claimedSha256}/presign-download`, 'GET', member.token);
     expect(downloadAttempt.status).toBe(404);
+  });
+
+  // Regression tests for docs/adr/0015-staged-uploads.md: a presigned PUT
+  // used to target the shared, cross-band `blobs/<sha256>` key directly, so
+  // any band that knew a victim band's hash could overwrite its content
+  // outright, and a mismatched /confirm's old cleanup step would delete the
+  // victim's object entirely. Both now only ever touch this band's own
+  // band-scoped staging object.
+  it("an attacker band cannot overwrite a victim band's blob by presigning and PUTting different bytes at its hash", async () => {
+    const victim = await setupBand(cleanupUserIds, cleanupBandIds);
+    const attacker = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const realContent = Buffer.from(`victim's real content ${randomUUID()}`);
+    const sha256 = await sha256Hex(realContent);
+
+    const presignVictim = await req(`/${victim.band.id}/files/presign-upload`, 'POST', victim.member.token, {
+      sha256,
+      filename: 'real.pdf',
+      mime: 'application/pdf',
+      size: realContent.byteLength,
+    });
+    const { uploadUrl: victimUploadUrl } = (await presignVictim.json()) as { uploadUrl: string };
+    await fetch(victimUploadUrl, { method: 'PUT', body: realContent, headers: { 'Content-Type': 'application/pdf' } });
+    const confirmVictim = await req(`/${victim.band.id}/files/confirm`, 'POST', victim.member.token, {
+      sha256,
+      filename: 'real.pdf',
+      mime: 'application/pdf',
+      size: realContent.byteLength,
+    });
+    expect(confirmVictim.status).toBe(200);
+
+    // The attacker doesn't have the victim's real bytes — only the hash
+    // (e.g. from a repertoire export) — so it PUTs arbitrary substitute
+    // content, claiming the victim's hash.
+    const substituteContent = Buffer.from(`attacker's substitute content ${randomUUID()}`);
+    const presignAttacker = await req(`/${attacker.band.id}/files/presign-upload`, 'POST', attacker.member.token, {
+      sha256,
+      filename: 'substitute.pdf',
+      mime: 'application/pdf',
+      size: substituteContent.byteLength,
+    });
+    const { uploadUrl: attackerUploadUrl } = (await presignAttacker.json()) as { uploadUrl: string };
+    await fetch(attackerUploadUrl, { method: 'PUT', body: substituteContent, headers: { 'Content-Type': 'application/pdf' } });
+    const confirmAttacker = await req(`/${attacker.band.id}/files/confirm`, 'POST', attacker.member.token, {
+      sha256,
+      filename: 'substitute.pdf',
+      mime: 'application/pdf',
+      size: substituteContent.byteLength,
+    });
+    // The attacker's own staged bytes don't actually hash to the claimed
+    // (victim's) hash, so this fails exactly like any other tampered
+    // upload — never a special case for "someone else already has this".
+    expect(confirmAttacker.status).toBe(422);
+
+    const [attackerLedgerRow] = await db
+      .select()
+      .from(attachments)
+      .where(and(eq(attachments.bandId, attacker.band.id), eq(attachments.sha256, sha256)));
+    expect(attackerLedgerRow).toBeUndefined();
+
+    // The victim's own blob is completely untouched — still there, still
+    // exactly the original bytes.
+    const presignDownload = await req(`/${victim.band.id}/files/${sha256}/presign-download`, 'GET', victim.member.token);
+    expect(presignDownload.status).toBe(200);
+    const { downloadUrl } = (await presignDownload.json()) as { downloadUrl: string };
+    const getRes = await fetch(downloadUrl);
+    const downloaded = Buffer.from(await getRes.arrayBuffer());
+    expect(downloaded.equals(realContent)).toBe(true);
+  });
+
+  it("a failed confirm never deletes the shared blob another band's ledger still points at", async () => {
+    const victim = await setupBand(cleanupUserIds, cleanupBandIds);
+    const attacker = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const realContent = Buffer.from(`another victim's content ${randomUUID()}`);
+    const sha256 = await sha256Hex(realContent);
+
+    const presignVictim = await req(`/${victim.band.id}/files/presign-upload`, 'POST', victim.member.token, {
+      sha256,
+      filename: 'real.pdf',
+      mime: 'application/pdf',
+      size: realContent.byteLength,
+    });
+    const { uploadUrl: victimUploadUrl } = (await presignVictim.json()) as { uploadUrl: string };
+    await fetch(victimUploadUrl, { method: 'PUT', body: realContent, headers: { 'Content-Type': 'application/pdf' } });
+    await req(`/${victim.band.id}/files/confirm`, 'POST', victim.member.token, {
+      sha256,
+      filename: 'real.pdf',
+      mime: 'application/pdf',
+      size: realContent.byteLength,
+    });
+    const before = await headObject(sha256);
+    expect(before).not.toBeNull();
+
+    const presignAttacker = await req(`/${attacker.band.id}/files/presign-upload`, 'POST', attacker.member.token, {
+      sha256,
+      filename: 'substitute.pdf',
+      mime: 'application/pdf',
+      size: 5,
+    });
+    const { uploadUrl: attackerUploadUrl } = (await presignAttacker.json()) as { uploadUrl: string };
+    await fetch(attackerUploadUrl, { method: 'PUT', body: Buffer.from('bogus'), headers: { 'Content-Type': 'application/pdf' } });
+    const confirmAttacker = await req(`/${attacker.band.id}/files/confirm`, 'POST', attacker.member.token, {
+      sha256,
+      filename: 'substitute.pdf',
+      mime: 'application/pdf',
+      size: 5,
+    });
+    expect(confirmAttacker.status).toBe(422);
+
+    // The shared object is still exactly as it was — never even briefly
+    // deleted (the old bug's `deleteObject` call, before the staging
+    // indirection, operated on this exact shared key).
+    const after = await headObject(sha256);
+    expect(after).not.toBeNull();
+    expect(after?.size).toBe(before?.size);
+  });
+
+  it('lets two different bands each confirm an upload of the exact same bytes — dedup still works', async () => {
+    const bandA = await setupBand(cleanupUserIds, cleanupBandIds);
+    const bandB = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const sharedContent = Buffer.from(`shared arrangement ${randomUUID()}`);
+    const sha256 = await sha256Hex(sharedContent);
+
+    for (const { band, member } of [bandA, bandB]) {
+      const presign = await req(`/${band.id}/files/presign-upload`, 'POST', member.token, {
+        sha256,
+        filename: 'shared.pdf',
+        mime: 'application/pdf',
+        size: sharedContent.byteLength,
+      });
+      const { uploadUrl } = (await presign.json()) as { uploadUrl: string };
+      await fetch(uploadUrl, { method: 'PUT', body: sharedContent, headers: { 'Content-Type': 'application/pdf' } });
+      const confirm = await req(`/${band.id}/files/confirm`, 'POST', member.token, {
+        sha256,
+        filename: 'shared.pdf',
+        mime: 'application/pdf',
+        size: sharedContent.byteLength,
+      });
+      expect(confirm.status).toBe(200);
+
+      const [ledgerRow] = await db
+        .select()
+        .from(attachments)
+        .where(and(eq(attachments.bandId, band.id), eq(attachments.sha256, sha256)));
+      expect(ledgerRow).toBeDefined();
+
+      const presignDownload = await req(`/${band.id}/files/${sha256}/presign-download`, 'GET', member.token);
+      const { downloadUrl } = (await presignDownload.json()) as { downloadUrl: string };
+      const getRes = await fetch(downloadUrl);
+      const downloaded = Buffer.from(await getRes.arrayBuffer());
+      expect(downloaded.equals(sharedContent)).toBe(true);
+    }
   });
 });

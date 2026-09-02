@@ -17,6 +17,12 @@ self-hosted band tool is actually used:
    background process a self-hoster has to trust and monitor for a problem (storage growth) that
    is neither urgent nor silent if left alone.
 
+**Update (see [ADR-0015](0015-staged-uploads.md))**: a presigned upload no longer PUTs directly at
+`blobs/<sha256>` as described below — it lands at a band-scoped staging key first, and only a
+server-verified copy ever reaches the shared key. The global, deduplicated namespace this ADR
+establishes is otherwise unchanged; ADR-0015 covers why the direct-PUT version of it let one band
+overwrite or delete another's blob.
+
 ## Decision
 
 - **Storage key is `blobs/<sha256>`, not a filename or generated id.** The client computes the
