@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Content-addressed file storage — see docs/adr/0007-content-addressed-files.md.
-// The server never sees file bytes for a normal upload/download: the client
-// uploads/downloads directly against MinIO via a presigned URL. The only
-// bytes this route reads are during /confirm, where the server re-hashes
-// what actually landed in the bucket to verify the client didn't lie about
-// its content, since a presigned PUT lets a client upload anything.
+// Content-addressed file storage — see docs/adr/0007-content-addressed-files.md
+// and docs/adr/0015-staged-uploads.md. The server never sees file bytes for
+// a normal upload/download: the client uploads/downloads directly against
+// MinIO via a presigned URL. The only bytes this route reads are during
+// /confirm, where the server re-hashes what actually landed in the bucket
+// to verify the client didn't lie about its content, since a presigned PUT
+// lets a client upload anything.
+//
+// A presigned upload PUTs to a *band-scoped staging key*, never straight
+// into the shared, deduplicated `blobs/<sha256>` namespace — see
+// storage.ts's own header comment. That's what makes the shared namespace
+// write-once from any client's perspective: the only way bytes ever land at
+// `blobs/<sha256>` is this route's own `promoteStagingObject` call, and only
+// once it has re-hashed *this band's own* staging object and confirmed it
+// actually matches `sha256`. A mismatch deletes the staging object and
+// nothing else — the shared namespace, and every other band's data in it,
+// is simply never touched by a failed confirm.
 import {
   can,
   checkFileInputSchema,
@@ -22,12 +33,13 @@ import { attachments, pendingUploads } from '../db/schema/index';
 import type { BandVariables } from '../lib/bandAuthz';
 import { requireBandRole } from '../lib/bandAuthz';
 import {
-  deleteObject,
-  getObjectBuffer,
-  headObject,
+  deleteStagingObject,
+  getStagingObjectStream,
+  headStagingObject,
   presignDownload,
-  presignUpload,
+  presignStagingUpload,
   PRESIGN_EXPIRY_SECONDS,
+  promoteStagingObject,
 } from '../lib/storage';
 
 const MAX_FILE_SIZE_BYTES = Number(process.env.MAX_FILE_SIZE_BYTES ?? DEFAULT_MAX_FILE_SIZE_BYTES);
@@ -61,24 +73,20 @@ filesRoute.post('/presign-upload', async (c) => {
 
   // Marks that this band, specifically, asked for a presigned PUT for this
   // hash — /confirm below requires this row (recent enough to still match a
-  // live presigned URL) and requires proof the object was actually
-  // rewritten since. Without it, /confirm only ever checked that *some*
-  // object existed at the content-addressed key — satisfiable by any band
-  // for a hash it never uploaded, since the object store's namespace is
-  // global, not band-scoped. `baselineLastModified` is this object's
-  // current state (or "doesn't exist yet") *before* the upload this call is
-  // about to authorize — see pendingUploads.ts for why /confirm compares
-  // against it instead of this server's own clock.
-  const baseline = await headObject(body.sha256);
+  // live presigned URL) before it will even look for a staged object. Since
+  // the PUT itself now goes to a *band-scoped* staging key (see storage.ts),
+  // the staged object's mere existence is already proof this band's own
+  // upload happened — unlike the old shared-namespace design, there's no
+  // `LastModified`-baseline to record or compare here at all.
   await db
     .insert(pendingUploads)
-    .values({ bandId, sha256: body.sha256, presignedAt: new Date(), baselineLastModified: baseline?.lastModified })
+    .values({ bandId, sha256: body.sha256, presignedAt: new Date() })
     .onConflictDoUpdate({
       target: [pendingUploads.bandId, pendingUploads.sha256],
-      set: { presignedAt: new Date(), baselineLastModified: baseline?.lastModified },
+      set: { presignedAt: new Date() },
     });
 
-  const uploadUrl = await presignUpload(body.sha256, body.mime);
+  const uploadUrl = await presignStagingUpload(bandId, body.sha256, body.mime);
   return c.json({ uploadUrl });
 });
 
@@ -92,7 +100,7 @@ filesRoute.post('/confirm', async (c) => {
   const userId = c.get('userId');
 
   const [pending] = await db
-    .select({ presignedAt: pendingUploads.presignedAt, baselineLastModified: pendingUploads.baselineLastModified })
+    .select({ presignedAt: pendingUploads.presignedAt })
     .from(pendingUploads)
     .where(and(eq(pendingUploads.bandId, bandId), eq(pendingUploads.sha256, body.sha256)));
 
@@ -104,32 +112,40 @@ filesRoute.post('/confirm', async (c) => {
 
   // Bounded by the presigned URL's own lifetime — a ticket this old could
   // otherwise sit around indefinitely and later be "cashed in" against
-  // whatever unrelated object happens to land at this hash much later.
+  // whatever unrelated object happens to land in this band's staging area
+  // much later.
   const presignExpired = !pending || Date.now() - pending.presignedAt.getTime() > PRESIGN_EXPIRY_SECONDS * 1000;
   if (presignExpired) {
     return c.json({ error: 'No pending upload for this band and hash — call presign-upload first' }, 403);
   }
 
-  const head = await headObject(body.sha256);
-  // No clock-skew tolerance needed: both readings are the object store's
-  // own `LastModified`, taken at presign time and now, never this server's
-  // clock — so "strictly newer" is exact, not approximate.
-  const isFreshUpload =
-    head?.lastModified !== undefined &&
-    (pending.baselineLastModified === null || head.lastModified.getTime() > pending.baselineLastModified.getTime());
-  if (!isFreshUpload) {
-    // The object at this hash is exactly as it was before this band's own
-    // presign-upload call — it was written by someone else's earlier
-    // upload, not this request.
-    return c.json({ error: 'No fresh upload found for this band and hash' }, 403);
+  // The staging key is band-scoped (staging/<bandId>/<sha256>), so its mere
+  // existence already proves *this band's own* PUT happened — no
+  // `LastModified`-baseline comparison needed at all (see storage.ts and
+  // docs/adr/0015-staged-uploads.md).
+  const staged = await headStagingObject(bandId, body.sha256);
+  if (!staged) {
+    return c.json({ error: 'No staged upload found for this band and hash' }, 403);
   }
 
-  const buffer = await getObjectBuffer(body.sha256);
+  // TODO: hash while streaming instead of buffering the whole file first
+  // (see the size/streaming follow-up) — sha256Hex only takes a full
+  // buffer today, so this reads the entire staged object into memory.
+  const stream = await getStagingObjectStream(bandId, body.sha256);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const buffer = Buffer.concat(chunks);
   const actualHash = await sha256Hex(buffer);
   if (actualHash !== body.sha256) {
-    await deleteObject(body.sha256);
+    // Only ever the *staging* object — this band's own mistake never
+    // reaches, let alone deletes, the shared `blobs/` namespace another
+    // band may already depend on for this exact hash.
+    await deleteStagingObject(bandId, body.sha256);
     return c.json({ error: 'Uploaded content does not match the claimed hash' }, 422);
   }
+
+  await promoteStagingObject(bandId, body.sha256);
+  await deleteStagingObject(bandId, body.sha256);
 
   await db
     .insert(attachments)
