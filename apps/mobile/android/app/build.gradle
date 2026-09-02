@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// Release signing reads from the environment rather than being hardcoded here, so the keystore
+// path and passwords never end up in version control. Only applied when KEYSTORE_PATH is set —
+// `./gradlew assembleRelease` without it still works, just produces an unsigned APK, same as
+// Capacitor's own default.
+def releaseKeystorePath = System.getenv("KEYSTORE_PATH")
+
 android {
     namespace = "io.bandstand.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +22,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseKeystorePath) {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS") ?: "bandstand"
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseKeystorePath) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
