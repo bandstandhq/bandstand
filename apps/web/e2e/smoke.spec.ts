@@ -6,6 +6,12 @@ test('unauthenticated visit to /dashboard redirects to /login', async ({ page })
   await expect(page).toHaveURL(/\/login\?next=/);
 });
 
+test('the SVG favicon actually resolves, not just a dead link', async ({ page }) => {
+  const res = await page.goto('/favicon.svg');
+  expect(res?.status()).toBe(200);
+  expect(res?.headers()['content-type']).toContain('image/svg+xml');
+});
+
 test('login page renders its form fields', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByLabel('Email')).toBeVisible();
