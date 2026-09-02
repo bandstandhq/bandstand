@@ -5,12 +5,14 @@ import { addSong } from './songs';
 import {
   clearVoiceAnchorPosition,
   createVoice,
+  deleteVoice,
   detachVoiceFile,
   findRenderedPositionForSourcePage,
   flattenVoiceFiles,
   getAnchorCalibrationProgress,
   getVoice,
   listVoicesForSong,
+  replaceVoiceFile,
   resolveDisplaySequence,
   setVoiceAnchorPosition,
   setVoiceDisplayRecipe,
@@ -175,6 +177,77 @@ describe('detachVoiceFile', () => {
     detachVoiceFile(doc, voiceId, 'a'.repeat(64));
 
     const voice = getVoice(doc, voiceId);
+    expect(voice?.kind === 'files' ? voice.anchorMap : 'not-a-files-voice').toBeUndefined();
+  });
+});
+
+describe('deleteVoice', () => {
+  it('removes the voice entirely, chordpro or files-kind alike', () => {
+    const doc = new Y.Doc();
+    const chordproId = createVoice(doc, 'song-1', { name: 'Lead', kind: 'chordpro', body: 'x' });
+    const filesId = createVoice(doc, 'song-1', { name: 'Trumpet', kind: 'files', files: [fileRef('a'.repeat(64))] });
+
+    deleteVoice(doc, chordproId);
+    expect(getVoice(doc, chordproId)).toBeUndefined();
+    expect(getVoice(doc, filesId)).toBeDefined();
+
+    deleteVoice(doc, filesId);
+    expect(getVoice(doc, filesId)).toBeUndefined();
+  });
+
+  it('is a no-op for a voice id that never existed', () => {
+    const doc = new Y.Doc();
+    expect(() => deleteVoice(doc, 'missing')).not.toThrow();
+  });
+});
+
+describe('replaceVoiceFile', () => {
+  it('replaces the matching file in place, keeping the rest of the array untouched', () => {
+    const doc = new Y.Doc();
+    const voiceId = createVoice(doc, 'song-1', {
+      name: 'Trumpet',
+      kind: 'files',
+      files: [fileRef('a'.repeat(64)), fileRef('b'.repeat(64))],
+    });
+
+    const newFile = fileRef('c'.repeat(64), 3);
+    replaceVoiceFile(doc, voiceId, 'a'.repeat(64), newFile);
+
+    const voice = getVoice(doc, voiceId);
+    expect(voice?.kind === 'files' ? voice.files : []).toEqual([newFile, fileRef('b'.repeat(64))]);
+  });
+
+  it('throws for a nonexistent voice', () => {
+    const doc = new Y.Doc();
+    expect(() => replaceVoiceFile(doc, 'missing', 'a'.repeat(64), fileRef('b'.repeat(64)))).toThrow('Voice not found');
+  });
+
+  it('throws for a chordpro voice', () => {
+    const doc = new Y.Doc();
+    const voiceId = createVoice(doc, 'song-1', { name: 'Lead', kind: 'chordpro', body: 'x' });
+    expect(() => replaceVoiceFile(doc, voiceId, 'a'.repeat(64), fileRef('b'.repeat(64)))).toThrow('not a files voice');
+  });
+
+  it('throws when no file matches the given hash', () => {
+    const doc = new Y.Doc();
+    const voiceId = createVoice(doc, 'song-1', { name: 'Trumpet', kind: 'files', files: [fileRef('a'.repeat(64))] });
+    expect(() => replaceVoiceFile(doc, voiceId, 'z'.repeat(64), fileRef('b'.repeat(64)))).toThrow('File not found');
+  });
+
+  it('clears an existing display recipe and anchorMap, same reasoning as detachVoiceFile', () => {
+    const doc = new Y.Doc();
+    const voiceId = createVoice(doc, 'song-1', {
+      name: 'Trumpet',
+      kind: 'files',
+      files: [fileRef('a'.repeat(64), 2)],
+    });
+    setVoiceDisplayRecipe(doc, voiceId, { pageOrder: [0, 1] });
+    setVoiceAnchorPosition(doc, voiceId, 'anchor-1', { fileIndex: 0, page: 1, yPct: 0.5 });
+
+    replaceVoiceFile(doc, voiceId, 'a'.repeat(64), fileRef('c'.repeat(64), 1));
+
+    const voice = getVoice(doc, voiceId);
+    expect(voice?.kind === 'files' ? voice.displayRecipe : 'not-a-files-voice').toBeUndefined();
     expect(voice?.kind === 'files' ? voice.anchorMap : 'not-a-files-voice').toBeUndefined();
   });
 });

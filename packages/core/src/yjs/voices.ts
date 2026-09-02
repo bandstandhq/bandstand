@@ -43,6 +43,36 @@ export function createVoice(doc: Y.Doc, songId: string, input: NewVoiceInput): s
   return voiceId;
 }
 
+/** Removes a whole voice, chordpro or files-kind alike — used by the admin-only voice:delete route. A member explicitly assigned to it (assignments.ts's getAssignment) isn't reassigned; getAssignedVoiceId already tolerates an assignment pointing at a voice that no longer exists (the UI falls back to "—" until someone picks a new one), same as it would for any other stale reference. */
+export function deleteVoice(doc: Y.Doc, voiceId: string): void {
+  doc.getMap('voices').delete(voiceId);
+}
+
+/**
+ * Replaces one file in a `files`-kind voice's `files` array, in place at
+ * the same index — used when a re-upload matches an existing file by name
+ * or content hash and the person uploading chose to overwrite it rather
+ * than keep both. Admin-gated (file:overwrite in the permissions matrix),
+ * same reasoning as file:detach: this destroys the old file for everyone
+ * using this voice, not just the uploader's own copy. Drops
+ * `displayRecipe`/`anchorMap` for the same reason `detachVoiceFile`
+ * does: the replacement file's own page count/layout may differ from what
+ * was calibrated against.
+ */
+export function replaceVoiceFile(doc: Y.Doc, voiceId: string, oldSha256: string, newFile: FileRef): void {
+  const existing = getVoice(doc, voiceId);
+  if (!existing) throw new Error(`Voice not found: ${voiceId}`);
+  if (existing.kind !== 'files') throw new Error(`Voice is not a files voice: ${voiceId}`);
+
+  const index = existing.files.findIndex((f) => f.sha256 === oldSha256);
+  if (index === -1) throw new Error(`File not found on voice: ${oldSha256}`);
+  const files = [...existing.files];
+  files[index] = newFile;
+  doc
+    .getMap('voices')
+    .set(voiceId, voiceSchema.parse({ ...existing, files, displayRecipe: undefined, anchorMap: undefined }));
+}
+
 /** Removes one file from a `files`-kind voice — used by the admin-only file:detach route. */
 export function detachVoiceFile(doc: Y.Doc, voiceId: string, sha256: string): void {
   const existing = getVoice(doc, voiceId);

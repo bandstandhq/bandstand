@@ -29,6 +29,8 @@ export type Action =
   | 'selfPrefs:edit'
   | 'file:upload'
   | 'file:detach'
+  | 'file:overwrite'
+  | 'voice:delete'
   | 'assignment:editOthers'
   | 'anchor:edit'
   | 'annotation:moderateShared'
@@ -83,6 +85,14 @@ export type Action =
  * individual attachment one at a time (`file:upload`'s own presigned
  * download has no role check beyond plain membership). What this restricts
  * is the *bulk, one-click* convenience, not the underlying data access.
+ *
+ * `voice:delete` (removing a whole voice, chordpro or files-kind alike) and
+ * `file:overwrite` (replacing an existing file within a `files` voice
+ * rather than uploading a new, non-conflicting one) are both admin-level,
+ * same as `file:detach` — all three destroy something for every member
+ * relying on it, not just the acting member's own contribution. Uploading a
+ * brand-new voice, or a file that doesn't collide with an existing one on
+ * this song, stays `file:upload`'s member-level bar.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -106,6 +116,8 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'selfPrefs:edit': 'member',
   'file:upload': 'member',
   'file:detach': 'admin',
+  'file:overwrite': 'admin',
+  'voice:delete': 'admin',
   'assignment:editOthers': 'admin',
   'anchor:edit': 'admin',
   'annotation:moderateShared': 'admin',

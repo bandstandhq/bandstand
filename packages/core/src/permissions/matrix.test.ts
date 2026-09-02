@@ -26,6 +26,8 @@ const MATRIX: [Action, boolean, boolean, boolean][] = [
   ['selfPrefs:edit', true, true, true],
   ['file:upload', true, true, true],
   ['file:detach', true, true, false],
+  ['file:overwrite', true, true, false],
+  ['voice:delete', true, true, false],
   ['assignment:editOthers', true, true, false],
   ['anchor:edit', true, true, false],
   ['annotation:moderateShared', true, true, false],

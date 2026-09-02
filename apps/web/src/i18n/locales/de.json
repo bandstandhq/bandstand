@@ -435,7 +435,16 @@
     "addVoiceUnsupportedType": "Nur PDF-, PNG- und JPEG-Dateien werden unterstützt.",
     "addVoiceInsecureContext": "Uploads brauchen eine sichere Verbindung. Das funktioniert über https:// oder http://localhost — aber nicht über eine reine http://-Adresse wie eine LAN-IP (z. B. 192.168.x.x). Bitte diejenige Person, die den Server verwaltet, HTTPS für den Zugriff per Telefon/LAN einzurichten.",
     "addVoiceFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
-    "anchorProgress": "({{done}} von {{total}} Ankern gesetzt)"
+    "anchorProgress": "({{done}} von {{total}} Ankern gesetzt)",
+    "deleteVoice": "Stimme löschen",
+    "deleteVoiceAria": "{{name}} löschen",
+    "deleteVoiceConfirmTitle": "\"{{name}}\" löschen?",
+    "deleteVoiceConfirmDescription": "Das entfernt die ganze Stimme inklusive aller Dateien darauf für die gesamte Band.",
+    "deleteVoiceFailed": "Löschen der Stimme fehlgeschlagen. Bitte erneut versuchen.",
+    "duplicateFileTitle": "\"{{name}}\" existiert schon",
+    "duplicateFileDescription": "Das entspricht einer Datei, die schon bei \"{{voiceName}}\" liegt. Überschreiben, oder als separate neue Stimme hinzufügen?",
+    "overwrite": "Überschreiben",
+    "keepBoth": "Beide behalten"
   },
   "pdfViewer": {
     "modeSingle": "Einzelseite",
