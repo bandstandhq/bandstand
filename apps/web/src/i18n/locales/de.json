@@ -287,6 +287,7 @@
     "editSong": "Song bearbeiten",
     "removeItem": "Entfernen",
     "add": "Hinzufügen",
+    "annotate": "Diese Seite markieren",
     "notes": "Notizen",
     "notesFor": "Notizen — {{title}}",
     "notesPlaceholder": "Private Notizen zu diesem Song (nur für dich sichtbar)",
@@ -444,7 +445,8 @@
     "duplicateFileTitle": "\"{{name}}\" existiert schon",
     "duplicateFileDescription": "Das entspricht einer Datei, die schon bei \"{{voiceName}}\" liegt. Überschreiben, oder als separate neue Stimme hinzufügen?",
     "overwrite": "Überschreiben",
-    "keepBoth": "Beide behalten"
+    "keepBoth": "Beide behalten",
+    "annotateInStageMode": "In der Bühnenansicht markieren →"
   },
   "pdfViewer": {
     "modeSingle": "Einzelseite",
@@ -472,7 +474,8 @@
     "calibrateChooseAnchorPlaceholder": "Anker auswählen…",
     "calibrateAlreadySet": "gesetzt",
     "calibrateInstructions": "Tippe auf die Stelle dieser Seite, an der dieser Anker beginnt.",
-    "calibratePickFirst": "Wähle oben zuerst einen Anker aus, dann tippe auf diese Seite."
+    "calibratePickFirst": "Wähle oben zuerst einen Anker aus, dann tippe auf diese Seite.",
+    "annotateSingleModeOnly": "Markieren geht nur im Einzelseiten-Modus."
   },
   "offline": {
     "preparing": "Wird für Offline-Nutzung vorbereitet… ({{done}}/{{total}})",

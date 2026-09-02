@@ -40,7 +40,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
+import { BrushIcon, GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useNicknames } from '../hooks/useNicknames';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -165,6 +165,7 @@ function SongContent({
   visibility,
   chordColor,
   model,
+  annotating,
   onPageChange,
   jumpToRenderedPosition,
 }: {
@@ -176,6 +177,7 @@ function SongContent({
   chordColor: string;
   /** Precomputed by StageMode, not here — Follow Mode's scroll-position tracking needs the exact same model to measure section boundaries against. */
   model: RenderModel | null;
+  annotating?: boolean;
   onPageChange?: (page: { fileIndex: number; pageNumberInFile: number }) => void;
   jumpToRenderedPosition?: number;
 }) {
@@ -190,6 +192,7 @@ function SongContent({
           voice={voice}
           doc={doc}
           editable={false}
+          annotating={annotating}
           onPageChange={onPageChange}
           jumpToRenderedPosition={jumpToRenderedPosition}
         />
@@ -693,6 +696,7 @@ export function StageMode() {
   const [anchorProposals, setAnchorProposals] = useState<Record<string, { fileIndex: number; pageNumberInFile: number }>>({});
   const lastRecordedAnchorIdRef = useRef<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [annotating, setAnnotating] = useState(false);
   // Landscape is the real-world way this gets used mid-song (see
   // docs/... mobile-usability pass) — a phone turned sideways has so little
   // vertical space that the always-visible header/footer chrome would eat
@@ -1339,6 +1343,17 @@ export function StageMode() {
               <NoteIcon className="h-5 w-5" />
             </button>
           )}
+          {voice?.kind === 'files' && (
+            <button
+              type="button"
+              onClick={() => setAnnotating((v) => !v)}
+              aria-label={t('stageMode.annotate')}
+              title={t('stageMode.annotate')}
+              className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'} ${annotating ? (isDark ? 'bg-white/20' : 'bg-black/20') : ''}`}
+            >
+              <BrushIcon className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowSettings((v) => !v)}
@@ -1422,6 +1437,7 @@ export function StageMode() {
               visibility={contentVisibility}
               chordColor={chordColor}
               model={model}
+              annotating={annotating}
               onPageChange={setCurrentFilesPage}
               jumpToRenderedPosition={jumpToRenderedPosition}
             />

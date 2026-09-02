@@ -22,6 +22,7 @@ import { buildRenderModel, parseChordPro } from '@bandstand/chords';
 import { Button, useConfirmDialog } from '@bandstand/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import type * as Y from 'yjs';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -216,6 +217,15 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
                       <Suspense fallback={null}>
                         <PdfVoiceViewer bandId={bandId} voiceId={id} voice={voice} doc={doc} />
                       </Suspense>
+                      {/* Personal markup (pen/highlighter/notes) lives in Stage
+                          Mode, not here — this preview is for layout/crop/anchor
+                          setup, and is too small for a real drawing toolbar. */}
+                      <Link
+                        to={`/bands/${bandId}/songs/${songId}/play`}
+                        className="mt-1 inline-block text-xs text-primary hover:underline"
+                      >
+                        {t('songVoices.annotateInStageMode')}
+                      </Link>
                     </div>
                   )}
                 </li>

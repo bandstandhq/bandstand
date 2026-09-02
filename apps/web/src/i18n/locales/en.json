@@ -287,6 +287,7 @@
     "editSong": "Edit song",
     "removeItem": "Remove",
     "add": "Add",
+    "annotate": "Mark up this page",
     "notes": "Notes",
     "notesFor": "Notes — {{title}}",
     "notesPlaceholder": "Private notes for this song (only you see these)",
@@ -444,7 +445,8 @@
     "duplicateFileTitle": "\"{{name}}\" already exists",
     "duplicateFileDescription": "This matches a file already on \"{{voiceName}}\". Overwrite it, or add this as a separate new voice?",
     "overwrite": "Overwrite",
-    "keepBoth": "Keep both"
+    "keepBoth": "Keep both",
+    "annotateInStageMode": "Mark up this file in Stage Mode →"
   },
   "pdfViewer": {
     "modeSingle": "Single page",
@@ -472,7 +474,8 @@
     "calibrateChooseAnchorPlaceholder": "Choose an anchor…",
     "calibrateAlreadySet": "set",
     "calibrateInstructions": "Tap the spot on this page where that anchor starts.",
-    "calibratePickFirst": "Choose an anchor above, then tap this page."
+    "calibratePickFirst": "Choose an anchor above, then tap this page.",
+    "annotateSingleModeOnly": "Marking is only available in single-page mode."
   },
   "offline": {
     "preparing": "Preparing for offline use… ({{done}}/{{total}})",

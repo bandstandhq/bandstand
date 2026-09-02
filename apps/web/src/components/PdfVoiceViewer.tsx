@@ -496,6 +496,7 @@ export function PdfVoiceViewer({
   voice,
   doc,
   editable = true,
+  annotating = false,
   onPageChange,
   jumpToRenderedPosition,
 }: {
@@ -504,6 +505,8 @@ export function PdfVoiceViewer({
   voice: FilesVoice;
   doc: Y.Doc;
   editable?: boolean;
+  /** Shows the personal annotation toolbar (pen/highlighter/notes) — off by default, since it's a Stage Mode reading-time concern, not something SongVoices' small layout-editing preview needs. Only has an effect in single-page mode; see the in-viewer hint for the other modes. */
+  annotating?: boolean;
   /** Fires whenever the currently-displayed page changes — Stage Mode's Follow Mode broadcasts from this. */
   onPageChange?: (page: { fileIndex: number; pageNumberInFile: number }) => void;
   /** An imperative "go to this position in the rendered sequence" — Stage Mode's Follow Mode applies a peer's anchor through this. Forces single-page mode, since a jump target is inherently one page. */
@@ -761,6 +764,10 @@ export function PdfVoiceViewer({
             </DndContext>
           )}
 
+          {annotating && mode !== 'single' && (
+            <p className="text-xs text-muted-foreground">{t('pdfViewer.annotateSingleModeOnly')}</p>
+          )}
+
           <div className="w-full">
             {mode === 'scroll' ? (
               <div className="space-y-4">
@@ -793,7 +800,9 @@ export function PdfVoiceViewer({
                       calibratingAnchors && mode === 'single' && i === 0 ? handleCalibrationClick(p) : undefined
                     }
                     overlay={
-                      mode === 'single' && i === 0 ? <AnnotationOverlay bandId={bandId} voiceId={voiceId} page={p.position} /> : undefined
+                      annotating && mode === 'single' && i === 0 ? (
+                        <AnnotationOverlay bandId={bandId} voiceId={voiceId} page={p.position} />
+                      ) : undefined
                     }
                   />
                 ))}
