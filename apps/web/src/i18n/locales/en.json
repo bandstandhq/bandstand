@@ -671,7 +671,10 @@
     "status": "Status",
     "statusConfirmed": "Confirmed",
     "statusTentative": "Tentative",
-    "statusCancelled": "Cancelled"
+    "statusCancelled": "Cancelled",
+    "changeRecurrence": "Change recurrence…",
+    "changeRecurrenceTitle": "Change recurrence pattern",
+    "changeRecurrenceDescription": "Applies from {{date}} onward. Earlier dates are unaffected. Any exception or cancellation already set for {{date}} or a later date stops applying."
   },
   "pollDetail": {
     "back": "Back to calendar",

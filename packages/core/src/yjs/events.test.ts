@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
+import { resolveEventOccurrences } from './eventSeries';
 import {
   cancelOccurrence,
+  changeSeriesRecurrence,
   createEvent,
   createRecurringEvent,
   createSeriesException,
@@ -177,6 +179,92 @@ describe('updateOccurrence', () => {
   it('throws for an occurrence id that matches neither a real entry nor a virtual one', () => {
     const doc = new Y.Doc();
     expect(() => updateOccurrence(doc, 'not-an-occurrence-id', { title: 'x' })).toThrow('Occurrence not found');
+  });
+});
+
+describe('changeSeriesRecurrence', () => {
+  // Weekly from 2023-11-14 (Tue): ...-11-21, -11-28, -12-05, -12-12 (split
+  // point below, n=4), -12-19, -12-26 (n=6), ...
+  const SPLIT_DATE = '2023-12-12';
+
+  it('caps the old template at the day before the split, and starts a new template with the new rule from the split date', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+
+    const newTemplateId = changeSeriesRecurrence(doc, oldTemplateId, SPLIT_DATE, { freq: 'biweekly' });
+
+    const events = listEvents(doc);
+    expect(events[oldTemplateId]?.seriesRule).toEqual({ freq: 'weekly', until: '2023-12-11' });
+    expect(newTemplateId).not.toBe(oldTemplateId);
+    expect(events[newTemplateId]).toMatchObject({
+      seriesId: newTemplateId,
+      seriesRule: { freq: 'biweekly' },
+      title: 'Weekly practice',
+    });
+    expect(new Date(events[newTemplateId]!.startsAt).toISOString().slice(0, 10)).toBe(SPLIT_DATE);
+    // Same time-of-day as the old template's own occurrences, not midnight.
+    expect(new Date(events[newTemplateId]!.startsAt).getUTCHours()).toBe(new Date(baseInput().startsAt).getUTCHours());
+  });
+
+  it('carries the old template\'s other fields over to the new one', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, { ...baseInput(), location: 'Rehearsal room', notes: 'Bring amps' }, {
+      freq: 'weekly',
+    });
+
+    const newTemplateId = changeSeriesRecurrence(doc, oldTemplateId, SPLIT_DATE, { freq: 'monthlyByWeekday' });
+
+    expect(listEvents(doc)[newTemplateId]).toMatchObject({ location: 'Rehearsal room', notes: 'Bring amps' });
+  });
+
+  it('leaves an exception dated before the split date attached to, and still resolved via, the old template', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    const exceptionId = createSeriesException(doc, oldTemplateId, '2023-11-28', { title: 'Extra long practice' });
+
+    changeSeriesRecurrence(doc, oldTemplateId, SPLIT_DATE, { freq: 'biweekly' });
+
+    const resolved = resolveEventOccurrences(listEvents(doc), Date.parse('2023-11-01'), Date.parse('2023-12-01'));
+    expect(resolved.find((o) => o.occurrenceId === exceptionId)?.event.title).toBe('Extra long practice');
+  });
+
+  it('stops surfacing an existing exception dated on or after the split date — it stays in the doc, but neither template reaches it anymore', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    const exceptionId = cancelOccurrence(doc, oldTemplateId, '2023-12-26');
+
+    changeSeriesRecurrence(doc, oldTemplateId, SPLIT_DATE, { freq: 'biweekly' });
+
+    // Still there — not deleted...
+    expect(listEvents(doc)[exceptionId]).toBeDefined();
+    // ...but resolveEventOccurrences never walks far enough into the
+    // (now-capped) old template to reach it, and the new template's own
+    // biweekly cadence from 2023-12-12 never lands on 2023-12-26 either.
+    const resolved = resolveEventOccurrences(listEvents(doc), Date.parse('2023-12-01'), Date.parse('2024-01-01'));
+    expect(resolved.find((o) => o.occurrenceId === exceptionId)).toBeUndefined();
+  });
+
+  it('returns the new template\'s id, distinct from the old one', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+
+    const newTemplateId = changeSeriesRecurrence(doc, oldTemplateId, SPLIT_DATE, { freq: 'biweekly' });
+
+    expect(newTemplateId).not.toBe(oldTemplateId);
+    expect(listEvents(doc)[newTemplateId]?.seriesId).toBe(newTemplateId);
+  });
+
+  it('throws for an event that is not a series template', () => {
+    const doc = new Y.Doc();
+    const plainId = createEvent(doc, baseInput());
+    expect(() => changeSeriesRecurrence(doc, plainId, SPLIT_DATE, { freq: 'weekly' })).toThrow('not a series template');
+  });
+
+  it('throws for a date the old series never generates', () => {
+    const doc = new Y.Doc();
+    const oldTemplateId = createRecurringEvent(doc, baseInput(), { freq: 'weekly' });
+    // A Wednesday — the series only ever lands on Tuesdays.
+    expect(() => changeSeriesRecurrence(doc, oldTemplateId, '2023-12-13', { freq: 'weekly' })).toThrow('not a date this series generates');
   });
 });
 
