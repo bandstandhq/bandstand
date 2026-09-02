@@ -9,7 +9,7 @@ owner.
 | Delete (archive) the band | ✅ | — | — |
 | Restore an archived band | ✅ | — | — |
 | Transfer ownership | ✅ | — | — |
-| Change a member's role | ✅ | — | — |
+| Change a member's role | ✅ ⁵ | — | — |
 | Remove a member | ✅ | ✅ ¹ | — |
 | Leave the band | ✅ ² | ✅ | ✅ |
 | Create or revoke an invite | ✅ | ✅ | — |
@@ -44,6 +44,10 @@ owner.
 ⁴ A UI-level convenience gate, not a new access boundary — every member can already read every
   song and download any individual attachment on their own; this only restricts the one-click bulk
   export of everything at once.
+⁵ Never on yourself — the owner can promote/demote anyone else, but changing their own role would
+  leave the band with no owner at all (the partial unique index that guarantees at most one owner
+  says nothing about at least one). Handing the role to someone else is Transfer ownership's job,
+  which demotes the outgoing owner in the same transaction as it promotes the incoming one.
 
 ## Enforcement
 

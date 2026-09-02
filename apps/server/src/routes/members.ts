@@ -115,8 +115,23 @@ membersRoute.delete('/me', requireBandRole('member'), async (c) => {
 membersRoute.patch('/:userId/role', requireBandRole('member'), async (c) => {
   const bandId = c.req.param('bandId');
   const targetUserId = c.req.param('userId');
+  const callerUserId = c.get('userId');
   if (!bandId || !targetUserId) return c.json({ error: 'Missing params' }, 400);
   if (!can(c.get('bandRole'), 'member:changeRole')) return c.json({ error: 'Forbidden' }, 403);
+
+  // The one-owner invariant is enforced in two halves: the partial unique
+  // index (band_members_one_owner_idx) makes two owners impossible, and
+  // this check makes zero owners impossible. Demoting yourself would leave
+  // the band with no owner at all, and since band:delete and
+  // band:transferOwnership are both owner-only, that state is
+  // unrecoverable. Handing the role over is transfer-ownership's job,
+  // which demotes the caller to admin in the same transaction as it
+  // promotes the target — only reachable here at all because
+  // member:changeRole is itself owner-only, so the caller and the target
+  // being the same person always means the owner targeting themselves.
+  if (targetUserId === callerUserId) {
+    return c.json({ error: 'owner_cannot_change_own_role' }, 400);
+  }
 
   // 'owner' is not an accepted value here at all (see
   // changeMemberRoleInputSchema) — becoming "the" owner only ever happens
