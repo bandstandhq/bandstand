@@ -16,9 +16,15 @@ pnpm dev
 That's it — `pnpm dev` creates `.env` from `.env.example` on first run,
 brings up Postgres and Mailpit in Docker, applies migrations, and starts
 the web app (http://localhost:5173) and server (http://localhost:3001).
-Run `pnpm seed` afterwards for demo data (two
-users, a band, ten-plus songs with real ChordPro content, two setlists) —
-useful for anything Stage Mode or setlist related.
+Run `pnpm seed` afterwards for demo data (three users, two bands, 12 songs
+with real ChordPro content, two setlists, 5 calendar events, and one
+scheduling poll) — useful for anything Stage Mode or setlist related. The
+second band exists purely so every role (owner/admin/member) is visible
+somewhere without hand-creating memberships: the same three demo accounts
+hold different roles in it than in the first band. `pnpm seed` refuses to
+run against anything but a development/test database (see
+`apps/server/src/seed/index.ts`) — it creates accounts whose password is
+published right here in this repo.
 
 ## Repo layout
 

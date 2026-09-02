@@ -56,6 +56,11 @@ real, long-running deployment) deliberately do not, so this applies the
 moment you run either of those with the shipped `.env.example` values
 still in place.
 
+**Never run `pnpm seed` against a real deployment** — it's a development/demo convenience, not a
+self-hosting step, and it creates three working accounts with a password published in this
+repository, plus deletes any band whose slug happens to match one of its demo slugs. It refuses to
+run outside `NODE_ENV=development`/`test` for exactly this reason (`apps/server/src/seed/index.ts`).
+
 ### Reverse proxy: `TRUST_PROXY_HOPS`
 
 TLS termination and reverse-proxy setup aren't written up here yet (see "Not yet covered here"
