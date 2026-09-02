@@ -62,6 +62,13 @@ jobs:
       # apps/server/src/app.ts's own comment on MAX_SIGNUPS_PER_HOUR.
       MAX_SIGNUPS_PER_HOUR: "300"
       MAX_SIGNUPS_PER_DAY: "300"
+      # Same story, a day later: several specs that create/redeem real
+      # invites (member-list-order, member-nicknames, ownership-succession,
+      # invite-single-use) were intermittently failing because the whole
+      # suite shares this one IP against the production 30/hour and
+      # 10/hour caps — see apps/server/src/routes/invites.ts's own comment.
+      MAX_INVITES_CREATED_PER_HOUR: "300"
+      MAX_INVITE_REDEMPTIONS_PER_HOUR: "300"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

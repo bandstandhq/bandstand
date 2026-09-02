@@ -27,7 +27,19 @@ export const inviteManagementRoute = new Hono<{ Variables: BandVariables }>();
 // but there's no reason to leave it uncapped: 30/hour is far more than any
 // legitimate band admin issues in a real session, even onboarding a whole
 // new lineup at once.
-const createInviteRateLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
+//
+// Overridable via env, same reasoning as app.ts's MAX_SIGNUPS_PER_HOUR: the
+// acceptance suite creates and redeems invites from one shared CI IP across
+// dozens of test files in a single run, and was silently exceeding both
+// this and MAX_INVITE_REDEMPTIONS_PER_HOUR below — several specs
+// (member-list-order, member-nicknames, ownership-succession,
+// invite-single-use) intermittently failed depending on how many earlier
+// tests in the same run had already used up the shared budget, looking
+// like unrelated flakes in each of those specs until traced back here.
+const createInviteRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.MAX_INVITES_CREATED_PER_HOUR ?? 30),
+});
 
 inviteManagementRoute.post('/', createInviteRateLimiter(clientIp), requireBandRole('admin'), async (c) => {
   const body = createInviteInputSchema.parse(await c.req.json());
@@ -101,7 +113,11 @@ export const inviteRedemptionRoute = new Hono<{ Variables: AuthVariables }>();
 
 inviteRedemptionRoute.use('*', requireAuth);
 
-const redeemRateLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+// Overridable via env — see createInviteRateLimiter's comment above for why.
+const redeemRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.MAX_INVITE_REDEMPTIONS_PER_HOUR ?? 10),
+});
 
 inviteRedemptionRoute.post('/redeem', redeemRateLimiter(clientIp), async (c) => {
   const body = redeemInviteInputSchema.parse(await c.req.json());
