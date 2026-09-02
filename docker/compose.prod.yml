@@ -1,0 +1,76 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    env_file: ../.env
+    ports:
+      - '3001:3001' # REST API + the built web app (see apps/server/src/app.ts)
+      - '3002:3002' # Hocuspocus (band doc sync) — a separate process/port, see docs/SELF_HOSTING.md
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bandstand}
+      POSTGRES_DB: ${POSTGRES_DB:-bandstand}
+      # No default here, unlike docker/compose.yml (dev-only) — a real deployment must not run
+      # with a known password. Must match DATABASE_URL's embedded credentials in .env; nothing
+      # enforces that consistency for you, see docs/SELF_HOSTING.md.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — see docs/SELF_HOSTING.md}
+    restart: unless-stopped
+    volumes:
+      - bandstand-postgres-prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      # No dev-placeholder fallback, unlike docker/compose.yml — apps/server/src/lib/envGuard.ts
+      # already refuses to boot with the placeholder, but a misconfigured MinIO container should
+      # fail loudly here too, not silently start with a known credential.
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env — see docs/SELF_HOSTING.md}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env — see docs/SELF_HOSTING.md}
+    restart: unless-stopped
+    volumes:
+      - bandstand-minio-prod:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  # Same one-shot bucket+CORS setup as docker/compose.yml's dev-only minio-init — see that file's
+  # own comment for why this is a separate step rather than folded into minio's own healthcheck.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: sh
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env — see docs/SELF_HOSTING.md}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env — see docs/SELF_HOSTING.md}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bandstand}
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env — see docs/SELF_HOSTING.md}
+    command:
+      - -c
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY" &&
+        mc mb --ignore-existing "local/$$MINIO_BUCKET" &&
+        mc admin config set local api cors_allow_origin="$$WEB_ORIGIN" &&
+        mc admin service restart local --json
+
+volumes:
+  bandstand-postgres-prod:
+  bandstand-minio-prod:

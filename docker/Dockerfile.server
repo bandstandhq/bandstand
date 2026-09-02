@@ -8,7 +8,10 @@ WORKDIR /app
 
 FROM base AS pruner
 COPY . .
-RUN npx turbo prune --scope=@bandstand/server --docker
+# Both scopes: the server serves apps/web's static build itself (see
+# apps/server/src/app.ts and docs/SELF_HOSTING.md) so a single deployment of
+# this image is a complete web app, not just the API.
+RUN npx turbo prune @bandstand/server @bandstand/web --docker
 
 FROM base AS installer
 COPY --from=pruner /app/out/json/ .
@@ -17,13 +20,35 @@ RUN pnpm install --frozen-lockfile
 
 FROM installer AS builder
 COPY --from=pruner /app/out/full/ .
-RUN npx turbo run build --filter=@bandstand/server
+# turbo prune's output doesn't include root-level config files outside the pruned
+# apps/packages trees — every workspace package's own tsconfig.json extends this one, and
+# @bandstand/web's build needs it even though the server itself doesn't build at all (see below).
+COPY tsconfig.base.json ./tsconfig.base.json
+# Only apps/web actually needs a build here (real static assets vite has to produce). The server
+# runs the exact same way `pnpm start` already does — tsx directly against source, not a compiled
+# bundle — see the runner stage's CMD for why: @bandstand/core (and every other in-repo
+# @bandstand/* package) exports its TypeScript source directly at runtime
+# (packages/core/package.json's "default": "./src/index.ts" — its own "build" only emits type
+# declarations, no real JS), so a tsup-bundled dist/index.js run under plain `node` fails at
+# startup with "Cannot find package" / "Directory import not supported", since tsup leaves that
+# import unresolved for a real Node runtime to walk, and there is no real JS there to find.
+RUN npx turbo run build --filter=@bandstand/web
 
 FROM node:22-slim AS runner
-WORKDIR /app
+# Keep the monorepo's own relative shape (apps/server/, apps/web/, packages/*, root
+# node_modules/) rather than flattening it — pnpm's default node-linker is "isolated", meaning
+# apps/server/node_modules holds only symlinks (e.g. tsx -> ../../../node_modules/.pnpm/...,
+# @bandstand/core -> ../../../../packages/core), not real copies. Flattening this tree breaks
+# every one of those relative symlink targets. Copying the whole pruned+built /app tree, once,
+# sidesteps having to enumerate every workspace package's own node_modules by hand.
+WORKDIR /app/apps/server
 ENV NODE_ENV=production
-COPY --from=builder /app/apps/server/dist ./dist
-COPY --from=builder /app/apps/server/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-EXPOSE 3001
-CMD ["node", "dist/index.js"]
+COPY --from=builder /app /app
+EXPOSE 3001 3002
+# Migrations are idempotent (Drizzle tracks what's already applied), so running them on every
+# container start is safe and needs no separate one-shot service/compose dependency ordering.
+# apps/web/dist is found via app.ts's own default WEB_DIST_ROOT (../web/dist, relative to this
+# WORKDIR) — no override needed since the sibling apps/server/ + apps/web/ layout is preserved as-is.
+# No --env-file here (unlike pnpm start locally): env vars already arrive as real process
+# environment, via docker-compose's env_file/environment, not a .env file inside the image.
+CMD ["sh", "-c", "node_modules/.bin/tsx src/db/migrate.ts && node_modules/.bin/tsx src/index.ts"]
