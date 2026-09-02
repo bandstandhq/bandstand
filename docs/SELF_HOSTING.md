@@ -48,23 +48,38 @@ MinIO — as one unit.
    cp .env.example .env
    ```
 3. **Edit `.env`** — exactly these values are not safe to leave as shipped, before the first
-   start:
-   - `BETTER_AUTH_SECRET`: generate one with `openssl rand -base64 32`. **The server refuses to
-     start** with this left as the shipped placeholder, missing, or under 32 characters (see
-     `apps/server/src/lib/envGuard.ts`) — you'll find out immediately, not later.
-   - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`: any two real values (a password manager's generator
-     is fine). **The server also refuses to start** with these left as the shipped placeholder.
+   start (in the same order they appear in `.env.example`):
    - `POSTGRES_PASSWORD`: any real value — **and** update `DATABASE_URL`'s embedded password to
      match. This is the one place nothing enforces consistency for you: get it wrong and the
      server container starts, then fails every database call, since the two values just silently
      disagree about what the password is. `DATABASE_URL`'s host also needs to say `postgres` here
      (that container's name on the compose network), not `localhost`.
-   - `WEB_ORIGIN`: the real public origin you're serving this from (see "File storage" below for
-     why this matters, and "TLS" below for what that origin actually looks like). **The server
-     refuses to start** if this looks like a private/local address instead of a real public one.
+   - `BETTER_AUTH_SECRET`: generate one with `openssl rand -base64 32`. **The server refuses to
+     start** with this left as the shipped placeholder, missing, or under 32 characters (see
+     `apps/server/src/lib/envGuard.ts`) — you'll find out immediately, not later.
    - `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM`: a real relay. Nothing enforces
      this one — leave it unset and the server starts fine, password-reset emails just silently go
      nowhere.
+   - `SERVER_URL`, `HOCUSPOCUS_URL`, `WEB_ORIGIN`, `TRUST_PROXY_HOPS` — **all four together**, not
+     just `WEB_ORIGIN` alone: set these to your real domain(s) now, even before your reverse proxy
+     is actually running (see "TLS / reverse proxy" below — you need two (sub)domains, one for
+     Hocuspocus). For `bandstand.your-domain.example` with Hocuspocus on
+     `sync.bandstand.your-domain.example`:
+     ```
+     SERVER_URL=https://bandstand.your-domain.example
+     HOCUSPOCUS_URL=wss://sync.bandstand.your-domain.example
+     WEB_ORIGIN=https://bandstand.your-domain.example
+     TRUST_PROXY_HOPS=1
+     ```
+     **The server refuses to start** if `WEB_ORIGIN` looks like a private/local address instead of
+     a real public one — so you can't actually get past step 4 below without deciding on your real
+     domain first, which is exactly why this isn't deferred to the TLS section. `SERVER_URL`/
+     `HOCUSPOCUS_URL` don't have their own startup check, but leaving them unset means the web app
+     falls back to advertising `localhost` to itself, which won't work once anyone but you opens
+     it. `TRUST_PROXY_HOPS=1` is what makes rate limiting see real client IPs once you do have a
+     reverse proxy in front — see the section by that name further down for why it matters.
+   - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`: any two real values (a password manager's generator
+     is fine). **The server also refuses to start** with these left as the shipped placeholder.
 4. **Start it**:
    ```bash
    docker compose --env-file .env -f docker/compose.prod.yml up -d --build
@@ -151,6 +166,36 @@ server {
     }
 }
 ```
+
+**Cloudflare Tunnel** (`cloudflared`) — a genuinely different shape from the two above: instead of
+this box holding a public IP and terminating TLS itself, `cloudflared` opens an outbound-only
+connection to Cloudflare's edge, which terminates TLS and proxies traffic back through the tunnel.
+No inbound port-forwarding at all, which is the appealing part behind NAT/CGNAT or on a home
+network — relevant if you're running this in a Proxmox VM/LXC without exposing it directly. It
+proxies WebSocket connections the same transparent way Caddy does, no special config for the
+`sync.` hostname:
+1. `cloudflared tunnel login`, then `cloudflared tunnel create bandstand` (needs a Cloudflare
+   account with the domain already added).
+2. `~/.cloudflared/config.yml`:
+   ```yaml
+   tunnel: <TUNNEL-ID>
+   credentials-file: /root/.cloudflared/<TUNNEL-ID>.json
+
+   ingress:
+     - hostname: your-domain.example
+       service: http://localhost:3001
+     - hostname: sync.your-domain.example
+       service: http://localhost:3002
+     - service: http_status:404
+   ```
+3. Point DNS at the tunnel (once per hostname): `cloudflared tunnel route dns bandstand
+   your-domain.example` and `cloudflared tunnel route dns bandstand sync.your-domain.example`.
+4. Run it: `cloudflared tunnel run bandstand` to test, or `cloudflared service install` to run it
+   as a system service permanently.
+
+Cloudflare's edge is still exactly one hop of the kind `TRUST_PROXY_HOPS` cares about (it appends
+the real client IP to `X-Forwarded-For` before `cloudflared` ever sees the request) — `=1` below
+is correct here too, same as with Caddy or nginx.
 
 Either way, update `.env` to match the domains you actually used, then restart (`docker compose
 --env-file .env -f docker/compose.prod.yml up -d`, no rebuild needed — see below):
