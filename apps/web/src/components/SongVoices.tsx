@@ -5,7 +5,7 @@
 // through the live Y.Doc (listVoicesForSong/getAssignedVoiceId), not
 // useYMap's flat object — the useYMap calls below exist only to subscribe
 // this component to re-render on remote changes.
-import type { Anchor, BandMember, BandRole } from '@bandstand/core';
+import type { Anchor, BandMember, BandRole, FileRef, Voice } from '@bandstand/core';
 import {
   anchorsKey,
   can,
@@ -13,11 +13,13 @@ import {
   getAnchorCalibrationProgress,
   getAssignedVoiceId,
   getAssignment,
+  isAllowedFileMimeType,
   listVoicesForSong,
   setAssignment,
+  sha256Hex,
 } from '@bandstand/core';
 import { buildRenderModel, parseChordPro } from '@bandstand/chords';
-import { Button } from '@bandstand/ui';
+import { Button, useConfirmDialog } from '@bandstand/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
@@ -27,6 +29,23 @@ import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 import { InsecureContextError, UnsupportedFileTypeError, uploadFileToBand } from '../lib/uploadFile';
 
+// Matches by content (a re-upload of the exact same bytes, maybe re-named)
+// or by filename (a corrected re-upload of the same part, re-exported to a
+// new hash) — either is the "same document" a re-uploader most likely means
+// to overwrite, per the voice files' own {sha256, filename} shape.
+function findDuplicateFile(
+  voices: Array<{ id: string; voice: Voice }>,
+  filename: string,
+  sha256: string,
+): { voiceId: string; voiceName: string; file: FileRef } | undefined {
+  for (const { id, voice } of voices) {
+    if (voice.kind !== 'files') continue;
+    const file = voice.files.find((f) => f.sha256 === sha256 || f.filename === filename);
+    if (file) return { voiceId: id, voiceName: voice.name, file };
+  }
+  return undefined;
+}
+
 // Code-split: pdf.js is a large dependency most songs (plain ChordPro)
 // never touch, so it shouldn't sit in the app's main bundle.
 const PdfVoiceViewer = lazy(() => import('./PdfVoiceViewer').then((m) => ({ default: m.PdfVoiceViewer })));
@@ -35,6 +54,7 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
   const { t } = useTranslation();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user.id;
+  const { confirm, chooseAction } = useConfirmDialog();
 
   const [members, setMembers] = useState<BandMember[]>([]);
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
@@ -55,12 +75,39 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
     event.target.value = '';
     if (!file) return;
 
-    const name = window.prompt(t('songVoices.addVoiceNamePrompt'), file.name.replace(/\.[^.]+$/, ''));
-    if (!name) return;
-
     setUploading(true);
     setUploadError(null);
     try {
+      if (!isAllowedFileMimeType(file.type)) {
+        throw new UnsupportedFileTypeError(`Unsupported file type: ${file.type}`);
+      }
+      if (typeof crypto === 'undefined' || !crypto.subtle) {
+        throw new InsecureContextError('crypto.subtle is unavailable outside a secure context.');
+      }
+      const sha256 = await sha256Hex(await file.arrayBuffer());
+      const duplicate = findDuplicateFile(voices, file.name, sha256);
+
+      if (duplicate) {
+        const choice = await chooseAction<'overwrite' | 'keepBoth'>({
+          title: t('songVoices.duplicateFileTitle', { name: file.name }),
+          description: t('songVoices.duplicateFileDescription', { voiceName: duplicate.voiceName }),
+          cancelLabel: t('common.cancel'),
+          actions: [
+            { label: t('songVoices.overwrite'), value: 'overwrite', variant: 'destructive' },
+            { label: t('songVoices.keepBoth'), value: 'keepBoth', variant: 'outline' },
+          ],
+        });
+        if (choice === null) return;
+        if (choice === 'overwrite') {
+          const fileRef = await uploadFileToBand(apiClient, bandId, file);
+          await apiClient.overwriteVoiceFile(bandId, songId, duplicate.voiceId, duplicate.file.sha256, fileRef);
+          return;
+        }
+        // 'keepBoth' falls through to the normal new-voice flow below.
+      }
+
+      const name = window.prompt(t('songVoices.addVoiceNamePrompt'), file.name.replace(/\.[^.]+$/, ''));
+      if (!name) return;
       const fileRef = await uploadFileToBand(apiClient, bandId, file);
       createVoice(doc, songId, { name, kind: 'files', files: [fileRef] });
     } catch (err) {
@@ -73,6 +120,22 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
       );
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDeleteVoice(voiceId: string, name: string) {
+    const confirmed = await confirm({
+      title: t('songVoices.deleteVoiceConfirmTitle', { name }),
+      description: t('songVoices.deleteVoiceConfirmDescription'),
+      confirmLabel: t('songVoices.deleteVoice'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!confirmed) return;
+
+    try {
+      await apiClient.deleteVoice(bandId, songId, voiceId);
+    } catch {
+      setUploadError(t('songVoices.deleteVoiceFailed'));
     }
   }
 
@@ -111,31 +174,43 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
 
               return (
                 <li key={id}>
-                  {voice.kind === 'files' ? (
-                    <button
-                      type="button"
-                      className="w-full rounded-md px-1 py-1 text-left hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
-                    >
-                      {voice.name}
-                      {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
-                      {progress && (
-                        <span className="ml-2 text-xs">
-                          {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    <span>
-                      {voice.name}
-                      {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
-                      {progress && (
-                        <span className="ml-2 text-xs">
-                          {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
-                        </span>
-                      )}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {voice.kind === 'files' ? (
+                      <button
+                        type="button"
+                        className="flex-1 rounded-md px-1 py-1 text-left hover:bg-accent/50 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => setExpandedVoiceId(expandedVoiceId === id ? null : id)}
+                      >
+                        {voice.name}
+                        {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindFiles')}
+                        {progress && (
+                          <span className="ml-2 text-xs">
+                            {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="flex-1">
+                        {voice.name}
+                        {voice.instrument ? ` · ${voice.instrument}` : ''} · {t('songVoices.kindChordpro')}
+                        {progress && (
+                          <span className="ml-2 text-xs">
+                            {t('songVoices.anchorProgress', { done: progress.done, total: progress.total })}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {viewerRole && can(viewerRole, 'voice:delete') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t('songVoices.deleteVoiceAria', { name: voice.name })}
+                        onClick={() => handleDeleteVoice(id, voice.name)}
+                      >
+                        {t('songVoices.deleteVoice')}
+                      </Button>
+                    )}
+                  </div>
                   {voice.kind === 'files' && expandedVoiceId === id && (
                     <div className="mt-2 max-w-md">
                       <Suspense fallback={null}>

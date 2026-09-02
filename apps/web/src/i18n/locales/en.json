@@ -435,7 +435,16 @@
     "addVoiceUnsupportedType": "Only PDF, PNG, and JPEG files are supported.",
     "addVoiceInsecureContext": "Uploads need a secure connection. This works over https://, or http://localhost — but not a plain http:// address like a LAN IP (e.g. 192.168.x.x). Ask whoever manages the server to set up HTTPS for phone/LAN access.",
     "addVoiceFailed": "Upload failed. Please try again.",
-    "anchorProgress": "({{done}} of {{total}} anchors set)"
+    "anchorProgress": "({{done}} of {{total}} anchors set)",
+    "deleteVoice": "Delete voice",
+    "deleteVoiceAria": "Delete {{name}}",
+    "deleteVoiceConfirmTitle": "Delete \"{{name}}\"?",
+    "deleteVoiceConfirmDescription": "This removes the whole voice, including every file on it, for everyone in the band.",
+    "deleteVoiceFailed": "Deleting the voice failed. Please try again.",
+    "duplicateFileTitle": "\"{{name}}\" already exists",
+    "duplicateFileDescription": "This matches a file already on \"{{voiceName}}\". Overwrite it, or add this as a separate new voice?",
+    "overwrite": "Overwrite",
+    "keepBoth": "Keep both"
   },
   "pdfViewer": {
     "modeSingle": "Single page",

@@ -12,6 +12,7 @@ import type {
   CreateAnnotationLayerInput,
   CreateBandInput,
   CreateInviteInput,
+  FileRef,
   Invite,
   MemberNicknames,
   PresignUploadInput,
@@ -286,6 +287,18 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     presignFileDownload: (bandId: string, sha256: string) =>
       req<{ downloadUrl: string }>(`/bands/${bandId}/files/${sha256}/presign-download`),
+
+    deleteVoice: (bandId: string, songId: string, voiceId: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/songs/${songId}/voices/${voiceId}`, { method: 'DELETE' }),
+
+    // Swaps an already-uploaded file (same presign/PUT/confirm flow as
+    // uploadFile.ts's normal path) into an existing voice, replacing
+    // oldSha256 in place — see routes/songs.ts's own comment.
+    overwriteVoiceFile: (bandId: string, songId: string, voiceId: string, oldSha256: string, newFile: FileRef) =>
+      req<{ ok: true }>(`/bands/${bandId}/songs/${songId}/voices/${voiceId}/files/${oldSha256}/overwrite`, {
+        method: 'POST',
+        body: JSON.stringify(newFile),
+      }),
 
     // Strictly personal voice annotations — see B4 of the Milestone 2 Teil B
     // plan. Never routed through the band's Yjs document.

@@ -13,7 +13,7 @@ import * as Y from 'yjs';
 import { afterAll, describe, expect, it } from 'vitest';
 import { app } from '../app';
 import { db } from '../db/client';
-import { bandDocs, bandMembers, bands, userPrefs, users } from '../db/schema/index';
+import { attachments, bandDocs, bandMembers, bands, userPrefs, users } from '../db/schema/index';
 import { auth } from '../lib/auth';
 
 async function signUpTestUser() {
@@ -221,5 +221,40 @@ describe('destructive band/song/setlist actions (integration)', () => {
     const snapshot = await loadSnapshot(band.id);
     const files = snapshot?.voices[filesVoiceId]?.kind === 'files' ? snapshot.voices[filesVoiceId].files : undefined;
     expect(files?.map((f) => f.sha256)).toEqual(['b'.repeat(64)]);
+  });
+
+  it('rejects a member deleting a whole voice, but lets an admin', async () => {
+    const { band, admin, member, songId, filesVoiceId } = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const forbidden = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}`, 'DELETE', member.token);
+    expect(forbidden.status).toBe(403);
+
+    const ok = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}`, 'DELETE', admin.token);
+    expect(ok.status).toBe(200);
+
+    const snapshot = await loadSnapshot(band.id);
+    expect(snapshot?.voices[filesVoiceId]).toBeUndefined();
+  });
+
+  it('rejects a member overwriting a voice file, but lets an admin, only once the new content is actually confirmed uploaded', async () => {
+    const { band, admin, member, songId, filesVoiceId } = await setupBand(cleanupUserIds, cleanupBandIds);
+    const newFile = { sha256: 'c'.repeat(64), filename: 'part-1-corrected.pdf', mime: 'application/pdf', pageCount: 2 };
+
+    const forbidden = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}/overwrite`, 'POST', member.token, newFile);
+    expect(forbidden.status).toBe(403);
+
+    // An admin, but nobody ever actually uploaded/confirmed newFile's hash —
+    // this must not let a caller point a voice at bytes that don't exist.
+    const notConfirmed = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}/overwrite`, 'POST', admin.token, newFile);
+    expect(notConfirmed.status).toBe(400);
+
+    await db.insert(attachments).values({ bandId: band.id, sha256: newFile.sha256, filename: newFile.filename, mime: newFile.mime, size: 1234 });
+
+    const ok = await req(`/${band.id}/songs/${songId}/voices/${filesVoiceId}/files/${'a'.repeat(64)}/overwrite`, 'POST', admin.token, newFile);
+    expect(ok.status).toBe(200);
+
+    const snapshot = await loadSnapshot(band.id);
+    const files = snapshot?.voices[filesVoiceId]?.kind === 'files' ? snapshot.voices[filesVoiceId].files : undefined;
+    expect(files?.map((f) => f.sha256)).toEqual([newFile.sha256, 'b'.repeat(64)]);
   });
 });

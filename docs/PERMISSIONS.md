@@ -22,6 +22,8 @@ owner.
 | Delete a setlist | ✅ | ✅ | — |
 | Manage your own instruments, notes, and personal transpose | ✅ | ✅ | ✅ |
 | Upload a file to a voice | ✅ | ✅ | ✅ |
+| Overwrite an existing file within a voice (same name/hash) | ✅ | ✅ | — |
+| Delete a whole voice | ✅ | ✅ | — |
 | Detach a file from a voice | ✅ | ✅ | — |
 | Change your own voice assignment | ✅ | ✅ | ✅ |
 | Change another member's voice assignment | ✅ | ✅ | — |
