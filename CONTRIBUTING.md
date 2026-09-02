@@ -155,7 +155,8 @@ from that:
    exclusion list of what to spare. An exclusion list ("delete everything except the demo accounts")
    only stays safe as long as someone remembers to keep it updated for every account anyone ever
    wants to keep; a prefix match can never touch something it wasn't explicitly asked to, regardless
-   of what else ends up in the database.
+   of what else ends up in the database. It refuses to run outside `NODE_ENV=development`/`test`,
+   same fail-closed reasoning as `pnpm seed` (`apps/server/src/scripts/cleanupTestAccounts.ts`).
 
 ## Testing on mobile devices
 

@@ -16,7 +16,7 @@
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "seed": "cross-env NODE_ENV=development tsx --env-file=../../.env src/seed/index.ts",
     "blobs:gc": "tsx --env-file=../../.env src/blobs/gc.ts",
-    "cleanup:test-accounts": "tsx --env-file=../../.env src/scripts/cleanupTestAccounts.ts",
+    "cleanup:test-accounts": "cross-env NODE_ENV=development tsx --env-file=../../.env src/scripts/cleanupTestAccounts.ts",
     "push:keys": "tsx --env-file=../../.env src/push/generateKeys.ts",
     "push:due": "tsx --env-file=../../.env src/push/due.ts",
     "bands:sweep-archived": "tsx --env-file=../../.env src/bands/sweepArchived.ts"
