@@ -20,7 +20,6 @@ import { authClient } from '../lib/auth-client';
 import { getActiveServerConfig, isUsingCustomServer } from '../lib/serverConfig';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
-import { useThemeStore } from '../stores/theme';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 const LOCALES: Locale[] = ['en', 'de'];
@@ -33,8 +32,6 @@ export function AccountSettings() {
   const loaded = useUserPrefsStore((s) => s.loaded);
   const load = useUserPrefsStore((s) => s.load);
   const update = useUserPrefsStore((s) => s.update);
-  const theme = useThemeStore((s) => s.theme);
-  const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const [bands, setBands] = useState<MyBand[] | null>(null);
   const [archivedBands, setArchivedBands] = useState<ArchivedBand[] | null>(null);
@@ -203,10 +200,10 @@ export function AccountSettings() {
             size="sm"
             type="button"
             className="mt-3"
-            aria-pressed={theme === 'dark'}
-            onClick={toggleTheme}
+            aria-pressed={prefs.theme === 'dark'}
+            onClick={() => void update({ theme: prefs.theme === 'dark' ? 'light' : 'dark' })}
           >
-            {theme === 'dark' ? t('appHeader.themeLight') : t('appHeader.themeDark')}
+            {prefs.theme === 'dark' ? t('appHeader.themeLight') : t('appHeader.themeDark')}
           </Button>
         </div>
 
