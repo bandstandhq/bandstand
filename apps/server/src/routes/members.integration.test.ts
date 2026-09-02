@@ -92,6 +92,15 @@ describe('band member management (integration)', () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects the owner demoting themselves — the band_members_one_owner_idx index only rules out two owners, not zero", async () => {
+    const { band, owner } = await setupBand(cleanupUserIds, cleanupBandIds);
+
+    const res = await req(`/${band.id}/members/${owner.userId}/role`, 'PATCH', owner.token, { role: 'admin' });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'owner_cannot_change_own_role' });
+    expect(await roleOf(band.id, owner.userId)).toBe('owner');
+  });
+
   it('lets an admin remove a plain member, but not another admin or the owner', async () => {
     const { band, owner, admin, member } = await setupBand(cleanupUserIds, cleanupBandIds);
     const secondAdmin = await signUpTestUser();
@@ -127,8 +136,25 @@ describe('band member management (integration)', () => {
   it('transfers ownership: only the owner may, and it flips both roles atomically', async () => {
     const { band, owner, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
+    async function ownerCount() {
+      const owners = await db
+        .select()
+        .from(bandMembers)
+        .where(and(eq(bandMembers.bandId, band.id), eq(bandMembers.role, 'owner')));
+      return owners.length;
+    }
+
     const forbidden = await req(`/${band.id}/members/${admin.userId}/transfer-ownership`, 'POST', admin.token);
     expect(forbidden.status).toBe(403);
+
+    // The mirror case of "never two owners": the owner trying to demote
+    // themselves via the role-change route instead of transferring must
+    // never leave the band with zero — checked before the real transfer
+    // below, so this isn't just incidentally still true because the real
+    // transfer hasn't run yet.
+    const selfDemote = await req(`/${band.id}/members/${owner.userId}/role`, 'PATCH', owner.token, { role: 'admin' });
+    expect(selfDemote.status).toBe(400);
+    expect(await ownerCount()).toBe(1);
 
     const ok = await req(`/${band.id}/members/${admin.userId}/transfer-ownership`, 'POST', owner.token);
     expect(ok.status).toBe(200);
@@ -137,11 +163,7 @@ describe('band member management (integration)', () => {
 
     // Exactly one owner, still — the partial unique index would have
     // thrown at the DB level if this transaction had produced two.
-    const owners = await db
-      .select()
-      .from(bandMembers)
-      .where(and(eq(bandMembers.bandId, band.id), eq(bandMembers.role, 'owner')));
-    expect(owners).toHaveLength(1);
+    expect(await ownerCount()).toBe(1);
   });
 
   it('lets a member or admin leave normally', async () => {
