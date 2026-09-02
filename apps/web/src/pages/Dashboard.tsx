@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { type AvailabilityAnswer, type CalendarEvent, resolveEventOccurrences } from '@bandstand/core';
+import { type AvailabilityAnswer, type CalendarEvent, type Poll, resolveEventOccurrences } from '@bandstand/core';
 import { Button, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -66,6 +66,47 @@ function UpcomingEvents({ bandId, doc, currentUserId }: { bandId: string; doc: i
             </li>
           );
         })}
+      </ul>
+    </div>
+  );
+}
+
+/** Every open (not yet closed into an event) poll the current user hasn't voted in at all — voting on any one option is enough to drop off this list, even if the poll itself stays open for others. */
+function OpenPolls({ bandId, doc, currentUserId }: { bandId: string; doc: import('yjs').Doc; currentUserId: string }) {
+  const { t } = useTranslation();
+  const polls = useYMap<Poll>(doc.getMap('polls'));
+  const pollVotes = useYMap<AvailabilityAnswer>(doc.getMap('pollVotes'));
+
+  const unvoted = useMemo(
+    () =>
+      Object.entries(polls).filter(
+        ([pollId, poll]) =>
+          !poll.resolvedEventId &&
+          !poll.options.some((option) => pollVotes[`${pollId}:${option.id}:${currentUserId}`] !== undefined),
+      ),
+    [polls, pollVotes, currentUserId],
+  );
+
+  if (unvoted.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-sm font-medium text-muted-foreground">{t('dashboard.openPollsTitle')}</h2>
+      <ul className="mt-2 space-y-2">
+        {unvoted.map(([pollId, poll]) => (
+          <li
+            key={pollId}
+            className="relative flex items-center justify-between gap-3 rounded-md border border-border p-3 hover:bg-accent/50 focus-within:bg-accent/50"
+          >
+            <Link
+              to={`/bands/${bandId}/polls/${pollId}`}
+              className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              aria-label={t('dashboard.openPollAria', { name: poll.title })}
+            />
+            <p className="min-w-0 wrap-break-word">{poll.title}</p>
+            <span className="shrink-0 text-xs text-primary">{t('dashboard.needsResponse')}</span>
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -170,6 +211,7 @@ export function Dashboard() {
       </p>
       {doc && bandId && <OfflineReadiness bandId={bandId} doc={doc} />}
       {doc && bandId && session && <UpcomingEvents bandId={bandId} doc={doc} currentUserId={session.user.id} />}
+      {doc && bandId && session && <OpenPolls bandId={bandId} doc={doc} currentUserId={session.user.id} />}
       <CalendarSubscribePanel />
       <PushNotificationsPanel />
     </PageShell>
