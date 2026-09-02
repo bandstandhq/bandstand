@@ -105,6 +105,8 @@
     "welcomeDescription": "Tritt einer Band bei, zu der du eingeladen wurdest, oder leg eine neue an.",
     "welcomeOr": "oder",
     "upcomingTitle": "Als Nächstes",
+    "openPollsTitle": "Wartet auf deine Stimme",
+    "openPollAria": "{{name}} öffnen",
     "openEventAria": "{{name}} öffnen",
     "needsResponse": "Braucht deine Antwort",
     "icsTitle": "Kalender abonnieren",
