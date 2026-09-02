@@ -13,22 +13,52 @@ interface RateLimitOptions {
   max: number;
 }
 
+// How many reverse proxies sit in front of this server. 0 (the default)
+// means never trust X-Forwarded-For at all: it's a request header the
+// client fully controls, and unconditionally trusting it (as this used to)
+// makes every IP-keyed rate limit in this app decorative — a client that
+// sends a fresh, made-up value per request gets a fresh bucket per request.
+// Set this to the real number of hops you run (typically 1 behind a single
+// nginx/Caddy/Traefik) — see docs/SELF_HOSTING.md. Read once at module
+// load, not per call (unlike push/config.ts, which deliberately reads
+// process.env fresh every time) — this value is fixed for the life of the
+// process, same as everything else about how the app is deployed.
+const TRUSTED_PROXY_HOPS = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+
 /**
- * Client IP: X-Forwarded-For first (a reverse-proxied self-hosted deploy
- * sits behind one), falling back to the direct socket peer. getConnInfo
- * only works when the request actually flowed through @hono/node-server's
- * serve() — it throws when a route is invoked in-process (e.g. `app.request()`
- * in tests), so that path is guarded rather than assumed available.
+ * `clientIp`'s actual logic, taking `trustedHops` as a parameter instead of
+ * reading the module-level constant — `clientIp` itself just delegates to
+ * this with `TRUSTED_PROXY_HOPS`. Reading the env var once at module load
+ * (see that constant's own comment) makes it untestable by mutating
+ * `process.env` after the fact, so tests call this exported helper with an
+ * explicit value instead.
+ *
+ * With `trustedHops > 0`, counts from the *right* of the X-Forwarded-For
+ * chain: each proxy appends the address it received the request from, so
+ * the rightmost entries are the ones your own infrastructure added and the
+ * leftmost is whatever the client put there. With exactly one trusted hop,
+ * the client's real address is the last entry. `getConnInfo` (the
+ * fallback, and the only path at all when `trustedHops` is 0) only works
+ * when the request actually flowed through @hono/node-server's serve() —
+ * it throws when a route is invoked in-process (e.g. `app.request()` in
+ * tests), so that path is guarded rather than assumed available.
  */
-export function clientIp(c: Context): string {
-  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
-  if (forwardedFor) return forwardedFor;
+export function resolveClientIp(c: Context, trustedHops: number): string {
+  if (trustedHops > 0) {
+    const chain = c.req.header('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+    const candidate = chain[chain.length - trustedHops];
+    if (candidate) return candidate;
+  }
 
   try {
     return getConnInfo(c).remote.address ?? 'unknown';
   } catch {
     return 'unknown';
   }
+}
+
+export function clientIp(c: Context): string {
+  return resolveClientIp(c, TRUSTED_PROXY_HOPS);
 }
 
 /**

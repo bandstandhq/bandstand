@@ -51,6 +51,19 @@ development placeholders, and the server refuses to start with the MinIO
 ones left unchanged once `NODE_ENV=production` (which the shipped
 `docker/Dockerfile.server` already sets).
 
+### Reverse proxy: `TRUST_PROXY_HOPS`
+
+TLS termination and reverse-proxy setup aren't written up here yet (see "Not yet covered here"
+below), but if you put one in front of this server — nginx, Caddy, Traefik, or anything else —
+you need `TRUST_PROXY_HOPS` for the same reason: every IP-based rate limit in this app (signup,
+invite creation/redemption, the ICS feed, password reset) keys off the client's IP address, and
+behind a reverse proxy that address only ever arrives via the `X-Forwarded-For` header, not the
+raw socket connection. `X-Forwarded-For` is also a header the client can send anything it wants
+in — so it's trusted only as far as you explicitly say to. The default, `0`, never trusts it at
+all (correct with no reverse proxy); set it to `1` for a single reverse proxy in front of this
+server, and no higher than however many you actually run — see `.env.example`'s own comment for
+why going higher than that reopens the exact spoofing problem this exists to close.
+
 ### File storage (MinIO/S3) and `WEB_ORIGIN`
 
 Song attachments (PDFs, images) are content-addressed and stored in an
@@ -139,7 +152,7 @@ permanently deleted — restoring still works either way, only the actual cleanu
 
 ## Not yet covered here
 
-- TLS/reverse-proxy setup
+- TLS/reverse-proxy setup (but see `TRUST_PROXY_HOPS` above if you're already running one)
 - Backup/restore for the Postgres volume and the object store's data
 - Multi-instance/scaling guidance
 

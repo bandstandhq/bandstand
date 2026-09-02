@@ -10,7 +10,7 @@
 // actually exercises that composition, not a fragment of it.
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { app, MAX_REQUEST_BODY_BYTES } from './app';
 import { db } from './db/client';
 import { users } from './db/schema/index';
@@ -79,13 +79,74 @@ describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
   });
 
   it(
-    'rejects the 21st signup from the same IP within an hour — registration has no invite gate, so this is the only thing standing between an open /signup and account-farming',
+    // The actual regression test for the X-Forwarded-For trust fix: with
+    // TRUST_PROXY_HOPS unset (the default, 0), the header is never trusted
+    // at all — a fresh, made-up value per request must not buy a fresh
+    // bucket per request. Before the fix, this loop's 25 distinct spoofed
+    // IPs each got their own limiter bucket and every request succeeded.
+    'rejects the 21st signup within an hour even when every request spoofs a different X-Forwarded-For, because the header is ignored by default',
+    async () => {
+      let last: Response | undefined;
+
+      for (let i = 0; i < 25; i++) {
+        const spoofedIp = `${randomInt(256)}.${randomInt(256)}.${randomInt(256)}.${randomInt(256)}`;
+        last = await app.request('/api/auth/sign-up/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': spoofedIp },
+          body: JSON.stringify({
+            email: `test-signup-spoof-${randomUUID()}@bandstand.local`,
+            password: 'test-password-123',
+            name: 'Signup Spoof Tester',
+          }),
+        });
+        if (isSuccessResponse(last)) {
+          const body = (await last.clone().json()) as { user?: { id: string } };
+          if (body.user?.id) cleanupUserIds.push(body.user.id);
+        }
+      }
+
+      expect(last!.status).toBe(429);
+    },
+    // 25 real signups, each doing real password hashing plus a DB round
+    // trip — comfortably fits in vitest's 5s default on a quiet machine,
+    // but wants headroom under load.
+    20_000,
+  );
+});
+
+describe('POST /api/auth/sign-up/email rate limiting with TRUST_PROXY_HOPS=1 (integration)', () => {
+  const cleanupUserIds: string[] = [];
+  const originalTrustProxyHops = process.env.TRUST_PROXY_HOPS;
+  // TRUST_PROXY_HOPS is read once, at module load, by rateLimit.ts (see its
+  // own comment on why) — a plain `process.env` mutation in beforeAll runs
+  // long after app.ts (and everything it imports, including rateLimit.ts)
+  // has already been evaluated by the top-level `import` above, so it
+  // would have no effect on the already-registered signup limiter. Setting
+  // the env var *and* resetting the module registry *and* re-importing
+  // app.ts, all inside beforeAll, gets a genuinely fresh app instance whose
+  // signup limiter was built with the new value.
+  let appWithTrustedProxy: typeof import('./app').app;
+
+  beforeAll(async () => {
+    process.env.TRUST_PROXY_HOPS = '1';
+    vi.resetModules();
+    ({ app: appWithTrustedProxy } = await import('./app'));
+  });
+
+  afterAll(async () => {
+    if (originalTrustProxyHops === undefined) delete process.env.TRUST_PROXY_HOPS;
+    else process.env.TRUST_PROXY_HOPS = originalTrustProxyHops;
+    for (const userId of cleanupUserIds) await db.delete(users).where(eq(users.id, userId));
+  });
+
+  it(
+    'rejects the 21st signup from the same (trusted, single-hop) IP within an hour — registration has no invite gate, so this is the only thing standing between an open /signup and account-farming',
     async () => {
       const ip = `203.0.${randomUUID().slice(0, 3)}.1`; // a fresh /24-ish per test run, isolated from other tests hitting this same limiter instance
       let last: Response | undefined;
 
       for (let i = 0; i < 21; i++) {
-        last = await app.request('/api/auth/sign-up/email', {
+        last = await appWithTrustedProxy.request('/api/auth/sign-up/email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
           body: JSON.stringify({
@@ -108,6 +169,10 @@ describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
     15_000,
   );
 });
+
+function randomInt(max: number): number {
+  return Math.floor(Math.random() * max);
+}
 
 function isSuccessResponse(res: Response): boolean {
   return res.status >= 200 && res.status < 300;
