@@ -10,7 +10,16 @@
     <title>Bandstand</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      Shown until React mounts and replaces this — main.tsx awaits a same-origin
+      GET /config.json fetch first (see docs/SELF_HOSTING.md), normally well under
+      100ms but not instant, so this covers that gap rather than a blank page.
+    -->
+    <div id="root">
+      <div style="display: flex; min-height: 100vh; align-items: center; justify-content: center; font-family: system-ui, sans-serif; color: #666">
+        Loading…
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
