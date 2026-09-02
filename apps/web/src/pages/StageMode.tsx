@@ -48,6 +48,7 @@ import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import { useUserPrefsStore } from '../stores/userPrefs';
 import type * as Y from 'yjs';
 
 // Code-split: pdf.js is a large dependency most songs (plain ChordPro)
@@ -652,7 +653,13 @@ export function StageMode() {
   const currentIndex = Math.max(0, Math.min(requestedIndex, items.length - 1));
   const currentItem = items[currentIndex];
 
-  const [theme, setTheme] = useState<Theme>('dark');
+  // Shared with the Dashboard/Account Settings toggle via the same
+  // server-backed store (issue #110) — reading it here instead of a local
+  // useState means the two can no longer show a different theme for the
+  // same account. The rest of this page's prefs (below) stay local/
+  // independently-fetched; only theme needed reconciling.
+  const theme = useUserPrefsStore((s) => s.prefs.theme);
+  const updateUserPrefs = useUserPrefsStore((s) => s.update);
   const [textSize, setTextSize] = useState<TextSize>('medium');
   const [boldText, setBoldText] = useState(false);
   const [chordColor, setChordColor] = useState('#3b82f6');
@@ -717,7 +724,6 @@ export function StageMode() {
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => {
-      setTheme(prefs.theme);
       setTextSize(prefs.textSize);
       setBoldText(prefs.boldText);
       setChordColor(prefs.chordColor);
@@ -752,14 +758,24 @@ export function StageMode() {
   }, []);
 
   function handleSettingsChange(patch: Partial<{ theme: Theme; textSize: TextSize; boldText: boolean; chordColor: string; contentVisibility: ContentVisibility }>) {
-    if (patch.theme !== undefined) setTheme(patch.theme);
-    if (patch.textSize !== undefined) setTextSize(patch.textSize);
-    if (patch.boldText !== undefined) setBoldText(patch.boldText);
-    if (patch.chordColor !== undefined) setChordColor(patch.chordColor);
-    if (patch.contentVisibility !== undefined) setContentVisibility(patch.contentVisibility);
-    apiClient.updateMyPrefs(patch).catch(() => {
-      // Best-effort — the view already reflects the change locally.
-    });
+    const { theme: nextTheme, ...rest } = patch;
+    if (nextTheme !== undefined) {
+      // Goes through the shared store (not a raw apiClient call here) so
+      // the Dashboard/Account Settings toggle picks up the change too —
+      // see the `theme` useUserPrefsStore read above.
+      void updateUserPrefs({ theme: nextTheme }).catch(() => {
+        // Best-effort — the view already reflects the change locally.
+      });
+    }
+    if (rest.textSize !== undefined) setTextSize(rest.textSize);
+    if (rest.boldText !== undefined) setBoldText(rest.boldText);
+    if (rest.chordColor !== undefined) setChordColor(rest.chordColor);
+    if (rest.contentVisibility !== undefined) setContentVisibility(rest.contentVisibility);
+    if (Object.keys(rest).length > 0) {
+      apiClient.updateMyPrefs(rest).catch(() => {
+        // Best-effort — the view already reflects the change locally.
+      });
+    }
   }
 
   let label = '';
