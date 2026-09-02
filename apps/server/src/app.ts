@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { ZodError } from 'zod';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { auth } from './lib/auth';
 import { parseAllowedOrigins } from './lib/corsOrigins';
 import { assertWebOriginIsRestricted } from './lib/envGuard';
@@ -21,6 +22,7 @@ import { passwordResetRateLimit } from './lib/passwordResetRateLimit';
 import { clientIp, createRateLimiter } from './lib/rateLimit';
 import { bandsRoute } from './routes/bands';
 import { calendarFeedRoute } from './routes/calendarFeed';
+import { config } from './routes/config';
 import { health } from './routes/health';
 import { icsTokenRoute } from './routes/icsToken';
 import { emailChangeRoute } from './routes/emailChange';
@@ -81,6 +83,7 @@ app.onError((err, c) => {
 });
 
 app.route('/health', health);
+app.route('/config.json', config);
 app.route('/bands', bandsRoute);
 app.route('/invites', inviteRedemptionRoute);
 app.route('/me/prefs', userPrefsRoute);
@@ -165,3 +168,16 @@ app.use(
 );
 
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+
+// Serves apps/web's built static files, so a single deployment of this server is also a complete
+// web app — see docs/SELF_HOSTING.md and Part 1 of the runtime-config work: this is what makes
+// GET /config.json above a same-origin fetch for a normal browser deployment. Registered last so
+// every real route above takes priority; WEB_DIST_ROOT is relative to the process's own CWD (per
+// @hono/node-server's serveStatic — "root" is not relative to this file), defaulting to the
+// natural sibling path when run locally (`pnpm start`'s CWD is apps/server/) and overridden by
+// docker/Dockerfile.server's flattened runner layout. Harmless if the directory doesn't exist
+// (nothing to serve, e.g. apps/web was never built) — requests just fall through to Hono's normal
+// 404, same as before this route existed.
+const WEB_DIST_ROOT = process.env.WEB_DIST_ROOT ?? '../web/dist';
+app.use('*', serveStatic({ root: WEB_DIST_ROOT }));
+app.use('*', serveStatic({ root: WEB_DIST_ROOT, path: 'index.html' }));

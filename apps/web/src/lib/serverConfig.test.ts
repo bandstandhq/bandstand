@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearServerOverride,
   DEFAULT_SERVER_CONFIG,
   getActiveServerConfig,
+  initializeServerConfig,
   isUsingCustomServer,
   setServerOverride,
 } from './serverConfig';
@@ -91,5 +92,85 @@ describe('serverConfig', () => {
     localStorage.setItem('bandstand.serverConfig', JSON.stringify({ serverUrl: 'https://example.test' }));
 
     expect(getActiveServerConfig()).toEqual(DEFAULT_SERVER_CONFIG);
+  });
+
+  describe('initializeServerConfig', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('does nothing in dev, even with a fetch available', async () => {
+      import.meta.env.DEV = true;
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      await initializeServerConfig();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each(['Capacitor', '__TAURI_INTERNALS__', '__TAURI__'])(
+      'does nothing in a wrapped app exposing a %s global, even outside dev',
+      async (globalName) => {
+        import.meta.env.DEV = false;
+        vi.stubGlobal('window', { [globalName]: {} });
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        await initializeServerConfig();
+
+        expect(fetchMock).not.toHaveBeenCalled();
+      },
+    );
+
+    it('replaces DEFAULT_SERVER_CONFIG with a valid GET /config.json response', async () => {
+      import.meta.env.DEV = false;
+      vi.stubGlobal('window', {});
+      const fetched = { serverUrl: 'https://bandstand.example.com', hocuspocusUrl: 'wss://bandstand.example.com' };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(fetched) }),
+      );
+
+      await initializeServerConfig();
+
+      expect(DEFAULT_SERVER_CONFIG).toEqual(fetched);
+    });
+
+    it('leaves DEFAULT_SERVER_CONFIG unchanged when the fetch itself fails', async () => {
+      import.meta.env.DEV = false;
+      vi.stubGlobal('window', {});
+      const before = DEFAULT_SERVER_CONFIG;
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
+
+      await initializeServerConfig();
+
+      expect(DEFAULT_SERVER_CONFIG).toEqual(before);
+    });
+
+    it('leaves DEFAULT_SERVER_CONFIG unchanged when the response is not ok', async () => {
+      import.meta.env.DEV = false;
+      vi.stubGlobal('window', {});
+      const before = DEFAULT_SERVER_CONFIG;
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      await initializeServerConfig();
+
+      expect(DEFAULT_SERVER_CONFIG).toEqual(before);
+    });
+
+    it('leaves DEFAULT_SERVER_CONFIG unchanged when the response body is missing a field', async () => {
+      import.meta.env.DEV = false;
+      vi.stubGlobal('window', {});
+      const before = DEFAULT_SERVER_CONFIG;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ serverUrl: 'https://example.test' }) }),
+      );
+
+      await initializeServerConfig();
+
+      expect(DEFAULT_SERVER_CONFIG).toEqual(before);
+    });
   });
 });
