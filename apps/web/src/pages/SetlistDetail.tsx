@@ -35,7 +35,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { TrashIcon } from '../components/icons';
+import { GripIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -84,14 +84,22 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
         {...listeners}
         {...attributes}
         data-testid="pool-drag-handle"
-        // Without this, a touch press on this handle can't be told apart
-        // from the start of a page scroll — the browser's own scroll
-        // gesture wins almost every time before TouchSensor's activation
-        // delay elapses, so a drag from the pool never actually starts on a
-        // touchscreen. See docs/adr/0014-no-native-drag-on-interactive-rows.md.
+        aria-label={t('setlistDetail.dragHandle', { name: song.title })}
+        // Confined to this small handle, not the whole row (see
+        // SortableSetlistItem's identical reasoning below): without this, a
+        // touch press here can't be told apart from the start of a page
+        // scroll — the browser's own scroll gesture wins almost every time
+        // before TouchSensor's activation delay elapses, so a drag from the
+        // pool never actually starts on a touchscreen. Confining it to just
+        // the handle (not the label text next to it) is what lets a finger
+        // starting anywhere else on this row still scroll the page normally.
+        // See docs/adr/0014-no-native-drag-on-interactive-rows.md.
         style={{ touchAction: 'none' }}
-        className="flex min-h-11 flex-1 cursor-grab items-center py-1"
+        className="flex h-11 w-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
       >
+        <GripIcon className="h-5 w-5" />
+      </span>
+      <span className="flex-1 py-1">
         {song.title} <span className="text-muted-foreground">— {song.artist}</span>
       </span>
       {/* Dragging has no keyboard equivalent for "add from an external
@@ -175,34 +183,36 @@ function SortableSetlistItem({
     <li
       ref={setNodeRef}
       style={style}
-      className={`flex items-center justify-between rounded-md border border-border p-2 text-sm ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex items-center gap-1 justify-between rounded-md border border-border p-2 text-sm ${isDragging ? 'opacity-50' : ''}`}
     >
-      {/* Doubles as the drag handle and the tap target for Stage Mode — a
-          plain tap (no pointer movement past dnd-kit's activation
-          distance) reaches Stage Mode; a drag reorders. Previously only the
-          small separate "Play" link (now removed) navigated at all, so
-          tapping the row itself did nothing.
+      {/* A dedicated grip, not the whole row (see PoolSongCard's identical
+          reasoning) — this is the only part of the row that's draggable, so
+          a finger starting a scroll swipe anywhere over the label itself
+          isn't fighting dnd-kit's touch-action:none for it. */}
+      <span
+        {...attributes}
+        {...listeners}
+        aria-label={t('setlistDetail.dragHandle', { name: getItemLabel(item, song, t) })}
+        style={{ touchAction: 'none' }}
+        className="flex h-11 w-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
+      >
+        <GripIcon className="h-5 w-5" />
+      </span>
+      {/* The tap target for Stage Mode — a plain tap reaches it; dragging now
+          only ever starts from the handle above, never from here.
           `draggable={false}` is load-bearing, not decorative: an <a> is
           natively draggable by default, and the browser's own drag
-          recognition runs independently of dnd-kit's pointer tracking. Under
-          CPU contention (e.g. an older tablet), the native drag can win the
-          race before dnd-kit's preventDefault applies, silently swallowing
-          the gesture — see docs/adr/0014-no-native-drag-on-interactive-rows.md. */}
+          recognition runs independently of dnd-kit's pointer tracking. */}
       <Link
         ref={linkRef}
         to={`/bands/${bandId}/setlists/${setlistId}/stage/${item.id}`}
         draggable={false}
-        // Same reasoning as PoolSongCard's handle — a touch press here must
-        // never be interpreted as the start of a page scroll.
-        style={{ touchAction: 'none' }}
         onPointerDown={() => {
           // A fresh gesture starting — any suppression armed by a previous
           // drag that never got the click it was waiting for is stale now.
           suppressNextClickRef.current = false;
         }}
-        {...attributes}
-        {...listeners}
-        className="flex min-h-11 flex-1 cursor-grab items-center rounded-md px-1 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 flex-1 items-center rounded-md px-1 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {getItemLabel(item, song, t)}
       </Link>

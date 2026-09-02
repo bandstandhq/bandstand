@@ -231,6 +231,7 @@
     "poolEmpty": "Noch keine aktiven Songs — füge zuerst welche im Repertoire hinzu.",
     "waitingForConnection": "Verbindet — dein Repertoire erscheint gleich.",
     "addToEnd": "Ans Ende hinzufügen",
+    "dragHandle": "{{name}} zum Umsortieren ziehen",
     "items": "Setlist",
     "itemsEmpty": "Ziehe Songs hierher, um das Set zusammenzustellen.",
     "itemsEmptyReadOnly": "Diese Setlist ist leer. Tippe auf Bearbeiten, um Songs hinzuzufügen.",

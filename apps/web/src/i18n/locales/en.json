@@ -231,6 +231,7 @@
     "poolEmpty": "No active songs yet — add some in Repertoire first.",
     "waitingForConnection": "Connecting — your repertoire will appear in a moment.",
     "addToEnd": "Add to end",
+    "dragHandle": "Drag to reorder {{name}}",
     "items": "Setlist",
     "itemsEmpty": "Drag songs here to build the set.",
     "itemsEmptyReadOnly": "This setlist is empty. Tap Edit to add songs.",

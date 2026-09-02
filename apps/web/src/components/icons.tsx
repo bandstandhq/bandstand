@@ -99,3 +99,17 @@ export function BarChartIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+/** A drag handle's grip — six dots, the standard "grab here" affordance. */
+export function GripIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...baseProps(props)} fill="currentColor" stroke="none">
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </svg>
+  );
+}
