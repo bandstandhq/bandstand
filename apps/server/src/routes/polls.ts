@@ -5,7 +5,16 @@
 // write — see docs/adr/0005-permissions.md and
 // docs/adr/0011-calendar-events.md. Creating a poll and voting in one stay
 // pure CRDT (admin-gated and member-open respectively).
-import { can, closePollInputSchema, createEvent, deletePoll, listPolls, markPollResolved } from '@bandstand/core';
+import {
+  can,
+  closePollInputSchema,
+  createEvent,
+  deletePoll,
+  listPolls,
+  listVotesForPoll,
+  markPollResolved,
+  respondAvailability,
+} from '@bandstand/core';
 import { Hono } from 'hono';
 import type { BandVariables } from '../lib/bandAuthz';
 import { requireBandRole } from '../lib/bandAuthz';
@@ -57,6 +66,20 @@ pollsRoute.post('/:pollId/close', requireBandRole('member'), async (c) => {
       status: 'confirmed',
     });
     markPollResolved(doc, pollId, eventId);
+
+    // Whoever already answered for the winning option shouldn't have to
+    // answer again for the event it becomes — same AvailabilityAnswer type
+    // on both sides, no mapping needed. Only the winning option's votes
+    // carry over; a "no" on some other, losing option says nothing about
+    // this event.
+    const votes = listVotesForPoll(doc, pollId);
+    const winningOptionPrefix = `${body.optionId}:`;
+    for (const [key, answer] of Object.entries(votes)) {
+      if (!key.startsWith(winningOptionPrefix)) continue;
+      const userId = key.slice(winningOptionPrefix.length);
+      respondAvailability(doc, eventId, userId, answer);
+    }
+
     return { eventId };
   });
 
