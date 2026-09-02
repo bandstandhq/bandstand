@@ -39,6 +39,15 @@ jobs:
           - 8025:8025
     env:
       DATABASE_URL: postgres://bandstand:bandstand@localhost:5432/bandstand
+      # This job runs the real server via `pnpm --filter @bandstand/server
+      # start` (see below), not vitest — vitest sets NODE_ENV=test itself,
+      # but `start` deliberately never sets anything, since it's the same
+      # command a real long-running deployment uses (see
+      # apps/server/src/lib/envGuard.ts). Without this, the server would
+      # refuse to start here at all: WEB_ORIGIN below is a localhost
+      # address, which envGuard.ts's default now correctly rejects outside
+      # development/test.
+      NODE_ENV: test
       BETTER_AUTH_SECRET: ci-acceptance-test-secret-do-not-use-in-production
       BETTER_AUTH_URL: http://localhost:3001
       # The web app is served from vite preview's default port, not the dev

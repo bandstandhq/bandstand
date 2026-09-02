@@ -20,7 +20,7 @@ import { bearer, jwt } from 'better-auth/plugins';
 import { db } from '../db/client';
 import * as schema from '../db/schema/index';
 import { parseAllowedOrigins } from './corsOrigins';
-import { assertNotDevPlaceholder } from './envGuard';
+import { assertNotDevPlaceholder, assertStrongSecret } from './envGuard';
 import { sendMail } from './mailer';
 
 // Same convention as storage.ts's MinIO credentials: this is a placeholder
@@ -28,6 +28,11 @@ import { sendMail } from './mailer';
 // would otherwise sign every session/JWT with a secret published in this
 // repo's own git history.
 assertNotDevPlaceholder('BETTER_AUTH_SECRET', process.env.BETTER_AUTH_SECRET, 'dev-only-secret-change-me');
+// Separate from the placeholder check above: catches a secret that's
+// missing entirely (silently became `secret: undefined` below) or too
+// short to resist guessing, neither of which is "still the published
+// placeholder" but both leave sessions/JWTs signed with something weak.
+assertStrongSecret('BETTER_AUTH_SECRET', process.env.BETTER_AUTH_SECRET);
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3001',

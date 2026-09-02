@@ -47,9 +47,14 @@ All configuration is environment variables — see `.env.example` for the
 full list with comments. At minimum, change `BETTER_AUTH_SECRET` and the
 `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` pair to real generated values before
 exposing this to the internet — all three ship as obviously-fake
-development placeholders, and the server refuses to start with the MinIO
-ones left unchanged once `NODE_ENV=production` (which the shipped
-`docker/Dockerfile.server` already sets).
+development placeholders. The server refuses to start with any of them
+left unchanged, or with `BETTER_AUTH_SECRET` missing or shorter than 32
+characters, unless `NODE_ENV` is `development` or `test` — which is the
+default assumption, not something you opt into: `pnpm dev` sets it for
+you, but `pnpm start` and `docker/Dockerfile.server` (both meant for a
+real, long-running deployment) deliberately do not, so this applies the
+moment you run either of those with the shipped `.env.example` values
+still in place.
 
 ### Reverse proxy: `TRUST_PROXY_HOPS`
 
