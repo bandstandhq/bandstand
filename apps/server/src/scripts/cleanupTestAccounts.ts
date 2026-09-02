@@ -16,11 +16,23 @@
 import { like } from 'drizzle-orm';
 import { db } from '../db/client';
 import { bands, users } from '../db/schema/index';
+import { isDevelopmentOrTest } from '../lib/envGuard';
+
+// Fail closed, same reasoning as envGuard.ts and seed/index.ts's assertNotProduction: a bare
+// `tsx src/scripts/cleanupTestAccounts.ts` never sets NODE_ENV at all, and the old
+// `=== 'production'` check let that unset case straight through — the realistic way this script
+// gets run outside `pnpm cleanup:test-accounts` (which now sets NODE_ENV=development itself), not
+// just an edge case. A `test-`-prefixed email is plausible on a real production account (a
+// support team, a QA account someone made by hand), so there's no legitimate reason for this
+// backstop to ever touch a non-development/test database — no force override, unlike seed's.
+export function assertNotProduction(): void {
+  if (!isDevelopmentOrTest()) {
+    throw new Error('cleanupTestAccounts must never run against a non-development database.');
+  }
+}
 
 export async function cleanupTestAccounts(): Promise<{ deletedUsers: number; deletedBands: number }> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('cleanupTestAccounts must never run against production.');
-  }
+  assertNotProduction();
 
   const deletedUsers = await db.delete(users).where(like(users.email, 'test-%')).returning({ email: users.email });
   const deletedBands = await db.delete(bands).where(like(bands.slug, 'test-%')).returning({ slug: bands.slug });
