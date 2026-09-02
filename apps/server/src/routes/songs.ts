@@ -22,7 +22,7 @@ import {
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { db } from '../db/client';
-import { attachments, userPrefs } from '../db/schema/index';
+import { attachments, bandMembers, userPrefs } from '../db/schema/index';
 import type { BandVariables } from '../lib/bandAuthz';
 import { requireBandRole } from '../lib/bandAuthz';
 import { withBandDoc } from '../lib/bandDoc';
@@ -36,13 +36,33 @@ songsRoute.get('/:songId/delete-impact', requireBandRole('member'), async (c) =>
   if (!bandId || !songId) return c.json({ error: 'Missing params' }, 400);
   if (!can(c.get('bandRole'), 'song:deleteForever')) return c.json({ error: 'Forbidden' }, 403);
 
-  const affectedSetlists = await withBandDoc(bandId, (doc) => findSetlistsReferencingSong(doc, songId));
+  // songId is a Yjs map key, not a foreign key — nothing else verifies it
+  // actually belongs to this band. Without this check, any band (a
+  // throwaway one included — registration is open, and creating a band
+  // makes you its owner) could probe an arbitrary songId for whether
+  // *anyone on the instance* has personal notes for it, going straight to
+  // withBandDoc's live doc (authoritative — see the DELETE handler below
+  // for why the debounced snapshot isn't good enough here either) rather
+  // than trusting the caller's own band membership to imply anything about
+  // some other band's song.
+  const result = await withBandDoc(bandId, (doc) => {
+    if (!doc.getMap('songs').has(songId)) return { notFound: true } as const;
+    return { notFound: false, affectedSetlists: findSetlistsReferencingSong(doc, songId) } as const;
+  });
+  if (result.notFound) return c.json({ error: 'Not found' }, 404);
 
+  // Scoped to this band's own members: the notes to report on are those of
+  // people who could actually have written them for *this band's* song,
+  // not an instance-wide check for the raw songId.
   const { rows } = await db.execute<{ has_personal_notes: boolean }>(
-    sql`select exists (select 1 from ${userPrefs} where ${userPrefs.songNotes} ? ${songId}) as has_personal_notes`,
+    sql`select exists (
+      select 1 from ${userPrefs}
+      where ${userPrefs.songNotes} ? ${songId}
+        and user_id in (select user_id from ${bandMembers} where band_id = ${bandId}::uuid)
+    ) as has_personal_notes`,
   );
 
-  return c.json({ affectedSetlists, hasPersonalNotes: rows[0]?.has_personal_notes ?? false });
+  return c.json({ affectedSetlists: result.affectedSetlists, hasPersonalNotes: rows[0]?.has_personal_notes ?? false });
 });
 
 songsRoute.delete('/:songId', requireBandRole('member'), async (c) => {
@@ -51,22 +71,38 @@ songsRoute.delete('/:songId', requireBandRole('member'), async (c) => {
   if (!bandId || !songId) return c.json({ error: 'Missing params' }, 400);
   if (!can(c.get('bandRole'), 'song:deleteForever')) return c.json({ error: 'Forbidden' }, 403);
 
-  const affectedSetlists = await withBandDoc(bandId, (doc) => {
+  // songId is a Yjs map key, not a foreign key — nothing else verifies it
+  // actually belongs to this band, and the mutations below are harmless
+  // no-ops for an id this band's doc doesn't have. Without this check, any
+  // band could DELETE an arbitrary songId (e.g. a former member's old
+  // band, still known from an earlier repertoire export) and, via the
+  // instance-wide user_prefs write further down, wipe every user's
+  // personal notes for that song. Checked against the live doc inside this
+  // same withBandDoc call — not the band_docs.snapshot column, which a
+  // debounced store hook (2s) can lag behind a just-created song by — so
+  // this gets authority for free instead of a second, possibly-stale read.
+  const result = await withBandDoc(bandId, (doc) => {
+    if (!doc.getMap('songs').has(songId)) return { notFound: true } as const;
     const names = removeSongFromAllSetlists(doc, songId);
     deleteSongForever(doc, songId);
-    return names;
+    return { notFound: false, affectedSetlists: names } as const;
   });
+  if (result.notFound) return c.json({ error: 'Not found' }, 404);
 
-  // Every member's personal notes/checklist for this song, across the whole
-  // instance — not band-scoped, since user_prefs isn't either (it's keyed
-  // by songId alone, per user).
-  // Postgres rejects a table-qualified name as an UPDATE SET target
-  // ("set user_prefs.song_notes = ..."), so the column is referenced bare
-  // here — the jsonb `-` (remove key) operator has no drizzle query-builder
+  // Every *band member's* personal notes/checklist for this song — not
+  // instance-wide: user_prefs itself has no band column, but the notes
+  // worth clearing are only ever those of people who could have written
+  // them for this band's own song, i.e. this band's members. Postgres
+  // rejects a table-qualified name as an UPDATE SET target ("set
+  // user_prefs.song_notes = ..."), so the column is referenced bare here —
+  // the jsonb `-` (remove key) operator has no drizzle query-builder
   // equivalent, hence the raw SQL at all.
-  await db.execute(sql`update ${userPrefs} set song_notes = song_notes - ${songId}`);
+  await db.execute(sql`
+    update ${userPrefs} set song_notes = song_notes - ${songId}
+    where user_id in (select user_id from ${bandMembers} where band_id = ${bandId}::uuid)
+  `);
 
-  return c.json({ affectedSetlists });
+  return c.json({ affectedSetlists: result.affectedSetlists });
 });
 
 songsRoute.delete('/:songId/voices/:voiceId/files/:sha256', requireBandRole('member'), async (c) => {
