@@ -4,26 +4,27 @@ A thin [Capacitor](https://capacitorjs.com/) wrapper around the `apps/web`
 build. This app contains **no feature logic** — every feature lives in
 `apps/web` and is written once.
 
-## What's here (Milestone 0)
+## What's here
 
-Just `capacitor.config.ts`, pointing at `../web/dist`. `pnpm build` only
+`capacitor.config.ts` (`appId: io.bandstand.app`, pointing `webDir` at
+`../web/dist`) and a real, checked-in `android/` native project — see
+[BUILDING.md](BUILDING.md) for what's already set up there and what you
+still need a local Android Studio install to finish. `pnpm build` only
 asserts that `apps/web` has already been built.
 
-## Manual follow-up (not done here, needs local toolchains)
+## iOS (not started)
 
-Generating and building the actual native projects needs Xcode (iOS) and
-the Android SDK (Android), neither of which is reasonable to assume is
-installed everywhere this repo gets cloned — so it's not done in Milestone 0
-and not run in CI. To do it locally:
+No `ios/` platform directory exists yet — that needs Xcode, which isn't
+reasonable to assume is installed everywhere this repo gets cloned. To add
+it locally:
 
 ```bash
 pnpm --filter @bandstand/web build   # capacitor.config.ts's webDir must exist
 npx cap add ios
-npx cap add android
-npx cap sync
-npx cap open ios       # or: npx cap open android
+npx cap sync ios
+npx cap open ios
 ```
 
 Platform-specific plugins (wake-lock, filesystem, mDNS for LAN discovery)
-get added to the generated `ios/`/`android/` projects as those features are
-built — see `docs/ARCHITECTURE.md`.
+get added to the generated `ios/` project as those features are built — see
+`docs/ARCHITECTURE.md`.
