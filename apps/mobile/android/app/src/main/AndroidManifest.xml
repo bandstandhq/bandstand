@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Stage Mode's "keep the screen awake" toggle (useWakeLock.ts) needs this on some
+         WebView/OEM combinations where the standard Web Wake Lock API alone isn't honored. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Required on Android 13+ (API 33) for the app to post any notification at all,
+         runtime-requested like any other dangerous permission. Note: this only covers
+         notifications shown while the WebView's page/service worker is alive — this app
+         ships no native push plugin (no Firebase), and Android's WebView does not run a
+         persistent background push service the way a full browser does, so background
+         push delivery when the app is fully closed is not guaranteed. See BUILDING.md. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- No camera permission: invite codes are only ever generated as a QR code to display
+         and share, never scanned via the device camera (see BandSettings.tsx). -->
+
+</manifest>

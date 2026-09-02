@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bandstand</string>
+    <string name="title_activity_main">Bandstand</string>
+    <string name="package_name">io.bandstand.app</string>
+    <string name="custom_url_scheme">io.bandstand.app</string>
+</resources>

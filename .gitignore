@@ -15,7 +15,6 @@ storybook-static/
 
 # native wrapper build outputs (config is checked in, generated projects are not)
 apps/mobile/ios/
-apps/mobile/android/
 apps/desktop/src-tauri/target/
 
 # docker volumes bind-mounted for local persistence
