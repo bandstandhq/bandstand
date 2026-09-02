@@ -7,6 +7,7 @@ import {
   can,
   cancelOccurrence,
   type CalendarEvent,
+  createSeriesException,
   type EventStatus,
   type EventType,
   findOccurrenceEvent,
@@ -81,21 +82,37 @@ const EVENT_STATUS_LABEL_KEY: Record<EventStatus, string> = {
  * never the series' recurrence rule itself (repeat/until), which stays a
  * create-time-only decision here; changing an existing series' own
  * recurrence is out of scope for this form.
+ *
+ * `isSeriesTemplateOccurrence` mirrors EventDetail's own flag (see its
+ * comment): saving an edit to the template's own occurrence would
+ * otherwise silently patch the template itself, cascading onto every
+ * future occurrence that doesn't already have its own exception — same
+ * class of bug as the cancel button's, just for every other field
+ * (including notes — there's nothing special-casing them, they're patched
+ * through the same object as everything else). Unlike cancel, an edit
+ * genuinely has two legitimate scopes, so this asks instead of always
+ * picking one: "just this date" (a fresh exception) or "this and all
+ * following" (the existing template-patch behavior, which already leaves
+ * any *other* occurrence's own existing exception alone — untouched
+ * either way, per the user's own call on this).
  */
 function EditEventForm({
   doc,
   event,
   occurrenceId,
+  isSeriesTemplateOccurrence,
   setlists,
   onSaved,
 }: {
   doc: import('yjs').Doc;
   event: CalendarEvent;
   occurrenceId: string;
+  isSeriesTemplateOccurrence: boolean;
   setlists: Record<string, Setlist>;
   onSaved: (savedOccurrenceId: string) => void;
 }) {
   const { t } = useTranslation();
+  const { chooseAction } = useConfirmDialog();
   const [title, setTitle] = useState(event.title);
   const [type, setType] = useState<EventType>(event.type);
   const [allDay, setAllDay] = useState(event.allDay);
@@ -110,7 +127,7 @@ function EditEventForm({
   const [setlistId, setSetlistId] = useState(event.setlistId ?? '');
   const [status, setStatus] = useState<EventStatus>(event.status);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim() || !startsAt) return;
     const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
@@ -121,7 +138,7 @@ function EditEventForm({
         : new Date(endsAt).getTime()
       : undefined;
 
-    const savedOccurrenceId = updateOccurrence(doc, occurrenceId, {
+    const patch = {
       type,
       title: title.trim(),
       startsAt: startMs,
@@ -131,12 +148,33 @@ function EditEventForm({
       notes: notes.trim() || undefined,
       setlistId: setlistId || undefined,
       status,
-    });
-    onSaved(savedOccurrenceId);
+    };
+
+    if (isSeriesTemplateOccurrence && event.seriesId) {
+      const scope = await chooseAction<'occurrence' | 'series'>({
+        title: t('eventDetail.editScopeTitle'),
+        description: t('eventDetail.editScopeDescription'),
+        cancelLabel: t('common.cancel'),
+        actions: [
+          { label: t('eventDetail.editScopeThisOccurrence'), value: 'occurrence' },
+          { label: t('eventDetail.editScopeThisAndFollowing'), value: 'series' },
+        ],
+      });
+      if (scope === null) return;
+      if (scope === 'occurrence') {
+        onSaved(createSeriesException(doc, event.seriesId, toDateValue(event.startsAt), patch));
+        return;
+      }
+      // scope === 'series' falls through to the same template-patch call
+      // below as a non-series (or already-materialized) edit — the
+      // template's own occurrence IS occurrenceId here.
+    }
+
+    onSaved(updateOccurrence(doc, occurrenceId, patch));
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
       <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.titlePlaceholder')} />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -565,6 +603,7 @@ export function EventDetail() {
             doc={doc}
             event={event}
             occurrenceId={occurrenceId}
+            isSeriesTemplateOccurrence={isSeriesTemplateOccurrence}
             setlists={setlists}
             onSaved={(savedOccurrenceId) => {
               setEditDialogOpen(false);
