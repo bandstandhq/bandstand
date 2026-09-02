@@ -167,6 +167,80 @@ describe('destructive band/song/setlist actions (integration)', () => {
     expect(row?.songNotes).toEqual({});
   });
 
+  // Regression tests: songId is a Yjs map key, not a foreign key — nothing
+  // previously verified it belonged to the band in the URL, so any band
+  // (a throwaway one included, since registration is open and creating a
+  // band makes you its owner) could DELETE or probe delete-impact for an
+  // arbitrary songId it had never even seen, e.g. a former member's old
+  // band, known from an earlier repertoire export.
+  it("rejects deleting a song id that belongs to a different band, and leaves that other band's personal notes untouched", async () => {
+    const victimBand = await setupBand(cleanupUserIds, cleanupBandIds);
+    const attacker = await signUpTestUser();
+    cleanupUserIds.push(attacker.userId);
+
+    await db
+      .insert(userPrefs)
+      .values({ userId: victimBand.member.userId, songNotes: { [victimBand.songId]: { notes: 'capo 2', checklist: [] } } });
+
+    const createOwnBand = await req('', 'POST', attacker.token, { name: 'Attacker Band' });
+    expect(createOwnBand.status).toBe(201);
+    const ownBand = (await createOwnBand.json()) as { id: string };
+    cleanupBandIds.push(ownBand.id);
+
+    const attack = await req(`/${ownBand.id}/songs/${victimBand.songId}`, 'DELETE', attacker.token);
+    expect(attack.status).toBe(404);
+
+    // The victim band's song, and the notes anyone wrote for it, are
+    // completely untouched.
+    const snapshot = await loadSnapshot(victimBand.band.id);
+    expect(snapshot?.songs[victimBand.songId]).toBeDefined();
+    const [row] = await db
+      .select({ songNotes: userPrefs.songNotes })
+      .from(userPrefs)
+      .where(eq(userPrefs.userId, victimBand.member.userId));
+    expect(row?.songNotes).toHaveProperty(victimBand.songId);
+  });
+
+  it('rejects delete-impact for a song id that belongs to a different band, rather than leaking whether anyone has notes for it', async () => {
+    const victimBand = await setupBand(cleanupUserIds, cleanupBandIds);
+    const attacker = await signUpTestUser();
+    cleanupUserIds.push(attacker.userId);
+
+    await db
+      .insert(userPrefs)
+      .values({ userId: victimBand.member.userId, songNotes: { [victimBand.songId]: { notes: 'capo 2', checklist: [] } } });
+
+    const createOwnBand = await req('', 'POST', attacker.token, { name: 'Attacker Band' });
+    const ownBand = (await createOwnBand.json()) as { id: string };
+    cleanupBandIds.push(ownBand.id);
+
+    const res = await req(`/${ownBand.id}/songs/${victimBand.songId}/delete-impact`, 'GET', attacker.token);
+    expect(res.status).toBe(404);
+  });
+
+  it("scopes a song's personal-notes cleanup to this band's own members, leaving an outsider's notes for the same song id untouched", async () => {
+    const { band, admin, member, songId } = await setupBand(cleanupUserIds, cleanupBandIds);
+    const outsider = await signUpTestUser();
+    cleanupUserIds.push(outsider.userId);
+
+    await db.insert(userPrefs).values([
+      { userId: member.userId, songNotes: { [songId]: { notes: 'capo 2', checklist: [] } } },
+      // Not a member of `band` at all — just happens to have a userPrefs
+      // row keyed by the exact same songId, since user_prefs has no band
+      // column of its own to naturally scope by.
+      { userId: outsider.userId, songNotes: { [songId]: { notes: 'unrelated notes', checklist: [] } } },
+    ]);
+
+    const res = await req(`/${band.id}/songs/${songId}`, 'DELETE', admin.token);
+    expect(res.status).toBe(200);
+
+    const [memberRow] = await db.select({ songNotes: userPrefs.songNotes }).from(userPrefs).where(eq(userPrefs.userId, member.userId));
+    expect(memberRow?.songNotes).toEqual({});
+
+    const [outsiderRow] = await db.select({ songNotes: userPrefs.songNotes }).from(userPrefs).where(eq(userPrefs.userId, outsider.userId));
+    expect(outsiderRow?.songNotes).toHaveProperty(songId);
+  });
+
   it('rejects a member deleting a setlist, but lets an admin', async () => {
     const { band, admin, member, setlistId } = await setupBand(cleanupUserIds, cleanupBandIds);
 
