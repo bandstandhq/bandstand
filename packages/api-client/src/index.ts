@@ -66,10 +66,16 @@ async function request<T>(
   path: string,
   init: RequestInit | undefined,
   onUnauthorized: (() => void) | undefined,
+  getAuthToken: (() => string | undefined | null) | undefined,
 ): Promise<T> {
+  const authToken = getAuthToken?.();
   const res = await fetch(`${baseUrl}${path}`, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...init?.headers,
+    },
     ...init,
   });
   if (!res.ok) {
@@ -104,12 +110,23 @@ export interface ArchivedBand {
  */
 export type MembershipCheckResult = 'member' | 'not-member' | 'unknown';
 
-async function checkBandMembership(baseUrl: string, bandId: string): Promise<MembershipCheckResult> {
+async function checkBandMembership(
+  baseUrl: string,
+  bandId: string,
+  getAuthToken: (() => string | undefined | null) | undefined,
+): Promise<MembershipCheckResult> {
   try {
+    const authToken = getAuthToken?.();
     // Reuses GET /bands/:bandId/members purely as a membership oracle — it
     // already requires 'member' role, so a 200/403 split is exactly the
-    // answer this needs, with no dedicated endpoint.
-    const res = await fetch(`${baseUrl}/bands/${bandId}/members`, { credentials: 'include' });
+    // answer this needs, with no dedicated endpoint. Bypasses request()
+    // (it needs its own try/catch, not request()'s throw-on-!ok), so the
+    // auth-token header has to be attached here too, not just once in
+    // request() — see that function's own comment.
+    const res = await fetch(`${baseUrl}/bands/${bandId}/members`, {
+      credentials: 'include',
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    });
     if (res.ok) return 'member';
     if (res.status === 403) return 'not-member';
     return 'unknown';
@@ -121,6 +138,15 @@ async function checkBandMembership(baseUrl: string, bandId: string): Promise<Mem
 export interface ApiClientOptions {
   /** Called once per request that comes back 401 — the caller decides what "no longer signed in" means (e.g. clearing the local session). */
   onUnauthorized?: () => void;
+  /**
+   * Returns the bearer token to attach as `Authorization`, or
+   * undefined/null if none — every ordinary browser session (cookie-based,
+   * never persists one) always gets undefined here. Called fresh on every
+   * request, not cached at client-creation time. See
+   * apps/web/src/lib/auth-client.ts for where a wrapped app's token
+   * actually comes from.
+   */
+  getAuthToken?: () => string | undefined | null;
 }
 
 /**
@@ -128,8 +154,8 @@ export interface ApiClientOptions {
  * account/device, not hardcoded — see docs/ARCHITECTURE.md.
  */
 export function createApiClient(baseUrl: string, options: ApiClientOptions = {}) {
-  const { onUnauthorized } = options;
-  const req = <T>(path: string, init?: RequestInit) => request<T>(baseUrl, path, init, onUnauthorized);
+  const { onUnauthorized, getAuthToken } = options;
+  const req = <T>(path: string, init?: RequestInit) => request<T>(baseUrl, path, init, onUnauthorized, getAuthToken);
 
   return {
     createBand: (input: CreateBandInput) =>
@@ -219,7 +245,7 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
         body: JSON.stringify(input),
       }),
 
-    checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId),
+    checkBandMembership: (bandId: string) => checkBandMembership(baseUrl, bandId, getAuthToken),
 
     createInvite: (bandId: string, input: CreateInviteInput) =>
       req<Invite>(`/bands/${bandId}/invites`, { method: 'POST', body: JSON.stringify(input) }),
