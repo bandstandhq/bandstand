@@ -17,6 +17,9 @@ that doesn't require the Android SDK is already done:
 
 ## What you still need to do
 
+Prefer the terminal over Android Studio's GUI? See [CLI_BUILD.md](CLI_BUILD.md) instead — same
+Gradle build underneath, no IDE required.
+
 1. **Install Android Studio** (includes the Android SDK, Android SDK Platform-Tools, and an
    emulator image if you want one): <https://developer.android.com/studio>. On first launch, its
    setup wizard installs the SDK; note the SDK path it reports (usually
