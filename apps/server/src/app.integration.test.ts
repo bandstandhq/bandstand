@@ -71,6 +71,28 @@ describe('app-wide middleware (integration)', () => {
   });
 });
 
+describe('CORS for wrapped native app origins (integration)', () => {
+  // WEB_ORIGIN in this test env is the local-dev default (http://localhost:5173, see
+  // corsOrigins.ts) — none of these origins come from that. Confirms WRAPPED_APP_ORIGINS is
+  // always allowed regardless of WEB_ORIGIN, which is the whole point: an origin a self-hoster
+  // never configured must still work for the official mobile/desktop apps (see corsOrigins.ts's
+  // comment on WRAPPED_APP_ORIGINS and ADR-0001).
+  it.each(['https://localhost', 'capacitor://localhost', 'tauri://localhost', 'https://tauri.localhost'])(
+    'echoes %s back as an allowed origin',
+    async (origin) => {
+      const res = await app.request('/health', { headers: { Origin: origin } });
+
+      expect(res.headers.get('access-control-allow-origin')).toBe(origin);
+    },
+  );
+
+  it('does not allow an arbitrary unrelated origin', async () => {
+    const res = await app.request('/health', { headers: { Origin: 'https://evil.example' } });
+
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
 describe('POST /api/auth/sign-up/email rate limiting (integration)', () => {
   const cleanupUserIds: string[] = [];
 
