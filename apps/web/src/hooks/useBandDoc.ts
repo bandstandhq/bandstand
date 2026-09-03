@@ -4,7 +4,7 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import { apiClient } from '../lib/api-client';
-import { connectBandDoc } from '../lib/yjs';
+import { acquireBandDoc, evictBandDoc, releaseBandDoc } from '../lib/yjs';
 import { useTrustedSession } from './useTrustedSession';
 
 export type BandDocStatus = 'connecting' | 'connected' | 'offline' | 'forbidden';
@@ -39,11 +39,11 @@ function writeLastKnownMembership(userId: string, bandId: string, isMember: bool
 }
 
 /**
- * Opens (and tears down on unmount/bandId change) the Yjs connection for
- * one band — gated on membership, not just authentication. See
- * docs/adr/0006-offline-cache-scoping.md: a locally cached band doc is only
- * ever exposed to callers once this device's current user is confirmed (or,
- * offline, was last confirmed) to still be a member.
+ * Opens (or reuses a still-resident) Yjs connection for one band, released
+ * on unmount/bandId change — gated on membership, not just authentication.
+ * See docs/adr/0006-offline-cache-scoping.md: a locally cached band doc is
+ * only ever exposed to callers once this device's current user is confirmed
+ * (or, offline, was last confirmed) to still be a member.
  */
 export function useBandDoc(bandId: string | null): UseBandDocResult {
   // useTrustedSession, not the raw hook: offline, the real session check
@@ -76,7 +76,7 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
     setDoc(null);
     setProvider(null);
 
-    const connection = connectBandDoc(activeUserId, activeBandId, token);
+    const connection = acquireBandDoc(activeUserId, activeBandId, token);
 
     function reveal() {
       if (cancelled || forbidden) return;
@@ -89,13 +89,13 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
       forbidden = true;
       writeLastKnownMembership(activeUserId, activeBandId, false);
       connection.indexeddb.clearData().catch(() => {});
-      connection.provider.destroy();
+      evictBandDoc(activeUserId, activeBandId);
       setDoc(null);
       setProvider(null);
       setStatus('forbidden');
     }
 
-    connection.provider.on('authenticationFailed', ({ reason }: { reason: string }) => {
+    function handleAuthenticationFailed({ reason }: { reason: string }) {
       if (reason === HOCUSPOCUS_AUTH_FAILURE_REASON.notAMember) {
         deny();
         return;
@@ -109,19 +109,34 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
       // marks this offline, same as any other disconnect.
       if (cancelled || forbidden) return;
       refetchSession();
-    });
-    connection.provider.on('synced', () => {
+    }
+
+    function handleSynced() {
       if (cancelled || forbidden) return;
       writeLastKnownMembership(activeUserId, activeBandId, true);
       setStatus('connected');
       reveal();
-    });
-    connection.provider.on('close', () => {
-      // A close triggered by deny()'s own provider.destroy() must not
-      // overwrite the 'forbidden' status it just set.
+    }
+
+    function handleClose() {
+      // A close triggered by deny()'s own eviction must not overwrite the
+      // 'forbidden' status it just set.
       if (cancelled || forbidden) return;
       setStatus('offline');
-    });
+    }
+
+    connection.provider.on('authenticationFailed', handleAuthenticationFailed);
+    connection.provider.on('synced', handleSynced);
+    connection.provider.on('close', handleClose);
+
+    // A connection reused from the resident registry may already have
+    // finished syncing in a previous mount — the 'synced' event that would
+    // normally drive this already fired then and won't fire again, so this
+    // mount must check the provider's current state directly instead of
+    // only waiting on the event.
+    if (connection.provider.isSynced) {
+      handleSynced();
+    }
 
     apiClient.checkBandMembership(bandId).then((result) => {
       if (cancelled || forbidden) return;
@@ -140,8 +155,10 @@ export function useBandDoc(bandId: string | null): UseBandDocResult {
 
     return () => {
       cancelled = true;
-      connection.provider.destroy();
-      connection.indexeddb.destroy();
+      connection.provider.off('authenticationFailed', handleAuthenticationFailed);
+      connection.provider.off('synced', handleSynced);
+      connection.provider.off('close', handleClose);
+      if (!forbidden) releaseBandDoc(activeUserId, activeBandId);
     };
   }, [bandId, session?.session.token, session?.user.id, refetchSession]);
 

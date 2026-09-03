@@ -55,3 +55,82 @@ export function connectBandDoc(userId: string, bandId: string, token: string): B
 
   return { doc, indexeddb, provider };
 }
+
+interface RegistryEntry {
+  connection: BandDocConnection;
+  token: string;
+  refCount: number;
+  destroyTimer: ReturnType<typeof setTimeout> | null;
+}
+
+// Kept resident across page navigation (not just across re-renders of one
+// page): a page revisited within IDLE_DESTROY_DELAY_MS of leaving it reuses
+// the exact same Y.Doc/IndexeddbPersistence/HocuspocusProvider instead of
+// tearing the connection down and reopening it — a real membership-check
+// round-trip plus a full IndexedDB rehydrate and Hocuspocus resync. See
+// issue #220.
+const registry = new Map<string, RegistryEntry>();
+const IDLE_DESTROY_DELAY_MS = 30_000;
+
+function registryKey(userId: string, bandId: string): string {
+  return `${userId}:${bandId}`;
+}
+
+function destroyEntry(entry: RegistryEntry): void {
+  entry.connection.provider.destroy();
+  entry.connection.indexeddb.destroy();
+}
+
+/** Reuses a still-resident connection for this user+band when one exists;
+ * otherwise opens a fresh one. Pair every call with `releaseBandDoc`. */
+export function acquireBandDoc(userId: string, bandId: string, token: string): BandDocConnection {
+  const key = registryKey(userId, bandId);
+  const existing = registry.get(key);
+  if (existing && existing.token === token) {
+    if (existing.destroyTimer !== null) {
+      clearTimeout(existing.destroyTimer);
+      existing.destroyTimer = null;
+    }
+    existing.refCount += 1;
+    return existing.connection;
+  }
+  if (existing) {
+    // Stale token (a reconnect after the session was refreshed) — the old
+    // connection is presumably unauthenticated already, so replace it
+    // outright rather than trying to reuse it.
+    if (existing.destroyTimer !== null) clearTimeout(existing.destroyTimer);
+    destroyEntry(existing);
+    registry.delete(key);
+  }
+  const connection = connectBandDoc(userId, bandId, token);
+  registry.set(key, { connection, token, refCount: 1, destroyTimer: null });
+  return connection;
+}
+
+/** Marks one caller as done with a connection acquired via `acquireBandDoc`.
+ * The underlying connection is only torn down once no caller has re-acquired
+ * it within `IDLE_DESTROY_DELAY_MS` — a quick navigate-away-and-back keeps it
+ * alive instead of reconnecting from scratch. */
+export function releaseBandDoc(userId: string, bandId: string): void {
+  const key = registryKey(userId, bandId);
+  const entry = registry.get(key);
+  if (!entry) return;
+  entry.refCount = Math.max(0, entry.refCount - 1);
+  if (entry.refCount > 0) return;
+  entry.destroyTimer = setTimeout(() => {
+    registry.delete(key);
+    destroyEntry(entry);
+  }, IDLE_DESTROY_DELAY_MS);
+}
+
+/** Forcibly tears a connection down right away regardless of how many
+ * callers still hold it — used when membership is denied, where staying
+ * resident would just keep serving cached content to a non-member. */
+export function evictBandDoc(userId: string, bandId: string): void {
+  const key = registryKey(userId, bandId);
+  const entry = registry.get(key);
+  if (!entry) return;
+  if (entry.destroyTimer !== null) clearTimeout(entry.destroyTimer);
+  registry.delete(key);
+  destroyEntry(entry);
+}
