@@ -28,13 +28,26 @@ export function DashboardRedirect() {
 
   useEffect(() => {
     let cancelled = false;
-    apiClient.listMyBands().then((bands) => {
-      if (cancelled) return;
-      const validIds = new Set(bands.map((b) => b.id));
-      const target = activeBandId && validIds.has(activeBandId) ? activeBandId : (bands[0]?.id ?? null);
-      if (target !== activeBandId) setActiveBandId(target);
-      setResolvedBandId(target);
-    });
+    apiClient
+      .listMyBands()
+      .then((bands) => {
+        if (cancelled) return;
+        const validIds = new Set(bands.map((b) => b.id));
+        const target = activeBandId && validIds.has(activeBandId) ? activeBandId : (bands[0]?.id ?? null);
+        if (target !== activeBandId) setActiveBandId(target);
+        setResolvedBandId(target);
+      })
+      .catch(() => {
+        // Offline/unreachable — without this, resolvedBandId stays
+        // `undefined` forever and this component renders null forever (a
+        // real reported bug: opening the app straight to /dashboard while
+        // offline showed nothing at all). Trust whichever band this device
+        // was last showing rather than getting stuck blank; a genuinely
+        // stale or now-invalid id gets caught the normal way once real data
+        // loads (BandAccessDenied, the membership checks elsewhere).
+        if (cancelled) return;
+        setResolvedBandId(activeBandId ?? null);
+      });
     return () => {
       cancelled = true;
     };
