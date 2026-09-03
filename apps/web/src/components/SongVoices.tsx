@@ -19,7 +19,7 @@ import {
   sha256Hex,
 } from '@bandstand/core';
 import { buildRenderModel, parseChordPro } from '@bandstand/chords';
-import { Button, useConfirmDialog } from '@bandstand/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useConfirmDialog } from '@bandstand/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -265,18 +265,24 @@ export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: st
                     <span className="wrap-break-word">{member.name}</span>
                     <div className="flex flex-wrap items-center gap-2">
                       {canEdit ? (
-                        <select
-                          aria-label={t('songVoices.assignmentFor', { name: member.name })}
-                          value={assignedVoiceId ?? ''}
-                          onChange={(e) => setAssignment(doc, songId, member.userId, e.target.value)}
-                          className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-2 text-xs"
+                        <Select
+                          value={assignedVoiceId ?? undefined}
+                          onValueChange={(value) => setAssignment(doc, songId, member.userId, value)}
                         >
-                          {voices.map(({ id, voice }) => (
-                            <option key={id} value={id}>
-                              {voice.name}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger
+                            aria-label={t('songVoices.assignmentFor', { name: member.name })}
+                            className="h-10 max-w-40"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {voices.map(({ id, voice }) => (
+                              <SelectItem key={id} value={id}>
+                                {voice.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
                         <span>{voices.find((v) => v.id === assignedVoiceId)?.voice.name ?? '—'}</span>
                       )}

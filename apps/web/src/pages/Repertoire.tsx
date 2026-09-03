@@ -11,7 +11,7 @@ import {
 } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
 import { buildRenderModel, normalizeKey, parseChordPro } from '@bandstand/chords';
-import { Button, Dialog, Input } from '@bandstand/ui';
+import { Button, Dialog, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -218,15 +218,15 @@ export function Repertoire() {
               placeholder={t('repertoire.searchPlaceholder')}
               className="w-72"
             />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ActiveStatusFilter)}
-              aria-label={t('repertoire.statusFilter')}
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-            >
-              <option value="all">{t('repertoire.statusAll')}</option>
-              <option value="idea">{t('repertoire.statusIdea')}</option>
-            </select>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ActiveStatusFilter)}>
+              <SelectTrigger aria-label={t('repertoire.statusFilter')} className="w-auto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('repertoire.statusAll')}</SelectItem>
+                <SelectItem value="idea">{t('repertoire.statusIdea')}</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               type="button"
               onClick={() => setView('archive')}

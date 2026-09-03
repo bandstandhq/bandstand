@@ -9,7 +9,18 @@ import {
   updatePoll,
   votePoll,
 } from '@bandstand/core';
-import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
+import {
+  Button,
+  Dialog,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  useConfirmDialog,
+} from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -160,30 +171,32 @@ function CloseSection({ bandId, pollId, poll }: { bandId: string; pollId: string
       <h2 className="font-medium">{t('pollDetail.closeSectionTitle')}</h2>
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         {t('pollDetail.closeOptionLabel')}
-        <select
-          value={optionId}
-          onChange={(e) => setOptionId(e.target.value)}
-          className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          {poll.options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}
-            </option>
-          ))}
-        </select>
+        <Select value={optionId} onValueChange={setOptionId}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {poll.options.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
       <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('pollDetail.eventTitleLabel')} />
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         {t('pollDetail.eventTypeLabel')}
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as typeof type)}
-          className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="gig">{t('calendarList.typeGig')}</option>
-          <option value="rehearsal">{t('calendarList.typeRehearsal')}</option>
-          <option value="other">{t('calendarList.typeOther')}</option>
-        </select>
+        <Select value={type} onValueChange={(value) => setType(value as typeof type)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
+            <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
+            <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
+          </SelectContent>
+        </Select>
       </label>
       <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('pollDetail.location')} />
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('pollDetail.notesLabel')} />

@@ -10,7 +10,7 @@
 // rule extends to prefs, not just band content — see password-reset.spec.ts
 // for the same reasoning).
 import { expect, test } from '@playwright/test';
-import { deleteTestAccount, freshEmail, freshName } from './fixtures';
+import { deleteTestAccount, freshEmail, freshName, selectComboboxOption } from './fixtures';
 
 test('the wake-lock and language settings persist across reloads', async ({ page }) => {
   const email = freshEmail('account-settings');
@@ -40,11 +40,11 @@ test('the wake-lock and language settings persist across reloads', async ({ page
     await page.reload();
     await expect(page.getByRole('checkbox', { name: 'Keep the display on while Bandstand is open' })).toBeChecked();
 
-    // Not getByLabel — the only <select> on this page, so its role is
+    // Not getByLabel — the only combobox on this page, so its role is
     // unambiguous without relying on label-association matching.
     const languageSelect = page.getByRole('combobox');
-    await expect(languageSelect).toHaveValue('en');
-    await languageSelect.selectOption('de');
+    await expect(languageSelect).toHaveText('English');
+    await selectComboboxOption(page, languageSelect, 'Deutsch');
 
     // Reflected app-wide immediately, not just on this control — the header's
     // own "Log out" button text changes too, since both read the same active
@@ -54,7 +54,7 @@ test('the wake-lock and language settings persist across reloads', async ({ page
 
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible();
-    await expect(page.getByRole('combobox')).toHaveValue('de');
+    await expect(page.getByRole('combobox')).toHaveText('Deutsch');
   } finally {
     await deleteTestAccount(email);
   }

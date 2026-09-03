@@ -10,7 +10,14 @@
 // live hint naming which weekday/ordinal a monthly-by-weekday series will
 // actually repeat on.
 import { expect, test } from '@playwright/test';
-import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
+import {
+  createThrowawayBand,
+  DEMO_OWNER_EMAIL,
+  DEMO_PASSWORD,
+  deleteThrowawayBand,
+  login,
+  selectComboboxOption,
+} from './fixtures';
 import { signInForToken } from './hocuspocusTestClient';
 
 test('picking "monthly (same weekday)" shows a live hint and creates a series that lands on that weekday every month', async ({
@@ -34,7 +41,7 @@ test('picking "monthly (same weekday)" shows a live hint and creates a series th
 
     await page.getByPlaceholder('Event title').fill('Monthly Board Meeting');
     await page.getByLabel('Starts').fill(startsAtLocal);
-    await page.getByLabel('Repeats').selectOption('monthlyByWeekday');
+    await selectComboboxOption(page, page.getByLabel('Repeats'), 'Monthly (same weekday)');
     await expect(page.getByText('Repeats on the first Monday of every month.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Create event' }).click();
@@ -66,9 +73,10 @@ test('"every 4 weeks" is offered as its own option, distinct from monthly-by-wee
     await page.getByRole('button', { name: 'New event' }).click();
 
     const repeatSelect = page.getByLabel('Repeats');
-    await expect(repeatSelect.locator('option', { hasText: 'Every 4 weeks' })).toHaveCount(1);
-    await expect(repeatSelect.locator('option', { hasText: 'Monthly' })).toHaveCount(1); // only the "(same weekday)" one
-    await repeatSelect.selectOption('every4weeks');
+    await repeatSelect.click();
+    await expect(page.getByRole('option', { name: 'Every 4 weeks' })).toHaveCount(1);
+    await expect(page.getByRole('option', { name: 'Monthly' })).toHaveCount(1); // only the "(same weekday)" one
+    await page.getByRole('option', { name: 'Every 4 weeks' }).click();
     // No monthly-by-weekday hint for a plain interval-based repeat.
     await expect(page.getByText(/Repeats on the .* of every month\./)).toHaveCount(0);
   } finally {

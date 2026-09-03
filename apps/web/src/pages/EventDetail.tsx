@@ -17,7 +17,18 @@ import {
   type Setlist,
   updateOccurrence,
 } from '@bandstand/core';
-import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
+import {
+  Button,
+  Dialog,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  useConfirmDialog,
+} from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +48,11 @@ import { authClient } from '../lib/auth-client';
 // event that was never actually created for real yet (a virtual, unmaterialized
 // occurrence), the same button cancels instead.
 const DELETE_GRACE_PERIOD_MS = 5 * 60 * 1000;
+
+// Radix Select reserves the empty string for "no selection" internally —
+// the old native <option value=""> for "no linked setlist" needs its own
+// sentinel instead.
+const NO_SETLIST = '__none__';
 
 // Same set Calendar.tsx's own create-form offers (its own local
 // RepeatOption) — legacy 'monthly' is deliberately never offered going
@@ -190,29 +206,31 @@ function EditEventForm({
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.type')}
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as EventType)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-          >
-            <option value="gig">{t('calendarList.typeGig')}</option>
-            <option value="rehearsal">{t('calendarList.typeRehearsal')}</option>
-            <option value="other">{t('calendarList.typeOther')}</option>
-          </select>
+          <Select value={type} onValueChange={(value) => setType(value as EventType)}>
+            <SelectTrigger className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
+              <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
+              <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('eventDetail.status')}
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as EventStatus)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-          >
-            {(Object.keys(EVENT_STATUS_LABEL_KEY) as EventStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {t(EVENT_STATUS_LABEL_KEY[s])}
-              </option>
-            ))}
-          </select>
+          <Select value={status} onValueChange={(value) => setStatus(value as EventStatus)}>
+            <SelectTrigger className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(EVENT_STATUS_LABEL_KEY) as EventStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {t(EVENT_STATUS_LABEL_KEY[s])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
@@ -262,18 +280,19 @@ function EditEventForm({
 
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         {t('calendarList.linkedSetlist')}
-        <select
-          value={setlistId}
-          onChange={(e) => setSetlistId(e.target.value)}
-          className="h-10 max-w-48 truncate rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="">{t('calendarList.noSetlist')}</option>
-          {Object.entries(setlists).map(([id, setlist]) => (
-            <option key={id} value={id}>
-              {setlist.name}
-            </option>
-          ))}
-        </select>
+        <Select value={setlistId || NO_SETLIST} onValueChange={(value) => setSetlistId(value === NO_SETLIST ? '' : value)}>
+          <SelectTrigger className="max-w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_SETLIST}>{t('calendarList.noSetlist')}</SelectItem>
+            {Object.entries(setlists).map(([id, setlist]) => (
+              <SelectItem key={id} value={id}>
+                {setlist.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       <Button type="submit" disabled={!title.trim() || !startsAt}>
@@ -325,16 +344,17 @@ function ChangeRecurrenceForm({
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.repeats')}
-          <select
-            value={repeat}
-            onChange={(e) => setRepeat(e.target.value as RepeatOption)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-          >
-            <option value="weekly">{t('calendarList.repeatWeekly')}</option>
-            <option value="biweekly">{t('calendarList.repeatBiweekly')}</option>
-            <option value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</option>
-            <option value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</option>
-          </select>
+          <Select value={repeat} onValueChange={(value) => setRepeat(value as RepeatOption)}>
+            <SelectTrigger className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
+              <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
+              <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
+              <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.repeatUntil')}

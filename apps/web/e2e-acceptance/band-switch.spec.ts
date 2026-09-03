@@ -8,7 +8,14 @@
 // doesn't (not just that the URL changed).
 import { addSetlistItem, addSong, buildSongItem, createEvent, createPoll, createSetlist } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
-import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
+import {
+  createThrowawayBand,
+  DEMO_OWNER_EMAIL,
+  DEMO_PASSWORD,
+  deleteThrowawayBand,
+  login,
+  selectComboboxOption,
+} from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
 
 function flush() {
@@ -107,7 +114,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/repertoire`);
     await expect(page.getByText('Song Only In Band A')).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/repertoire$`));
     await expect(page.getByText('Song Only In Band B')).toBeVisible();
     await expect(page.getByText('Song Only In Band A')).not.toBeVisible();
@@ -118,7 +125,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/setlists`);
     await expect(page.getByText('Setlist Only In Band A')).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/setlists$`));
     await expect(page.getByText('Setlist Only In Band B')).toBeVisible();
     await expect(page.getByText('Setlist Only In Band A')).not.toBeVisible();
@@ -129,7 +136,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/calendar`);
     await expect(page.getByText('Event Only In Band A')).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/calendar$`));
     await expect(page.getByText('Event Only In Band B')).toBeVisible();
     await expect(page.getByText('Event Only In Band A')).not.toBeVisible();
@@ -138,12 +145,12 @@ test.describe('switching bands updates every band-scoped page immediately', () =
   test('Band settings', async ({ page }) => {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandA.bandId}/settings`);
-    // getByText would also match the (still-mounted-but-hidden) <option> of
-    // the same name in the band switcher's own <select> — scope to the
-    // page's actual heading instead.
+    // getByText would also match the band switcher's own trigger, which
+    // shows the current band's name as its value — scope to the page's
+    // actual heading instead.
     await expect(page.getByRole('heading', { name: bandA.name })).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/settings$`));
     await expect(page.getByRole('heading', { name: bandB.name })).toBeVisible();
     await expect(page.getByRole('heading', { name: bandA.name })).not.toBeVisible();
@@ -155,7 +162,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     // Band A has 2 songs seeded above (the repertoire fixture + the setlist's own song), Band B also has 2 — use the URL itself plus a page reachable only from the *current* band's nav as the distinguishing signal instead of the song count, which is identical by design here.
     await expect(page).toHaveURL(new RegExp(`/bands/${bandA.bandId}/dashboard$`));
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/dashboard$`));
 
     // The Repertoire link (built from the URL's own band id, not stale global state) should now point at band B.
@@ -168,7 +175,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/setlists/${setlistIdA}`);
     await expect(page.getByRole('heading', { name: 'Setlist Only In Band A' })).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/setlists$`));
     await expect(page.getByText('Setlist Only In Band B')).toBeVisible();
   });
@@ -178,7 +185,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/calendar/${eventIdA}`);
     await expect(page.getByRole('heading', { name: 'Event Only In Band A' })).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/calendar$`));
     await expect(page.getByText('Event Only In Band B')).toBeVisible();
   });
@@ -188,7 +195,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.goto(`/bands/${bandA.bandId}/polls/${pollIdA}`);
     await expect(page.getByRole('heading', { name: 'Poll Only In Band A' })).toBeVisible();
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/calendar$`));
   });
 
@@ -198,7 +205,7 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     await page.getByRole('link', { name: /Edit Song Only In Band A/ }).click();
     await expect(page).toHaveURL(/\/songs\/.+\/edit$/);
 
-    await page.getByLabel('Active band').selectOption({ label: bandB.name });
+    await selectComboboxOption(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/repertoire$`));
     await expect(page.getByText('Song Only In Band B')).toBeVisible();
   });

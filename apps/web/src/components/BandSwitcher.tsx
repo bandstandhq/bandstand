@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MyBand } from '@bandstand/api-client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api-client';
@@ -61,17 +62,17 @@ export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string)
   if (bands === null || bands.length < 2) return null;
 
   return (
-    <select
-      aria-label={t('bandSwitcher.label')}
-      value={activeBandId ?? bands[0]!.id}
-      onChange={(e) => handleSelect(e.target.value)}
-      className="h-10 max-w-40 truncate rounded-md border border-border bg-background px-3 text-sm sm:max-w-xs"
-    >
-      {bands.map((band) => (
-        <option key={band.id} value={band.id}>
-          {bandOptionLabel(band, bands)}
-        </option>
-      ))}
-    </select>
+    <Select value={activeBandId ?? bands[0]!.id} onValueChange={handleSelect}>
+      <SelectTrigger aria-label={t('bandSwitcher.label')} className="max-w-40 sm:max-w-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {bands.map((band) => (
+          <SelectItem key={band.id} value={band.id}>
+            {bandOptionLabel(band, bands)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

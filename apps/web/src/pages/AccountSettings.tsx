@@ -5,7 +5,7 @@
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
 import type { ArchivedBand, MyBand } from '@bandstand/api-client';
 import type { Band, Locale, Theme } from '@bandstand/core';
-import { Button, useConfirmDialog } from '@bandstand/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChangeEmailForm } from '../components/ChangeEmailForm';
@@ -157,22 +157,18 @@ export function AccountSettings() {
           <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.languageDescription')}</p>
           <label className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">{t('accountSettings.languageLabel')}</span>
-            <select
-              value={prefs.locale ?? ''}
-              onChange={(e) => void update({ locale: e.target.value as Locale })}
-              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-            >
-              {!prefs.locale && (
-                <option value="" disabled>
-                  {t('accountSettings.languageDetecting')}
-                </option>
-              )}
-              {LOCALES.map((locale) => (
-                <option key={locale} value={locale}>
-                  {t(`accountSettings.language_${locale}`)}
-                </option>
-              ))}
-            </select>
+            <Select value={prefs.locale ?? undefined} onValueChange={(value) => void update({ locale: value as Locale })}>
+              <SelectTrigger aria-label={t('accountSettings.languageLabel')} className="w-auto">
+                <SelectValue placeholder={t('accountSettings.languageDetecting')} />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCALES.map((locale) => (
+                  <SelectItem key={locale} value={locale}>
+                    {t(`accountSettings.language_${locale}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         </div>
 
