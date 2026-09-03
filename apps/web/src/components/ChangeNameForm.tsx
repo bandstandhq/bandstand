@@ -1,27 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input } from '@bandstand/ui';
-import { type ChangeEvent, type FormEvent, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, Input } from '@bandstand/ui';
+import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { authClient } from '../lib/auth-client';
+
+const changeNameSchema = z.object({ name: z.string().trim().min(1) });
+type ChangeNameValues = z.infer<typeof changeNameSchema>;
 
 export function ChangeNameForm({ currentName }: { currentName: string }) {
   const { t } = useTranslation();
-  const [name, setName] = useState(currentName);
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
 
-  const trimmed = name.trim();
-  const unchanged = trimmed === currentName;
+  const form = useForm<ChangeNameValues>({
+    resolver: zodResolver(changeNameSchema),
+    defaultValues: { name: currentName },
+  });
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!trimmed || unchanged) return;
-    setSubmitting(true);
+  const nameValue = useWatch({ control: form.control, name: 'name' });
+  const unchanged = nameValue.trim() === currentName;
+
+  async function onSubmit(values: ChangeNameValues) {
+    if (unchanged) return;
     setError(false);
     setDone(false);
     try {
-      const { error: updateError } = await authClient.updateUser({ name: trimmed });
+      const { error: updateError } = await authClient.updateUser({ name: values.name });
       if (updateError) {
         setError(true);
         return;
@@ -29,29 +36,37 @@ export function ChangeNameForm({ currentName }: { currentName: string }) {
       setDone(true);
     } catch {
       setError(true);
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-muted-foreground">{t('accountSettings.nameLabel')}</span>
-        <Input
-          value={name}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            setName(e.target.value);
-            setDone(false);
-          }}
-          required
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('accountSettings.nameLabel')}</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    setDone(false);
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </label>
-      {error && <p className="text-sm text-destructive">{t('accountSettings.nameError')}</p>}
-      {done && <p className="text-sm text-muted-foreground">{t('accountSettings.nameSaved')}</p>}
-      <Button type="submit" size="sm" disabled={submitting || !trimmed || unchanged}>
-        {submitting ? t('accountSettings.nameSaving') : t('accountSettings.nameSave')}
-      </Button>
-    </form>
+        {error && <p className="text-sm text-destructive">{t('accountSettings.nameError')}</p>}
+        {done && <p className="text-sm text-muted-foreground">{t('accountSettings.nameSaved')}</p>}
+        <Button type="submit" size="sm" disabled={form.formState.isSubmitting || unchanged}>
+          {form.formState.isSubmitting ? t('accountSettings.nameSaving') : t('accountSettings.nameSave')}
+        </Button>
+      </form>
+    </Form>
   );
 }
