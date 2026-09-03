@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as RadixDialog from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CloseIcon } from './icons';
 
 /**
  * A real modal, for confirmations `window.confirm` can't express (e.g.
@@ -45,7 +45,7 @@ export function Dialog({
                 aria-label={closeLabel}
                 className="-m-2 shrink-0 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
-                <CloseIcon />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </RadixDialog.Close>
           </div>

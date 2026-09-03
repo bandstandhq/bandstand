@@ -2,12 +2,12 @@
 import { can, createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
 import type { BandRole, Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
 import { Button, Input, useConfirmDialog } from '@bandstand/ui';
+import { Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useIsWideScreen } from '../hooks/useIsWideScreen';
 import { useYArray } from '../hooks/useYArray';
@@ -48,7 +48,7 @@ function DeleteSetlistButton({ bandId, setlistId, setlistName }: { bandId: strin
       title={t('setlistList.delete')}
       className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
     >
-      <TrashIcon className="h-5 w-5" />
+      <Trash2 className="h-5 w-5" aria-hidden="true" />
     </button>
   );
 }

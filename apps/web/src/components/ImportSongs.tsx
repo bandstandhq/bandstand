@@ -2,10 +2,10 @@
 import { addSong } from '@bandstand/core';
 import { buildRenderModel, parseChordPro } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
+import { Download } from 'lucide-react';
 import { type DragEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
-import { ImportIcon } from './icons';
 
 interface ParsedImport {
   id: string;
@@ -100,7 +100,7 @@ export function ImportSongs({ doc, onImported }: { doc: Y.Doc; onImported: (coun
         title={t('chordProImport.openButton')}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent"
       >
-        <ImportIcon className="h-5 w-5" />
+        <Download className="h-5 w-5" aria-hidden="true" />
       </button>
     );
   }

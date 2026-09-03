@@ -29,13 +29,13 @@ import {
 } from '@bandstand/core';
 import type { Setlist, SetlistItem, Song } from '@bandstand/core';
 import { Button } from '@bandstand/ui';
+import { GripVertical, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { GripIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
@@ -97,7 +97,7 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
         style={{ touchAction: 'none' }}
         className="flex h-11 w-10 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
       >
-        <GripIcon className="h-6 w-6" />
+        <GripVertical className="h-6 w-6" aria-hidden="true" />
       </span>
       <span className="flex-1 py-1">
         {song.title} <span className="text-muted-foreground">— {song.artist}</span>
@@ -196,7 +196,7 @@ function SortableSetlistItem({
         style={{ touchAction: 'none' }}
         className="flex h-11 w-10 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
       >
-        <GripIcon className="h-6 w-6" />
+        <GripVertical className="h-6 w-6" aria-hidden="true" />
       </span>
       {/* The tap target for Stage Mode — a plain tap reaches it; dragging now
           only ever starts from the handle above, never from here.
@@ -223,7 +223,7 @@ function SortableSetlistItem({
         title={t('setlistDetail.remove')}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
       >
-        <TrashIcon className="h-5 w-5" />
+        <Trash2 className="h-5 w-5" aria-hidden="true" />
       </button>
     </li>
   );

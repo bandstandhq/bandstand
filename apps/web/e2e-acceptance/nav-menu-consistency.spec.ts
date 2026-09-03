@@ -4,17 +4,28 @@
 // a band-independent page (Account Settings had no :bandId route param, so
 // AppHeader's old navLinks() bailed out with `if (!currentBandId) return
 // null`) — every signed-in page must show the exact same set of entries.
+//
+// "Account settings" itself moved out of the "Band sections" nav landmark
+// into its own "Account" section (alongside sign-out) in a later pass —
+// see AppHeader.tsx's Sheet JSX — so it's asserted separately below rather
+// than as part of BAND_NAV_ENTRIES; the original regression this guards
+// against (an entry silently disappearing on some page) still applies to
+// both checks.
 import { expect, test } from '@playwright/test';
 import { login, DEMO_OWNER_EMAIL } from './fixtures';
 
-const EXPECTED_NAV_ENTRIES = ['Repertoire', 'Setlists', 'Calendar', 'Band settings', 'Account settings'];
+const BAND_NAV_ENTRIES = ['Repertoire', 'Setlists', 'Calendar', 'Band settings'];
 
-async function navEntries(page: import('@playwright/test').Page): Promise<string[]> {
+async function openMenuEntries(page: import('@playwright/test').Page): Promise<{
+  bandNav: string[];
+  hasAccountSettings: boolean;
+}> {
   await page.getByRole('button', { name: 'Open menu' }).click();
   const nav = page.getByRole('navigation', { name: 'Band sections' });
-  const texts = await nav.getByRole('link').allTextContents();
+  const bandNav = await nav.getByRole('link').allTextContents();
+  const hasAccountSettings = await page.getByRole('link', { name: 'Account settings' }).isVisible();
   await page.keyboard.press('Escape');
-  return texts;
+  return { bandNav, hasAccountSettings };
 }
 
 test('the menu shows the same navigation entries on every signed-in page', async ({ page }) => {
@@ -40,7 +51,8 @@ test('the menu shows the same navigation entries on every signed-in page', async
 
   for (const path of pages) {
     await page.goto(path);
-    const entries = await navEntries(page);
-    expect(entries, `menu entries on ${path}`).toEqual(EXPECTED_NAV_ENTRIES);
+    const { bandNav, hasAccountSettings } = await openMenuEntries(page);
+    expect(bandNav, `band nav entries on ${path}`).toEqual(BAND_NAV_ENTRIES);
+    expect(hasAccountSettings, `Account settings link on ${path}`).toBe(true);
   }
 });

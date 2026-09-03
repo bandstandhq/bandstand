@@ -3,6 +3,7 @@ import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
 import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
 import { Button, Dialog, Input, useConfirmDialog } from '@bandstand/ui';
+import { Pencil, Trash2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +12,6 @@ import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { FullRepertoireExport } from '../components/FullRepertoireExport';
 import { RequireBandRole } from '../components/RequireBandRole';
-import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
@@ -588,7 +588,7 @@ function NicknameEditor({
           setEditing(true);
         }}
       >
-        <PencilIcon className="size-3.5" />
+        <Pencil className="size-3.5" aria-hidden="true" />
       </button>
       {hasNickname && (
         <button
@@ -1018,7 +1018,7 @@ function InviteRow({
             title={t('bandSettings.invites.revoke')}
             className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
           >
-            <TrashIcon className="h-5 w-5" />
+            <Trash2 className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       )}

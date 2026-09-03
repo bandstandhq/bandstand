@@ -36,11 +36,11 @@ import type {
 import { buildRenderModel, normalizeKey, parseChordPro, shiftKeyBySemitones, transposeChordProToKey } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
 import { Button } from '@bandstand/ui';
+import { Brush, Pencil, Settings, StickyNote, X } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { BrushIcon, GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
@@ -1222,7 +1222,7 @@ export function StageMode() {
           title={t('stageMode.exit')}
           className={`absolute right-4 top-1 z-20 flex h-8 w-8 items-center justify-center rounded-full ${chromeHoverClass} ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}
         >
-          <XIcon className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
 
@@ -1349,7 +1349,7 @@ export function StageMode() {
               title={t('stageMode.editSong')}
               className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
             >
-              <PencilIcon className="h-5 w-5" />
+              <Pencil className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {currentSong && (
@@ -1360,7 +1360,7 @@ export function StageMode() {
               title={t('stageMode.notes')}
               className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
             >
-              <NoteIcon className="h-5 w-5" />
+              <StickyNote className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {voice?.kind === 'files' && (
@@ -1371,7 +1371,7 @@ export function StageMode() {
               title={t('stageMode.annotate')}
               className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'} ${annotating ? (isDark ? 'bg-white/20' : 'bg-black/20') : ''}`}
             >
-              <BrushIcon className="h-5 w-5" />
+              <Brush className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           <button
@@ -1381,7 +1381,7 @@ export function StageMode() {
             title={t('stageMode.settings')}
             className={`flex h-11 w-11 items-center justify-center rounded-md ${chromeHoverClass} ${isDark ? 'text-white' : 'text-black'}`}
           >
-            <GearIcon className="h-5 w-5" />
+            <Settings className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>

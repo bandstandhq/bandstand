@@ -18,13 +18,13 @@ import {
   updateOccurrence,
 } from '@bandstand/core';
 import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
+import { Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
-import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useNicknames } from '../hooks/useNicknames';
 import { useYMap } from '../hooks/useYMap';
@@ -645,7 +645,7 @@ export function EventDetail() {
               title={t('eventDetail.edit')}
               className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
             >
-              <PencilIcon className="h-5 w-5" />
+              <Pencil className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {canDelete && (
@@ -670,7 +670,7 @@ export function EventDetail() {
               }
               className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              <TrashIcon className="h-5 w-5" />
+              <Trash2 className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {canEdit && event.seriesId && (
