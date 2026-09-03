@@ -12,6 +12,7 @@ import {
 import type { Song, SongStatus } from '@bandstand/core';
 import { buildRenderModel, normalizeKey, parseChordPro } from '@bandstand/chords';
 import { Button, Dialog, Input } from '@bandstand/ui';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
@@ -21,7 +22,6 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
-import { PencilIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
@@ -160,7 +160,7 @@ export function Repertoire() {
             title={t('repertoire.deleteForever.action')}
             className="relative -my-2.5 flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
           >
-            <TrashIcon className="h-5 w-5" />
+            <Trash2 className="h-5 w-5" aria-hidden="true" />
           </button>
         )}
       </>
@@ -199,7 +199,7 @@ export function Repertoire() {
             title={t('repertoire.newSong')}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <PlusIcon className="h-5 w-5" />
+            <Plus className="h-5 w-5" aria-hidden="true" />
           </Link>
         </div>
       </div>
@@ -264,7 +264,7 @@ export function Repertoire() {
                   aria-label={t('repertoire.editAria', { title: song.title })}
                   className="relative -mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                 >
-                  <PencilIcon className="h-4 w-4" />
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
               <p className="wrap-break-word text-sm text-muted-foreground">
@@ -329,7 +329,7 @@ export function Repertoire() {
                       aria-label={t('repertoire.editAria', { title: song.title })}
                       className="relative ml-1 inline-flex h-11 w-11 -translate-y-0.5 items-center justify-center align-middle text-muted-foreground hover:text-foreground"
                     >
-                      <PencilIcon className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
                     </Link>
                   </td>
                   <td className="py-2 pr-4 wrap-break-word">{song.artist}</td>

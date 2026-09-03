@@ -10,6 +10,7 @@
 // the narrow-screen menu (and vice versa) — neither layout has anything
 // exclusive to it.
 import { Button, Sheet } from '@bandstand/ui';
+import { ChevronRight, Menu } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
@@ -19,44 +20,6 @@ import { signOut } from '../lib/auth-client';
 import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
 import { useUserPrefsStore } from '../stores/userPrefs';
-
-/** No icon library in this app — a plain inline glyph rather than a new dependency for one icon. */
-function HamburgerIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  );
-}
-
-/** Marks a row as "goes to another page" in the menu's list style — never used on an action button. */
-function ChevronRightIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4 shrink-0 text-muted-foreground"
-      aria-hidden="true"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
 
 /**
  * A link to another page — plain text, deliberately never a `<Button>`, so
@@ -93,7 +56,7 @@ function NavLink({
       className="flex items-center justify-between gap-2 rounded-lg px-3 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-accent hover:text-foreground"
     >
       {children}
-      <ChevronRightIcon />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   );
 }
@@ -283,7 +246,7 @@ export function AppHeader({ title }: { title: ReactNode }) {
           aria-label={t('appHeader.openMenu')}
           onClick={() => setMenuOpen(true)}
         >
-          <HamburgerIcon />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </Button>
         <h1 className="text-xl font-medium">{title}</h1>
       </div>

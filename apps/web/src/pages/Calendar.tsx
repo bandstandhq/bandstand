@@ -15,13 +15,13 @@ import type {
   Setlist,
 } from '@bandstand/core';
 import { Button, Dialog, Input, Textarea } from '@bandstand/ui';
+import { BarChart3, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
-import { BarChartIcon, CalendarIcon, PlusIcon } from '../components/icons';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -484,7 +484,7 @@ function CreateEventForm({
         })()}
 
       <Button type="submit" disabled={!title.trim() || !startsAt}>
-        <CalendarIcon className="h-4 w-4" />
+        <CalendarIcon className="h-4 w-4" aria-hidden="true" />
         {t('calendarList.create')}
       </Button>
     </form>
@@ -600,7 +600,7 @@ function CreatePollForm({
         </Button>
       </div>
       <Button type="submit" disabled={!title.trim() || optionStarts.every((s) => !s)}>
-        <BarChartIcon className="h-4 w-4" />
+        <BarChart3 className="h-4 w-4" aria-hidden="true" />
         {t('calendarList.createPoll')}
       </Button>
     </form>
@@ -714,7 +714,7 @@ export function Calendar() {
             title={t('calendarList.createTitle')}
             className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
           >
-            <PlusIcon className="h-5 w-5" />
+            <Plus className="h-5 w-5" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -775,7 +775,7 @@ export function Calendar() {
               title={t('calendarList.createPollTitle')}
               className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
             >
-              <PlusIcon className="h-5 w-5" />
+              <Plus className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
         </div>

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getDefaultVoiceId, slugify, yDocToSnapshot } from '@bandstand/core';
 import JSZip from 'jszip';
+import { Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
-import { ExportIcon } from './icons';
 
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
@@ -50,7 +50,7 @@ export function ExportRepertoire({ doc }: { doc: Y.Doc }) {
         aria-expanded={open}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent"
       >
-        <ExportIcon className="h-5 w-5" />
+        <Upload className="h-5 w-5" aria-hidden="true" />
       </button>
       {open && (
         <div className="absolute left-0 top-full z-10 mt-1 min-w-max rounded-md border border-border bg-card p-1 shadow-md">

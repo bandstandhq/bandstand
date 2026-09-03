@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { Eye, EyeOff } from 'lucide-react';
 import type { InputHTMLAttributes } from 'react';
 import { useState } from 'react';
 import { cn } from '../lib/cn';
-import { EyeIcon, EyeOffIcon } from './icons';
 import { Input } from './Input';
 
 /**
@@ -34,7 +34,11 @@ export function PasswordInput({
         onClick={() => setVisible((v) => !v)}
         className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
       >
-        {visible ? <EyeOffIcon /> : <EyeIcon />}
+        {visible ? (
+          <EyeOff className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <Eye className="h-5 w-5" aria-hidden="true" />
+        )}
       </button>
     </div>
   );

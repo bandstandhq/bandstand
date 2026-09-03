@@ -10,12 +10,12 @@ import {
   votePoll,
 } from '@bandstand/core';
 import { Button, Dialog, Input, Textarea, useConfirmDialog } from '@bandstand/ui';
+import { Pencil, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
-import { PencilIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
@@ -350,7 +350,7 @@ export function PollDetail() {
               title={t('pollDetail.edit')}
               className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
             >
-              <PencilIcon className="h-5 w-5" />
+              <Pencil className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {canClose && (
@@ -362,7 +362,7 @@ export function PollDetail() {
               title={deleting ? t('pollDetail.deleting') : t('pollDetail.delete')}
               className="flex h-11 w-11 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              <TrashIcon className="h-5 w-5" />
+              <Trash2 className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
         </div>
