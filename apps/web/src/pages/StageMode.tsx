@@ -42,12 +42,14 @@ import { useNavigate, useParams } from 'react-router';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { BrushIcon, GearIcon, NoteIcon, PencilIcon, XIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
+import { resolveTheme } from '../lib/resolveTheme';
 import { useUserPrefsStore } from '../stores/userPrefs';
 import type * as Y from 'yjs';
 
@@ -250,7 +252,8 @@ function SettingsPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const isDark = theme === 'dark';
+  const systemPrefersLight = useMediaQuery('(prefers-color-scheme: light)');
+  const isDark = resolveTheme(theme, systemPrefersLight) === 'dark';
   const panelClass = isDark ? 'bg-neutral-900 text-white border-white/20' : 'bg-white text-black border-black/20';
   const buttonBase = 'rounded-md border px-2 py-1 text-xs';
   const activeClass = isDark ? 'border-white bg-white/20' : 'border-black bg-black/10';
@@ -659,6 +662,7 @@ export function StageMode() {
   // same account. The rest of this page's prefs (below) stay local/
   // independently-fetched; only theme needed reconciling.
   const theme = useUserPrefsStore((s) => s.prefs.theme);
+  const systemPrefersLight = useMediaQuery('(prefers-color-scheme: light)');
   const updateUserPrefs = useUserPrefsStore((s) => s.update);
   const [textSize, setTextSize] = useState<TextSize>('medium');
   const [boldText, setBoldText] = useState(false);
@@ -1186,7 +1190,7 @@ export function StageMode() {
     setLiveTranspose((current) => current + delta);
   }
 
-  const isDark = theme === 'dark';
+  const isDark = resolveTheme(theme, systemPrefersLight) === 'dark';
   const bgClass = isDark ? 'bg-black text-white' : 'bg-white text-black';
   const chromeHoverClass = isDark ? 'hover:bg-white/10' : 'hover:bg-black/10';
   const mutedClass = isDark ? 'text-white/60' : 'text-black/60';

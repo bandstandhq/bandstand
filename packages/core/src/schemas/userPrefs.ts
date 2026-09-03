@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod';
 
-export const themeSchema = z.enum(['dark', 'light']);
+// 'system' follows the OS light/dark preference live (see
+// apps/web/src/lib/resolveTheme.ts) rather than being a one-time seed for
+// an explicit choice — unlike `locale`'s `null` below, it's a real,
+// persistent option a user can select and stay on.
+export const themeSchema = z.enum(['system', 'dark', 'light']);
 export type Theme = z.infer<typeof themeSchema>;
 
 export const localeSchema = z.enum(['en', 'de']);
@@ -87,7 +91,7 @@ export type UpdateUserPrefsInput = z.infer<typeof updateUserPrefsInputSchema>;
 
 export const DEFAULT_USER_PREFS: UserPrefs = {
   personalTranspose: 0,
-  theme: 'dark',
+  theme: 'system',
   textSize: 'medium',
   boldText: false,
   chordColor: '#3b82f6',

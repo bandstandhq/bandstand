@@ -146,6 +146,7 @@
     "archivedRestore": "Restore",
     "archivedRestoring": "Restoring…",
     "themeTitle": "Theme",
+    "themeSystem": "System",
     "localDataTitle": "Local data",
     "localDataDescription": "This removes every band's offline cache from this device — your account and bands themselves are unaffected.",
     "languageTitle": "Language",

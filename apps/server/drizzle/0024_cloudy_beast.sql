@@ -1,0 +1,1 @@
+ALTER TABLE "user_prefs" ALTER COLUMN "theme" SET DEFAULT 'system';

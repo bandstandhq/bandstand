@@ -12,10 +12,18 @@
 // browser on first-ever visit and persisting that choice back to
 // user_prefs rather than leaving it only local (see AccountSettings.tsx and
 // docs referenced there).
+//
+// `theme: 'system'` (the default) is resolved live via useMediaQuery —
+// unlike locale's `null`, it's never auto-converted into a concrete stored
+// choice, so this re-evaluates (and the `.light` class flips) whenever the
+// OS preference itself changes while the app is open, for as long as
+// 'system' stays selected.
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { detectLocale } from '../lib/detectLocale';
 import { authClient } from '../lib/auth-client';
+import { resolveTheme } from '../lib/resolveTheme';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
@@ -55,10 +63,11 @@ export function GlobalPrefsEffects(): null {
     void update({ locale: detected });
   }, [loaded, prefs.locale, update]);
 
+  const systemPrefersLight = useMediaQuery('(prefers-color-scheme: light)');
   useEffect(() => {
     if (!loaded) return;
-    document.documentElement.classList.toggle('light', prefs.theme === 'light');
-  }, [loaded, prefs.theme]);
+    document.documentElement.classList.toggle('light', resolveTheme(prefs.theme, systemPrefersLight) === 'light');
+  }, [loaded, prefs.theme, systemPrefersLight]);
 
   useWakeLock(loaded && Boolean(userId) && prefs.keepScreenAwake);
 

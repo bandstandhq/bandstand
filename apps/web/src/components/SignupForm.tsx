@@ -3,6 +3,7 @@ import { Button, Input, PasswordInput } from '@bandstand/ui';
 import { type ChangeEvent, type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '../lib/auth-client';
+import { clearDraftEmail, getDraftEmail, setDraftEmail } from '../lib/authFormDraft';
 
 // Every code that can come back is bucketed into one of these — anything
 // else (a code this app doesn't know about yet, or none at all) falls into
@@ -25,7 +26,9 @@ function classifySignupError(error: { status: number; code?: string } | null, th
 export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; submitLabel?: string }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // Restores whatever was typed here before a server switch (ServerPicker's
+  // save does a real page reload) — see authFormDraft.ts.
+  const [email, setEmail] = useState(getDraftEmail);
   const [password, setPassword] = useState('');
   const [errorKind, setErrorKind] = useState<SignupErrorKind>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +48,7 @@ export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; 
       // before anything reacts to "we're signed in now" — signUp.email only
       // marks it stale, it doesn't refetch it itself.
       await refetch();
+      clearDraftEmail();
       onSuccess();
     } catch {
       // The request itself never completed (unreachable host, DNS, CORS) —
@@ -78,7 +82,10 @@ export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; 
           type="email"
           required
           value={email}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            setEmail(e.target.value);
+            setDraftEmail(e.target.value);
+          }}
         />
       </div>
       <div className="space-y-2">

@@ -15,6 +15,13 @@ describe('userPrefsSchema', () => {
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, theme: 'sepia' })).toThrow();
   });
 
+  it('accepts each documented theme value, and defaults to system', () => {
+    expect(DEFAULT_USER_PREFS.theme).toBe('system');
+    for (const value of ['system', 'dark', 'light']) {
+      expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, theme: value })).not.toThrow();
+    }
+  });
+
   it('accepts a negative personalTranspose (down-transposition)', () => {
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, personalTranspose: -3 })).not.toThrow();
   });
