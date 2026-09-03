@@ -3,19 +3,20 @@
 // Mounted once, outside <Routes> (see router.tsx), so it keeps running
 // across every navigation instead of being torn down and rebuilt on each
 // page: applies three of the signed-in user's prefs app-wide — the
-// light/dark theme (a `.light` class on the document root; Stage Mode's own
-// chrome reads the same `prefs.theme` value directly rather than this
-// class, but writes through the same store, so the two can no longer drift
-// out of sync — see issue #110), the "keep screen awake" toggle (Stage
-// Mode's own always-on wake lock, StageMode.tsx, is separate and unaffected
-// by this), and the active UI language, including detecting it from the
-// browser on first-ever visit and persisting that choice back to
+// light/dark theme (a `.dark` class on the document root, shadcn/ui's usual
+// convention — see packages/ui/src/styles.css's own header comment; Stage
+// Mode's own chrome reads the same `prefs.theme` value directly rather than
+// this class, but writes through the same store, so the two can no longer
+// drift out of sync — see issue #110), the "keep screen awake" toggle
+// (Stage Mode's own always-on wake lock, StageMode.tsx, is separate and
+// unaffected by this), and the active UI language, including detecting it
+// from the browser on first-ever visit and persisting that choice back to
 // user_prefs rather than leaving it only local (see AccountSettings.tsx and
 // docs referenced there).
 //
 // `theme: 'system'` (the default) is resolved live via useMediaQuery —
 // unlike locale's `null`, it's never auto-converted into a concrete stored
-// choice, so this re-evaluates (and the `.light` class flips) whenever the
+// choice, so this re-evaluates (and the `.dark` class flips) whenever the
 // OS preference itself changes while the app is open, for as long as
 // 'system' stays selected.
 import { useEffect, useRef } from 'react';
@@ -66,7 +67,7 @@ export function GlobalPrefsEffects(): null {
   const systemPrefersLight = useMediaQuery('(prefers-color-scheme: light)');
   useEffect(() => {
     if (!loaded) return;
-    document.documentElement.classList.toggle('light', resolveTheme(prefs.theme, systemPrefersLight) === 'light');
+    document.documentElement.classList.toggle('dark', resolveTheme(prefs.theme, systemPrefersLight) === 'dark');
   }, [loaded, prefs.theme, systemPrefersLight]);
 
   useWakeLock(loaded && Boolean(userId) && prefs.keepScreenAwake);

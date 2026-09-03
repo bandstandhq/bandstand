@@ -34,8 +34,8 @@ export default defineConfig(({ mode }) => {
           description: 'Offline-first workspace for bands: repertoire, setlists, and Stage Mode.',
           start_url: '/',
           display: 'standalone',
-          background_color: '#0b0d12',
-          theme_color: '#0b0d12',
+          background_color: '#ffffff',
+          theme_color: '#ffffff',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
