@@ -102,6 +102,45 @@ MinIO — as one unit.
    uploads/offline/push to work at all) and set up the cron jobs under "Reclaiming storage" and
    "Deleting a band" further down.
 
+## Updating
+
+```bash
+cd bandstand
+git pull
+docker compose --env-file .env -f docker/compose.prod.yml up -d --build
+```
+
+`--build` rebuilds the `server` image only if the code actually changed (Docker's own layer
+caching skips it otherwise) and recreates just that one container — Postgres and MinIO are left
+running untouched, so your data isn't affected by a code update. Migrations run automatically
+again on the new container's first boot, same as every start (idempotent — a migration already
+applied is a no-op, see "First start" above), so there's no separate migration step to remember.
+
+**Check `.env.example` for anything new after pulling.** New environment variables get added as
+the project evolves — the fail-closed guards (`envGuard.ts`) catch a missing *required* one by
+refusing to boot, but an optional one with a fallback (most of them) won't — you'd just keep
+silently getting the old fallback behavior instead of the new feature/fix, with no error to notice.
+A quick way to spot what's new:
+```bash
+git diff HEAD@{1} -- .env.example
+```
+(`HEAD@{1}` is wherever `git pull` moved you *from* — run this right after pulling, before doing
+anything else, so it still points at your previous position.) Anything that shows up as added is
+worth reading and deciding whether it applies to you; `.env.example`'s own comment next to each
+variable explains what it's for and whether it's required.
+
+After restarting, `docker compose --env-file .env -f docker/compose.prod.yml logs server` is worth
+a glance the same way as during the first start — a new required variable you haven't set yet
+shows up immediately as a refusal-to-boot with a clear message, not a silent failure.
+
+**Rolling back**: if an update causes a problem, `git log --oneline` to find the commit/tag you
+were on before, `git checkout <that-ref>`, then `docker compose --env-file .env -f
+docker/compose.prod.yml up -d --build` again to rebuild against it. This only reverts the
+*application code* — a migration that already ran against your database in between does not get
+undone automatically, so this is a clean rollback only if no migration ran during the update you're
+reverting (check the `logs server` output from when you updated). Database backup/restore is
+listed under "Not yet covered here" below for exactly this kind of situation.
+
 ## Configuration
 
 All configuration is environment variables — see `.env.example` for the
