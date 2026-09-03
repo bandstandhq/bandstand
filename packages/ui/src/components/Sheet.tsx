@@ -24,7 +24,8 @@ export function Sheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: string;
+  /** Usually plain text, but a linkified title (e.g. "go to dashboard" from a nav menu's own header) is fine — RadixDialog.Title just renders whatever's given it. */
+  title: ReactNode;
   closeLabel: string;
   side?: 'left' | 'right';
   children: ReactNode;

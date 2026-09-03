@@ -90,7 +90,7 @@ function NavLink({
     <Link
       to={to}
       onClick={onNavigate}
-      className="flex items-center justify-between gap-2 rounded-md px-1 py-2.5 text-sm text-foreground/80 hover:text-foreground"
+      className="flex items-center justify-between gap-2 rounded-lg px-3 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-accent hover:text-foreground"
     >
       {children}
       <ChevronRightIcon />
@@ -201,12 +201,13 @@ export function AppHeader({ title }: { title: ReactNode }) {
   // Actions (do something in place) are always `<Button>`s, styled to
   // signal what kind of action: destructive gets the destructive variant,
   // everything else outline — never ghost, which is reserved for nav
-  // links so the two categories read differently at a glance. Every
-  // handler also closes the mobile menu (a no-op when already closed on a
-  // wide screen) since none of these navigate away on their own.
-  // Sign out is the only thing left here — Account settings is a real page
-  // (a NavLink, in navLinks below, not an action button), and Delete local
-  // data/theme moved into that page itself (see AccountSettings.tsx).
+  // links so the two categories read differently at a glance. Sign out is
+  // the only one left here — Account settings is a real page (a NavLink),
+  // and Delete local data/theme moved into that page itself (see
+  // AccountSettings.tsx). Used for the wide-screen inline layout only —
+  // the Sheet (narrow-screen menu) below renders its own, bigger sign-out
+  // button directly, alongside Account settings under the same "Account"
+  // section, since that pairing doesn't exist in the inline layout.
   const actionButtons = (
     <Button variant="outline" size="sm" onClick={handleSignOut}>
       {t('appHeader.logout')}
@@ -244,10 +245,15 @@ export function AppHeader({ title }: { title: ReactNode }) {
           {t('appHeader.bandSettings')}
         </NavLink>
         {/* Band-independent — always the real page, never routed through
-            /dashboard the way the band-scoped links above are. */}
-        <NavLink to="/settings" variant={variant} onNavigate={onNavigate}>
-          {t('appHeader.accountSettings')}
-        </NavLink>
+            /dashboard the way the band-scoped links above are. Inline
+            (wide-screen) layout only: the menu (Sheet) puts this under its
+            own "Account" section instead, alongside sign-out, rather than
+            mixed in with this band-scoped list — see the Sheet's JSX below. */}
+        {variant === 'inline' && (
+          <NavLink to="/settings" variant={variant} onNavigate={onNavigate}>
+            {t('appHeader.accountSettings')}
+          </NavLink>
+        )}
       </nav>
     );
   }
@@ -284,7 +290,16 @@ export function AppHeader({ title }: { title: ReactNode }) {
       <Sheet
         open={menuOpen}
         onOpenChange={handleMenuOpenChange}
-        title="Bandstand"
+        title={
+          <Link
+            to="/dashboard"
+            onClick={() => setMenuOpen(false)}
+            aria-label={t('appHeader.goToDashboard')}
+            className="rounded-md hover:underline"
+          >
+            Bandstand
+          </Link>
+        }
         closeLabel={t('common.close')}
         side="left"
       >
@@ -300,9 +315,19 @@ export function AppHeader({ title }: { title: ReactNode }) {
             <SectionLabel>{t('appHeader.sectionNav')}</SectionLabel>
             <div className="mt-2">{navLinks('list', () => setMenuOpen(false))}</div>
           </div>
-          <div className="flex flex-col gap-2">
+          <div>
             <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
-            {actionButtons}
+            <div className="mt-2 flex flex-col gap-2">
+              {/* Same list-row look as the Band section above — a real page,
+                  not an action, so it's a NavLink even though it now lives
+                  next to sign-out rather than in the band-scoped list. */}
+              <NavLink to="/settings" variant="list" onNavigate={() => setMenuOpen(false)}>
+                {t('appHeader.accountSettings')}
+              </NavLink>
+              <Button variant="outline" onClick={handleSignOut} className="w-full">
+                {t('appHeader.logout')}
+              </Button>
+            </div>
           </div>
         </div>
       </Sheet>
