@@ -260,20 +260,20 @@ function EditEventForm({
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.startsAt')}
-          <input
+          <Input
             type={allDay ? 'date' : 'datetime-local'}
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-auto"
           />
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.endsAt')}
-          <input
+          <Input
             type={allDay ? 'date' : 'datetime-local'}
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-auto"
           />
         </label>
       </div>
@@ -361,11 +361,11 @@ function ChangeRecurrenceForm({
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.repeatUntil')}
-          <input
+          <Input
             type="date"
             value={until}
             onChange={(e) => setUntil(e.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-auto"
           />
         </label>
       </div>

@@ -16,6 +16,7 @@ import type {
 } from '@bandstand/core';
 import {
   Button,
+  Calendar as CalendarGrid,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -165,22 +166,13 @@ function MonthGrid({
     return map;
   }, [occurrences]);
 
-  const firstOfMonth = startOfMonth(monthCursor);
-  const daysInMonth = endOfMonth(monthCursor).getUTCDate();
-  const leadingBlanks = firstOfMonth.getUTCDay();
-  const cells: (Date | null)[] = [
-    ...Array.from({ length: leadingBlanks }, () => null),
-    ...Array.from(
-      { length: daysInMonth },
-      (_, i) =>
-        new Date(Date.UTC(firstOfMonth.getUTCFullYear(), firstOfMonth.getUTCMonth(), i + 1)),
-    ),
-  ];
-  const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
-    new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }).format(
-      new Date(Date.UTC(2026, 1, 1 + i)),
-    ),
-  );
+  // react-day-picker's `month`/day generation runs in local time, while
+  // monthCursor (and every occurrence's `date` bucket key, see isoDate/
+  // toIsoDate) is UTC-anchored — re-deriving a local midnight for the same
+  // calendar year/month avoids a UTC-midnight instant reading as the
+  // previous local day for viewers west of UTC.
+  const localMonth = new Date(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth(), 1);
+  const localMonthEnd = new Date(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 0);
 
   return (
     <div className="mt-6">
@@ -257,47 +249,57 @@ function MonthGrid({
           )}
         </>
       ) : (
-        <div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
-            {weekdayLabels.map((label) => (
-              <div key={label} className="p-1">
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {cells.map((date, i) => (
-              <div
-                key={date ? isoDate(date) : `blank-${i}`}
-                className="min-h-24 rounded-md border border-border p-1"
-              >
-                {date && (
-                  <>
-                    <p className="text-xs text-muted-foreground">{date.getUTCDate()}</p>
-                    <ul className="mt-1 space-y-0.5">
-                      {(byDate.get(isoDate(date)) ?? []).map((occ) => (
-                        <li
-                          key={occ.occurrenceId}
-                          className="relative truncate rounded px-1 text-xs hover:bg-accent/50"
-                        >
-                          <Link
-                            to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
-                            className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                            aria-label={t('calendarList.openAria', { name: occ.event.title })}
-                          />
-                          <span>
-                            {occ.event.title}
-                            <EventStatusSuffix status={occ.event.status} />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <CalendarGrid
+          month={localMonth}
+          hideNavigation
+          showOutsideDays
+          formatters={{
+            formatWeekdayName: (date) =>
+              new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }).format(date),
+          }}
+          components={{
+            Day: ({ day }) => {
+              // Outside the displayed month: a leading day (before day 1)
+              // renders as an empty bordered placeholder, matching the old
+              // grid's blank leading cells; a trailing day (after the last
+              // day) renders as nothing at all, matching the old grid's lack
+              // of any end-of-month padding.
+              if (day.date < localMonth) {
+                return <td className="min-h-24 rounded-md border border-border p-1" />;
+              }
+              if (day.date > localMonthEnd) {
+                return <td />;
+              }
+              const dateKey = isoDate(
+                new Date(Date.UTC(day.date.getFullYear(), day.date.getMonth(), day.date.getDate())),
+              );
+              const dayOccurrences = byDate.get(dateKey) ?? [];
+              return (
+                <td className="min-h-24 rounded-md border border-border p-1 align-top">
+                  <p className="text-xs text-muted-foreground">{day.date.getDate()}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {dayOccurrences.map((occ) => (
+                      <li
+                        key={occ.occurrenceId}
+                        className="relative truncate rounded px-1 text-xs hover:bg-accent/50"
+                      >
+                        <Link
+                          to={`/bands/${bandId}/calendar/${occ.occurrenceId}`}
+                          className="absolute inset-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                          aria-label={t('calendarList.openAria', { name: occ.event.title })}
+                        />
+                        <span>
+                          {occ.event.title}
+                          <EventStatusSuffix status={occ.event.status} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+              );
+            },
+          }}
+        />
       )}
     </div>
   );
@@ -422,20 +424,20 @@ function CreateEventForm({
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.startsAt')}
-          <input
+          <Input
             type={allDay ? 'date' : 'datetime-local'}
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-auto"
           />
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           {t('calendarList.endsAt')}
-          <input
+          <Input
             type={allDay ? 'date' : 'datetime-local'}
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-auto"
           />
         </label>
       </div>
@@ -487,11 +489,11 @@ function CreateEventForm({
         {repeat !== 'none' && (
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             {t('calendarList.repeatUntil')}
-            <input
+            <Input
               type="date"
               value={repeatUntil}
               onChange={(e) => setRepeatUntil(e.target.value)}
-              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+              className="w-auto"
             />
           </label>
         )}
@@ -592,13 +594,13 @@ function CreatePollForm({
       <div className="space-y-2">
         {optionStarts.map((value, index) => (
           <div key={index} className="flex items-center gap-2">
-            <input
+            <Input
               type="datetime-local"
               value={value}
               onChange={(e) =>
                 setOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
               }
-              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+              className="w-auto"
             />
             {optionStarts.length > 1 && (
               <button

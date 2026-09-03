@@ -2,6 +2,7 @@
 
 export * from './lib/cn';
 export * from './components/Button';
+export * from './components/Calendar';
 export * from './components/ConfirmDialog';
 export * from './components/ConfirmDialogProvider';
 export * from './components/Dialog';

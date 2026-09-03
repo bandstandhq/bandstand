@@ -104,11 +104,11 @@ function EditPollForm({ doc, poll, pollId, onSaved }: { doc: import('yjs').Doc; 
         <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.addProposals')}</p>
         {newOptionStarts.map((value, index) => (
           <div key={index} className="flex items-center gap-2">
-            <input
+            <Input
               type="datetime-local"
               value={value}
               onChange={(e) => setNewOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))}
-              className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+              className="w-auto"
             />
             {newOptionStarts.length > 1 && (
               <button
