@@ -56,6 +56,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const nicknames = useNicknames(bandId);
 
   async function refreshMembers() {
@@ -69,12 +70,21 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
 
   useEffect(() => {
     if (!bandId) return;
-    apiClient.listMyBands().then((bands) => {
-      const band = bands.find((b) => b.id === bandId) ?? null;
-      setMyBand(band);
-      if (band) setBandName(band.name);
-    });
-    apiClient.listBandMembers(bandId).then(setMembers);
+    apiClient
+      .listMyBands()
+      .then((bands) => {
+        const band = bands.find((b) => b.id === bandId) ?? null;
+        setMyBand(band);
+        if (band) setBandName(band.name);
+      })
+      // Offline/unreachable — without this, myBand stays null forever and
+      // every role-gated section below (rename, invites, danger zone) just
+      // silently never appears, with no indication why. Surface it instead.
+      .catch(() => setLoadFailed(true));
+    apiClient
+      .listBandMembers(bandId)
+      .then(setMembers)
+      .catch(() => setLoadFailed(true));
     // A non-admin's request 403s — that's fine, they just see no invites section.
     apiClient
       .listInvites(bandId)
@@ -117,6 +127,12 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
         &larr; {t('bandSettings.back')}
       </Link>
+
+      {loadFailed && (
+        <p className="mt-4 rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">
+          {t('bandSettings.offlineNotice')}
+        </p>
+      )}
 
       <div className="mt-4">
         {canRename ? (

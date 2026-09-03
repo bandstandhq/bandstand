@@ -517,6 +517,7 @@
   },
   "bandSettings": {
     "back": "Back to dashboard",
+    "offlineNotice": "Couldn't reach the server — some settings and the member list aren't available right now.",
     "bandNameLabel": "Band name",
     "rename": {
       "save": "Save",
