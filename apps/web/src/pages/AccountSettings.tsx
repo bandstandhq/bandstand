@@ -4,7 +4,7 @@
 // it follows the user to any device, unlike a band's own settings
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
 import type { ArchivedBand, MyBand } from '@bandstand/api-client';
-import type { Band, Locale } from '@bandstand/core';
+import type { Band, Locale, Theme } from '@bandstand/core';
 import { Button, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ import { useActiveBandStore } from '../stores/activeBand';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 const LOCALES: Locale[] = ['en', 'de'];
+const THEMES: Theme[] = ['system', 'dark', 'light'];
 
 export function AccountSettings() {
   const { t } = useTranslation();
@@ -195,16 +196,24 @@ export function AccountSettings() {
 
         <div className="mt-4 rounded-md border border-border p-4">
           <h2 className="font-medium">{t('accountSettings.themeTitle')}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            className="mt-3"
-            aria-pressed={prefs.theme === 'dark'}
-            onClick={() => void update({ theme: prefs.theme === 'dark' ? 'light' : 'dark' })}
-          >
-            {prefs.theme === 'dark' ? t('appHeader.themeLight') : t('appHeader.themeDark')}
-          </Button>
+          <div className="mt-3 flex gap-2">
+            {THEMES.map((option) => (
+              <Button
+                key={option}
+                variant={prefs.theme === option ? 'default' : 'outline'}
+                size="sm"
+                type="button"
+                aria-pressed={prefs.theme === option}
+                onClick={() => void update({ theme: option })}
+              >
+                {option === 'system'
+                  ? t('accountSettings.themeSystem')
+                  : option === 'dark'
+                    ? t('appHeader.themeDark')
+                    : t('appHeader.themeLight')}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="mt-4 rounded-md border border-border p-4">

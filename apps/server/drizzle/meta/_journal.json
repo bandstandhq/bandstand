@@ -169,6 +169,13 @@
       "when": 1788353884363,
       "tag": "0023_orange_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788433203258,
+      "tag": "0024_cloudy_beast",
+      "breakpoints": true
     }
   ]
 }

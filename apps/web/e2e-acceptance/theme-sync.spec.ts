@@ -50,11 +50,16 @@ test('switching the theme in Account Settings is reflected in Stage Mode, and ba
     await login(page, DEMO_OWNER_EMAIL);
 
     // Starts dark (reset above); switch to light from Account Settings.
+    // Three explicit options now (System/Dark theme/Light theme, see
+    // AccountSettings.tsx) rather than one toggle — each names the exact
+    // choice, so aria-pressed marks whichever one is currently active.
     await page.goto('/settings');
-    const accountThemeButton = page.getByRole('button', { name: /theme$/i });
-    await expect(accountThemeButton).toHaveAttribute('aria-pressed', 'true');
-    await accountThemeButton.click();
-    await expect(accountThemeButton).toHaveAttribute('aria-pressed', 'false');
+    const darkThemeButton = page.getByRole('button', { name: 'Dark theme' });
+    const lightThemeButton = page.getByRole('button', { name: 'Light theme' });
+    await expect(darkThemeButton).toHaveAttribute('aria-pressed', 'true');
+    await lightThemeButton.click();
+    await expect(lightThemeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(darkThemeButton).toHaveAttribute('aria-pressed', 'false');
     await expect
       .poll(() => page.locator('html').evaluate((el) => el.classList.contains('light')))
       .toBe(true);
@@ -70,7 +75,7 @@ test('switching the theme in Account Settings is reflected in Stage Mode, and ba
     await expect(page.getByRole('button', { name: 'Dark' })).toBeVisible();
 
     await page.goto('/settings');
-    await expect(accountThemeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(darkThemeButton).toHaveAttribute('aria-pressed', 'true');
   } finally {
     await resetThemeToDark(ownerToken);
     await deleteThrowawayBand(ownerToken, bandId);

@@ -5,12 +5,15 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ServerPicker } from '../components/ServerPicker';
 import { authClient } from '../lib/auth-client';
+import { clearDraftEmail, getDraftEmail, setDraftEmail } from '../lib/authFormDraft';
 
 export function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState('');
+  // Restores whatever was typed here before a server switch (ServerPicker's
+  // save does a real page reload) — see authFormDraft.ts.
+  const [email, setEmail] = useState(getDraftEmail);
   const [password, setPassword] = useState('');
   // Deliberately distinct from a plain boolean: a request that never got a
   // response from the server (unreachable host, blocked by CORS, DNS
@@ -47,6 +50,7 @@ export function Login() {
       // anonymous state on its very first render and bounces straight back
       // to /login — the exact "sometimes redirects, sometimes doesn't" bug.
       await refetch();
+      clearDraftEmail();
       navigate(searchParams.get('next') ?? '/dashboard');
     } catch {
       // The request itself never completed — no response to have been
@@ -76,7 +80,10 @@ export function Login() {
             type="email"
             required
             value={email}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setEmail(e.target.value);
+              setDraftEmail(e.target.value);
+            }}
           />
         </div>
         <div className="space-y-2">

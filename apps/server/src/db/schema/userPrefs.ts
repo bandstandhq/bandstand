@@ -7,11 +7,14 @@ export const userPrefs = pgTable('user_prefs', {
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
   personalTranspose: integer('personal_transpose').notNull().default(0),
-  // 'dark' | 'light'; 'small' | 'medium' | 'large' | 'xlarge' — the four
-  // Stage Mode text sizes from the brief. Validated in packages/core's
-  // userPrefsSchema, not with a pg enum, to keep adding a size a
-  // one-file change.
-  theme: text('theme').notNull().default('dark'),
+  // 'system' | 'dark' | 'light'; 'small' | 'medium' | 'large' | 'xlarge' —
+  // the four Stage Mode text sizes from the brief. Validated in
+  // packages/core's userPrefsSchema, not with a pg enum, to keep adding a
+  // size a one-file change. This column default is never actually read in
+  // practice — routes/userPrefs.ts always inserts a fully-merged row — but
+  // is kept in sync with DEFAULT_USER_PREFS regardless, to avoid a stale
+  // value confusing a future reader.
+  theme: text('theme').notNull().default('system'),
   textSize: text('text_size').notNull().default('medium'),
   boldText: boolean('bold_text').notNull().default(false),
   chordColor: text('chord_color').notNull().default('#3b82f6'),
