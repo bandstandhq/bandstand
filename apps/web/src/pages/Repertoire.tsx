@@ -11,7 +11,20 @@ import {
 } from '@bandstand/core';
 import type { Song, SongStatus } from '@bandstand/core';
 import { buildRenderModel, normalizeKey, parseChordPro } from '@bandstand/chords';
-import { Button, Dialog, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@bandstand/ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -413,56 +426,56 @@ function DeleteSongForeverDialog({
   }
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => !open && onClose()}
-      title={t('repertoire.deleteForever.title', { title: song.title })}
-      closeLabel={t('common.close')}
-    >
-      {!impact && !error ? (
-        <p className="text-sm text-muted-foreground">{t('repertoire.deleteForever.loading')}</p>
-      ) : (
-        <div className="space-y-3 text-sm">
-          <p>{t('repertoire.deleteForever.warning')}</p>
-          {impact && impact.affectedSetlists.length > 0 && (
-            <p className="text-destructive">
-              {t('repertoire.deleteForever.affectedSetlists', {
-                setlists: impact.affectedSetlists.join(', '),
-              })}
-            </p>
-          )}
-          {impact?.hasPersonalNotes && (
-            <p className="text-destructive">{t('repertoire.deleteForever.hasNotes')}</p>
-          )}
-          <label className="block space-y-1">
-            <span className="text-xs text-muted-foreground">
-              {t('repertoire.deleteForever.confirmLabel', { title: song.title })}
-            </span>
-            <Input
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              className="w-full"
-              autoFocus
-            />
-          </label>
-          {error && <p className="text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t('repertoire.deleteForever.cancel')}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={confirmText !== song.title || deleting || !impact}
-              onClick={() => void handleDelete()}
-            >
-              {deleting
-                ? t('repertoire.deleteForever.deleting')
-                : t('repertoire.deleteForever.confirm')}
-            </Button>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent closeLabel={t('common.close')}>
+        <DialogHeader>
+          <DialogTitle>{t('repertoire.deleteForever.title', { title: song.title })}</DialogTitle>
+        </DialogHeader>
+        {!impact && !error ? (
+          <p className="text-sm text-muted-foreground">{t('repertoire.deleteForever.loading')}</p>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <p>{t('repertoire.deleteForever.warning')}</p>
+            {impact && impact.affectedSetlists.length > 0 && (
+              <p className="text-destructive">
+                {t('repertoire.deleteForever.affectedSetlists', {
+                  setlists: impact.affectedSetlists.join(', '),
+                })}
+              </p>
+            )}
+            {impact?.hasPersonalNotes && (
+              <p className="text-destructive">{t('repertoire.deleteForever.hasNotes')}</p>
+            )}
+            <label className="block space-y-1">
+              <span className="text-xs text-muted-foreground">
+                {t('repertoire.deleteForever.confirmLabel', { title: song.title })}
+              </span>
+              <Input
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                className="w-full"
+                autoFocus
+              />
+            </label>
+            {error && <p className="text-destructive">{error}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                {t('repertoire.deleteForever.cancel')}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={confirmText !== song.title || deleting || !impact}
+                onClick={() => void handleDelete()}
+              >
+                {deleting
+                  ? t('repertoire.deleteForever.deleting')
+                  : t('repertoire.deleteForever.confirm')}
+              </Button>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        )}
+      </DialogContent>
     </Dialog>
   );
 }

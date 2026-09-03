@@ -20,6 +20,9 @@ import {
 import {
   Button,
   Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Input,
   Select,
   SelectContent,
@@ -702,50 +705,50 @@ export function EventDetail() {
       )}
 
       {canEdit && doc && (
-        <Dialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          title={t('eventDetail.editTitle')}
-          closeLabel={t('common.close')}
-        >
-          <EditEventForm
-            doc={doc}
-            event={event}
-            occurrenceId={occurrenceId}
-            isSeriesTemplateOccurrence={isSeriesTemplateOccurrence}
-            setlists={setlists}
-            onSaved={(savedOccurrenceId) => {
-              setEditDialogOpen(false);
-              // Editing a virtual occurrence materializes a fresh exception
-              // under its own real id, never the synthetic templateId@date
-              // one this page is currently showing — stay there and the
-              // page would resolve to "not found" the moment `events`
-              // updates, since that synthetic id no longer maps to anything.
-              if (savedOccurrenceId !== occurrenceId && bandId) {
-                navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
-              }
-            }}
-          />
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent closeLabel={t('common.close')}>
+            <DialogHeader>
+              <DialogTitle>{t('eventDetail.editTitle')}</DialogTitle>
+            </DialogHeader>
+            <EditEventForm
+              doc={doc}
+              event={event}
+              occurrenceId={occurrenceId}
+              isSeriesTemplateOccurrence={isSeriesTemplateOccurrence}
+              setlists={setlists}
+              onSaved={(savedOccurrenceId) => {
+                setEditDialogOpen(false);
+                // Editing a virtual occurrence materializes a fresh exception
+                // under its own real id, never the synthetic templateId@date
+                // one this page is currently showing — stay there and the
+                // page would resolve to "not found" the moment `events`
+                // updates, since that synthetic id no longer maps to anything.
+                if (savedOccurrenceId !== occurrenceId && bandId) {
+                  navigate(`/bands/${bandId}/calendar/${savedOccurrenceId}`, { replace: true });
+                }
+              }}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
       {canEdit && doc && event.seriesId && (
-        <Dialog
-          open={changeRecurrenceDialogOpen}
-          onOpenChange={setChangeRecurrenceDialogOpen}
-          title={t('eventDetail.changeRecurrenceTitle')}
-          closeLabel={t('common.close')}
-        >
-          <ChangeRecurrenceForm
-            doc={doc}
-            seriesTemplateId={event.seriesId}
-            currentRule={seriesTemplate?.seriesRule}
-            effectiveFromDate={toDateValue(event.startsAt)}
-            onSaved={(newTemplateId) => {
-              setChangeRecurrenceDialogOpen(false);
-              if (bandId) navigate(`/bands/${bandId}/calendar/${newTemplateId}`, { replace: true });
-            }}
-          />
+        <Dialog open={changeRecurrenceDialogOpen} onOpenChange={setChangeRecurrenceDialogOpen}>
+          <DialogContent closeLabel={t('common.close')}>
+            <DialogHeader>
+              <DialogTitle>{t('eventDetail.changeRecurrenceTitle')}</DialogTitle>
+            </DialogHeader>
+            <ChangeRecurrenceForm
+              doc={doc}
+              seriesTemplateId={event.seriesId}
+              currentRule={seriesTemplate?.seriesRule}
+              effectiveFromDate={toDateValue(event.startsAt)}
+              onSaved={(newTemplateId) => {
+                setChangeRecurrenceDialogOpen(false);
+                if (bandId) navigate(`/bands/${bandId}/calendar/${newTemplateId}`, { replace: true });
+              }}
+            />
+          </DialogContent>
         </Dialog>
       )}
     </PageShell>

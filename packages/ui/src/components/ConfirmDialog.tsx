@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Button } from './Button';
-import { Dialog } from './Dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './Dialog';
 
 export interface ConfirmDialogAction {
   label: string;
@@ -36,19 +36,25 @@ export function ConfirmDialog({
   closeLabel: string;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={title} description={description} closeLabel={closeLabel}>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        {cancelLabel && (
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {cancelLabel}
-          </Button>
-        )}
-        {actions.map((action) => (
-          <Button key={action.label} type="button" variant={action.variant ?? 'destructive'} onClick={action.onClick}>
-            {action.label}
-          </Button>
-        ))}
-      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent closeLabel={closeLabel}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <DialogFooter>
+          {cancelLabel && (
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {cancelLabel}
+            </Button>
+          )}
+          {actions.map((action) => (
+            <Button key={action.label} type="button" variant={action.variant ?? 'destructive'} onClick={action.onClick}>
+              {action.label}
+            </Button>
+          ))}
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
