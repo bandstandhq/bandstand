@@ -10,9 +10,9 @@ import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { OfflineReadiness } from '../components/OfflineReadiness';
 import { PushNotificationsPanel } from '../components/PushNotificationsPanel';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 import { getActiveServerConfig } from '../lib/serverConfig';
 
 const UPCOMING_WINDOW_MS = 1000 * 60 * 60 * 24 * 180;
@@ -187,7 +187,7 @@ export function CalendarSubscribePanel() {
 export function Dashboard() {
   const { t } = useTranslation();
   const { bandId } = useParams<{ bandId: string }>();
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const { doc, status } = useBandDoc(bandId ?? null);
   const songs = useYMap(doc?.getMap('songs'));
 

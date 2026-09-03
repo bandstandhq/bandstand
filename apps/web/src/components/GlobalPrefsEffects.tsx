@@ -23,13 +23,18 @@ import { useEffect, useRef } from 'react';
 import i18n from '../i18n';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { detectLocale } from '../lib/detectLocale';
-import { authClient } from '../lib/auth-client';
 import { resolveTheme } from '../lib/resolveTheme';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 export function GlobalPrefsEffects(): null {
-  const { data: session } = authClient.useSession();
+  // useTrustedSession, not the raw hook — otherwise a real logged-in user
+  // who goes offline sees `session: null` here same as a genuine sign-out,
+  // and the effect below resets every pref (theme, locale, wake-lock) back
+  // to its default right in the middle of a session, rather than just
+  // keeping whatever was already loaded.
+  const { data: session } = useTrustedSession();
   const userId = session?.user.id;
 
   const prefs = useUserPrefsStore((s) => s.prefs);

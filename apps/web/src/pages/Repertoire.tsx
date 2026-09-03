@@ -37,9 +37,9 @@ import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 
 type ActiveStatusFilter = 'all' | Extract<SongStatus, 'idea'>;
 type RepertoireView = 'active' | 'archive';
@@ -109,7 +109,7 @@ export function Repertoire() {
   const [members, setMembers] = useState<BandMember[]>([]);
   const [importedMessage, setImportedMessage] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ songId: string; song: Song } | null>(null);
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const currentUserId = session?.user.id;
   // Renders either the table or its narrow-screen card equivalent, never
   // both — a CSS-only `hidden sm:table` / `sm:hidden` pair would put every

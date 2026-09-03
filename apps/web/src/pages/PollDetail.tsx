@@ -31,9 +31,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
 import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 
 const ANSWERS: AvailabilityAnswer[] = ['yes', 'maybe', 'no'];
 const ANSWER_LABEL_KEY: Record<AvailabilityAnswer, string> = {
@@ -215,7 +215,7 @@ export function PollDetail() {
   const { confirm } = useConfirmDialog();
   const navigate = useNavigate();
   const { bandId, pollId } = useParams<{ bandId: string; pollId: string }>();
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const { doc, status } = useBandDoc(bandId ?? null);
   const polls = useYMap<Poll>(doc?.getMap('polls'));
   const pollVotes = useYMap<AvailabilityAnswer>(doc?.getMap('pollVotes'));

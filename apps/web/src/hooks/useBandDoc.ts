@@ -4,8 +4,8 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 import { connectBandDoc } from '../lib/yjs';
+import { useTrustedSession } from './useTrustedSession';
 
 export type BandDocStatus = 'connecting' | 'connected' | 'offline' | 'forbidden';
 
@@ -46,7 +46,13 @@ function writeLastKnownMembership(userId: string, bandId: string, isMember: bool
  * offline, was last confirmed) to still be a member.
  */
 export function useBandDoc(bandId: string | null): UseBandDocResult {
-  const { data: session, refetch: refetchSession } = authClient.useSession();
+  // useTrustedSession, not the raw hook: offline, the real session check
+  // resolves to `data: null` same as a genuine logged-out response, and
+  // this effect would never even call connectBandDoc — the locally cached
+  // Yjs doc (this whole hook's reason to exist) never opens, despite
+  // RequireAuth already having let the user past the route guard on the
+  // strength of the very same cached session.
+  const { data: session, refetch: refetchSession } = useTrustedSession();
   const [doc, setDoc] = useState<Y.Doc | null>(null);
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const [status, setStatus] = useState<BandDocStatus>('connecting');
