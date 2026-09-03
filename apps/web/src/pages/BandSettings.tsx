@@ -29,8 +29,8 @@ import { RequireBandRole } from '../components/RequireBandRole';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 
 export function BandSettings() {
   const { bandId } = useParams<{ bandId: string }>();
@@ -46,7 +46,7 @@ export function BandSettings() {
 function BandSettingsContent({ bandId }: { bandId: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const currentUserId = session?.user.id;
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);

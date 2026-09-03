@@ -41,9 +41,9 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { EventStatusSuffix } from '../components/EventStatusSuffix';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useNicknames } from '../hooks/useNicknames';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 
 // The single trash button permanently deletes only within this window after
 // the event was created (never after an edit — createdAt is set once and
@@ -416,7 +416,7 @@ export function EventDetail() {
   const { confirm, chooseAction } = useConfirmDialog();
   const navigate = useNavigate();
   const { bandId, occurrenceId } = useParams<{ bandId: string; occurrenceId: string }>();
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const { doc, status } = useBandDoc(bandId ?? null);
   const events = useYMap<CalendarEvent>(doc?.getMap('events'));
   const availability = useYMap<AvailabilityAnswer>(doc?.getMap('availability'));

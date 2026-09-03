@@ -44,11 +44,11 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useNicknames } from '../hooks/useNicknames';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 import { resolveTheme } from '../lib/resolveTheme';
 import { useUserPrefsStore } from '../stores/userPrefs';
 import type * as Y from 'yjs';
@@ -617,7 +617,7 @@ export function StageMode() {
   }>();
   const singleSongMode = Boolean(songId) && !setlistId;
   const { doc, provider, status: docStatus } = useBandDoc(bandId ?? null);
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const localUserId = session?.user.id;
   useWakeLock(true);
 

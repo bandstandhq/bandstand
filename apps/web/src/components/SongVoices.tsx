@@ -24,10 +24,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type * as Y from 'yjs';
+import { useTrustedSession } from '../hooks/useTrustedSession';
 import { useYArray } from '../hooks/useYArray';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
-import { authClient } from '../lib/auth-client';
 import { InsecureContextError, UnsupportedFileTypeError, uploadFileToBand } from '../lib/uploadFile';
 
 // Matches by content (a re-upload of the exact same bytes, maybe re-named)
@@ -53,7 +53,7 @@ const PdfVoiceViewer = lazy(() => import('./PdfVoiceViewer').then((m) => ({ defa
 
 export function SongVoices({ bandId, songId, doc }: { bandId: string; songId: string; doc: Y.Doc }) {
   const { t } = useTranslation();
-  const { data: session } = authClient.useSession();
+  const { data: session } = useTrustedSession();
   const currentUserId = session?.user.id;
   const { confirm, chooseAction } = useConfirmDialog();
 
