@@ -371,6 +371,7 @@
     "imported_other": "{{count}} Songs importiert."
   },
   "repertoireExport": {
+    "exportButton": "Exportieren",
     "chordProButton": "ChordPro exportieren",
     "jsonButton": "JSON exportieren",
     "fullExportButton": "Alles als ZIP exportieren",

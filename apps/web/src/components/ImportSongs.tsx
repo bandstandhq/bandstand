@@ -5,6 +5,7 @@ import { Button } from '@bandstand/ui';
 import { type DragEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
+import { ImportIcon } from './icons';
 
 interface ParsedImport {
   id: string;
@@ -92,9 +93,15 @@ export function ImportSongs({ doc, onImported }: { doc: Y.Doc; onImported: (coun
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        {t('chordProImport.openButton')}
-      </Button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t('chordProImport.openButton')}
+        title={t('chordProImport.openButton')}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent"
+      >
+        <ImportIcon className="h-5 w-5" />
+      </button>
     );
   }
 

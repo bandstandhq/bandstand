@@ -95,9 +95,9 @@ function PoolSongCard({ songId, song, onAdd }: { songId: string; song: Song; onA
         // starting anywhere else on this row still scroll the page normally.
         // See docs/adr/0014-no-native-drag-on-interactive-rows.md.
         style={{ touchAction: 'none' }}
-        className="flex h-11 w-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
+        className="flex h-11 w-10 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
       >
-        <GripIcon className="h-5 w-5" />
+        <GripIcon className="h-6 w-6" />
       </span>
       <span className="flex-1 py-1">
         {song.title} <span className="text-muted-foreground">— {song.artist}</span>
@@ -194,9 +194,9 @@ function SortableSetlistItem({
         {...listeners}
         aria-label={t('setlistDetail.dragHandle', { name: getItemLabel(item, song, t) })}
         style={{ touchAction: 'none' }}
-        className="flex h-11 w-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
+        className="flex h-11 w-10 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
       >
-        <GripIcon className="h-5 w-5" />
+        <GripIcon className="h-6 w-6" />
       </span>
       {/* The tap target for Stage Mode — a plain tap reaches it; dragging now
           only ever starts from the handle above, never from here.
