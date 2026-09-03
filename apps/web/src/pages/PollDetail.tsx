@@ -12,6 +12,9 @@ import {
 import {
   Button,
   Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Input,
   Select,
   SelectContent,
@@ -382,13 +385,13 @@ export function PollDetail() {
       )}
 
       {canEditPoll && !poll.resolvedEventId && doc && (
-        <Dialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          title={t('pollDetail.editTitle')}
-          closeLabel={t('common.close')}
-        >
-          <EditPollForm doc={doc} poll={poll} pollId={pollId} onSaved={() => setEditDialogOpen(false)} />
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent closeLabel={t('common.close')}>
+            <DialogHeader>
+              <DialogTitle>{t('pollDetail.editTitle')}</DialogTitle>
+            </DialogHeader>
+            <EditPollForm doc={doc} poll={poll} pollId={pollId} onSaved={() => setEditDialogOpen(false)} />
+          </DialogContent>
         </Dialog>
       )}
     </PageShell>

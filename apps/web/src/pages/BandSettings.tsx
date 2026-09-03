@@ -5,6 +5,10 @@ import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@band
 import {
   Button,
   Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Input,
   Select,
   SelectContent,
@@ -230,25 +234,28 @@ function DeleteBandDialog({
         onOpenChange(next);
         if (!next) setTypedName('');
       }}
-      title={t('bandSettings.danger.dialogTitle', { name: bandName })}
-      description={t('bandSettings.danger.dialogDescription')}
-      closeLabel={t('bandSettings.danger.cancel')}
     >
-      <Input
-        autoFocus
-        value={typedName}
-        onChange={(e) => setTypedName(e.target.value)}
-        placeholder={t('bandSettings.danger.typeNamePlaceholder')}
-        aria-label={t('bandSettings.danger.typeNamePlaceholder')}
-      />
-      <Button
-        variant="destructive"
-        className="mt-4 w-full"
-        disabled={typedName !== bandName || deleting}
-        onClick={onConfirm}
-      >
-        {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.confirmTyped')}
-      </Button>
+      <DialogContent closeLabel={t('bandSettings.danger.cancel')}>
+        <DialogHeader>
+          <DialogTitle>{t('bandSettings.danger.dialogTitle', { name: bandName })}</DialogTitle>
+          <DialogDescription>{t('bandSettings.danger.dialogDescription')}</DialogDescription>
+        </DialogHeader>
+        <Input
+          autoFocus
+          value={typedName}
+          onChange={(e) => setTypedName(e.target.value)}
+          placeholder={t('bandSettings.danger.typeNamePlaceholder')}
+          aria-label={t('bandSettings.danger.typeNamePlaceholder')}
+        />
+        <Button
+          variant="destructive"
+          className="w-full"
+          disabled={typedName !== bandName || deleting}
+          onClick={onConfirm}
+        >
+          {deleting ? t('bandSettings.danger.deleting') : t('bandSettings.danger.confirmTyped')}
+        </Button>
+      </DialogContent>
     </Dialog>
   );
 }

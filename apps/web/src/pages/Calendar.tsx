@@ -17,6 +17,9 @@ import type {
 import {
   Button,
   Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Input,
   Select,
   SelectContent,
@@ -750,19 +753,19 @@ export function Calendar() {
 
       {canCreate && doc && (
         <>
-          <Dialog
-            open={eventDialogOpen}
-            onOpenChange={handleEventDialogOpenChange}
-            title={t('calendarList.createTitle')}
-            closeLabel={t('common.close')}
-          >
-            <CreateEventForm
-              doc={doc}
-              setlists={setlists}
-              onDirtyChange={setEventFormDirty}
-              saveRef={eventFormSaveRef}
-              onSaved={() => setEventDialogOpen(false)}
-            />
+          <Dialog open={eventDialogOpen} onOpenChange={handleEventDialogOpenChange}>
+            <DialogContent closeLabel={t('common.close')}>
+              <DialogHeader>
+                <DialogTitle>{t('calendarList.createTitle')}</DialogTitle>
+              </DialogHeader>
+              <CreateEventForm
+                doc={doc}
+                setlists={setlists}
+                onDirtyChange={setEventFormDirty}
+                saveRef={eventFormSaveRef}
+                onSaved={() => setEventDialogOpen(false)}
+              />
+            </DialogContent>
           </Dialog>
           <UnsavedChangesDialog
             open={eventCloseConfirmOpen}
@@ -808,18 +811,18 @@ export function Calendar() {
         )}
         {canCreatePoll && doc && (
           <>
-            <Dialog
-              open={pollDialogOpen}
-              onOpenChange={handlePollDialogOpenChange}
-              title={t('calendarList.createPollTitle')}
-              closeLabel={t('common.close')}
-            >
-              <CreatePollForm
-                doc={doc}
-                onDirtyChange={setPollFormDirty}
-                saveRef={pollFormSaveRef}
-                onSaved={() => setPollDialogOpen(false)}
-              />
+            <Dialog open={pollDialogOpen} onOpenChange={handlePollDialogOpenChange}>
+              <DialogContent closeLabel={t('common.close')}>
+                <DialogHeader>
+                  <DialogTitle>{t('calendarList.createPollTitle')}</DialogTitle>
+                </DialogHeader>
+                <CreatePollForm
+                  doc={doc}
+                  onDirtyChange={setPollFormDirty}
+                  saveRef={pollFormSaveRef}
+                  onSaved={() => setPollDialogOpen(false)}
+                />
+              </DialogContent>
             </Dialog>
             <UnsavedChangesDialog
               open={pollCloseConfirmOpen}
