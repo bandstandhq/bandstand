@@ -1,21 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation } from 'react-router';
 import { authClient } from '../lib/auth-client';
+import { getCachedSession, setCachedSession } from '../lib/sessionCache';
 
 /**
- * Three states, not two. `isPending` (the session store hasn't resolved
+ * Four states, not two. `isPending` (the session store hasn't resolved
  * yet) is deliberately distinct from "confirmed anonymous" — a guard that
  * only knows "logged in" vs "not logged in" treats a still-loading session
  * as "not logged in" and redirects prematurely. Every protected route in
  * router.tsx wraps its element in this, replacing the one-off inline check
  * that used to live only in Dashboard.tsx.
+ *
+ * The fourth state: `error` present (the session check itself couldn't
+ * complete — offline, unreachable server, a 5xx) with a previously
+ * confirmed session cached locally (sessionCache.ts). better-auth's own
+ * session store lives only in memory, so it's gone after a full reload —
+ * without this, reloading the app while offline looks identical to a real
+ * logged-out response and bounces a legitimately-signed-in user to
+ * /login, defeating the rest of this app's IndexedDB-backed offline story.
+ * This is a UX gate, not the security boundary (every real mutation is
+ * independently checked server-side, see apiClient's own onUnauthorized),
+ * so trusting a stale cached session a little too long here costs nothing
+ * a genuinely-revoked session wouldn't already get caught by on its own
+ * next real request.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending, error } = authClient.useSession();
   const location = useLocation();
+
+  useEffect(() => {
+    if (session) setCachedSession(session);
+  }, [session]);
 
   if (isPending) {
     return (
@@ -26,6 +45,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   if (!session) {
+    if (error && getCachedSession()) {
+      return <>{children}</>;
+    }
     const next = encodeURIComponent(`${location.pathname}${location.search}`);
     return <Navigate to={`/login?next=${next}`} replace />;
   }

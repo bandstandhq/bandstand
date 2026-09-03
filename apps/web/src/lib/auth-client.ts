@@ -16,6 +16,7 @@
 // behavior — cookie-only, no token ever persisted — is unchanged.
 import { createAuthClient } from 'better-auth/react';
 import { clearToken, getStoredToken, persistToken } from './authToken';
+import { clearCachedSession } from './sessionCache';
 import { getActiveServerConfig, isWrappedApp } from './serverConfig';
 
 // Extracted as named functions (rather than inlined in the fetchOptions
@@ -42,12 +43,16 @@ export const authClient = createAuthClient({
   },
 });
 
-// Centralizes clearing the stored bearer token on sign-out (a stale token
-// must not outlive the session better-auth itself considers ended) — call
-// sites (AppHeader.tsx, api-client.ts's onUnauthorized) use this instead of
-// authClient.signOut() directly. A no-op past the base call for a plain
-// browser session, which never had a token stored.
+// Centralizes clearing the stored bearer token and cached session (see
+// sessionCache.ts — a stale one left behind would let RequireAuth treat a
+// signed-out device as still-authenticated-but-offline the next time it
+// can't reach the server) on sign-out — a stale token must not outlive the
+// session better-auth itself considers ended. Call sites (AppHeader.tsx,
+// api-client.ts's onUnauthorized) use this instead of authClient.signOut()
+// directly. clearToken() is a no-op past the base call for a plain browser
+// session, which never had a token stored.
 export async function signOut(): Promise<void> {
   await authClient.signOut();
   clearToken();
+  clearCachedSession();
 }
