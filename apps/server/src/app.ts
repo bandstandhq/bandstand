@@ -15,7 +15,7 @@ import { cors } from 'hono/cors';
 import { ZodError } from 'zod';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { auth } from './lib/auth';
-import { parseAllowedOrigins } from './lib/corsOrigins';
+import { parseAllowedOrigins, WRAPPED_APP_ORIGINS } from './lib/corsOrigins';
 import { assertWebOriginIsRestricted } from './lib/envGuard';
 import { accountActionRateLimit } from './lib/accountActionRateLimit';
 import { passwordResetRateLimit } from './lib/passwordResetRateLimit';
@@ -40,10 +40,13 @@ export const app = new Hono();
 // section) — never a wildcard, outside NODE_ENV=development/test.
 // assertWebOriginIsRestricted (called above) has already aborted startup
 // if this doesn't resolve to exactly one real, non-private origin.
+// WRAPPED_APP_ORIGINS is always appended on top, regardless of WEB_ORIGIN —
+// see its own comment in corsOrigins.ts for why the mobile/desktop apps
+// need this independent of any self-hoster's domain.
 app.use(
   '*',
   cors({
-    origin: parseAllowedOrigins(process.env.WEB_ORIGIN),
+    origin: [...parseAllowedOrigins(process.env.WEB_ORIGIN), ...WRAPPED_APP_ORIGINS],
     credentials: true,
   }),
 );

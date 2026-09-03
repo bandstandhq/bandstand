@@ -19,7 +19,7 @@ import { betterAuth } from 'better-auth';
 import { bearer, jwt } from 'better-auth/plugins';
 import { db } from '../db/client';
 import * as schema from '../db/schema/index';
-import { parseAllowedOrigins } from './corsOrigins';
+import { parseAllowedOrigins, WRAPPED_APP_ORIGINS } from './corsOrigins';
 import { assertNotDevPlaceholder, assertStrongSecret } from './envGuard';
 import { sendMail } from './mailer';
 
@@ -43,7 +43,7 @@ export const auth = betterAuth({
   // an origin the rest of the API already accepts (this is exactly what
   // broke local LAN testing before WEB_ORIGIN supported more than one
   // origin — see CONTRIBUTING.md's "Testing on mobile devices" section).
-  trustedOrigins: parseAllowedOrigins(process.env.WEB_ORIGIN),
+  trustedOrigins: [...parseAllowedOrigins(process.env.WEB_ORIGIN), ...WRAPPED_APP_ORIGINS],
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,
