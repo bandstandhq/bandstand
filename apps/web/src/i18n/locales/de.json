@@ -121,8 +121,9 @@
   "appHeader": {
     "openMenu": "Menü öffnen",
     "navLabel": "Bandbereiche",
-    "sectionNav": "Navigation",
-    "sectionActions": "Aktionen",
+    "sectionNav": "Band",
+    "sectionActions": "Konto",
+    "goToDashboard": "Zum Dashboard",
     "repertoire": "Repertoire",
     "setlists": "Setlists",
     "calendar": "Kalender",
