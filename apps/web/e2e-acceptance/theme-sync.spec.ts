@@ -61,8 +61,8 @@ test('switching the theme in Account Settings is reflected in Stage Mode, and ba
     await expect(lightThemeButton).toHaveAttribute('aria-pressed', 'true');
     await expect(darkThemeButton).toHaveAttribute('aria-pressed', 'false');
     await expect
-      .poll(() => page.locator('html').evaluate((el) => el.classList.contains('light')))
-      .toBe(true);
+      .poll(() => page.locator('html').evaluate((el) => el.classList.contains('dark')))
+      .toBe(false);
 
     // Stage Mode, entered fresh, already shows light — never toggled there.
     await page.goto(`/bands/${bandId}/songs/${songId}/play`);

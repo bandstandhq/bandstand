@@ -1,39 +1,61 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 /*
- * Neutral, dark-first theme. Dark is the default (`:root`) because the
- * Stage Mode screen — the app's most important surface — needs high
- * contrast in a dim rehearsal-room/venue setting; light is an explicit
- * opt-in via `.light` on the root element, not the other way around.
+ * shadcn/ui theme: Sky accent color, Nova style, Medium (0.5rem) radius.
+ * Standard shadcn convention: bare `:root` is light, `.dark` is the
+ * override. Per-user theme selection ('system' | 'dark' | 'light', see
+ * apps/web/src/lib/resolveTheme.ts) is applied by JS toggling `.dark`
+ * (GlobalPrefsEffects.tsx) — this file only defines what each state looks
+ * like, not which one is active. The previous version of this file kept
+ * dark as the bare-root default and `.light` as the override, specifically
+ * because Stage Mode (the app's most important surface) wants a dark,
+ * high-contrast look in a dim rehearsal-room/venue setting — that's still
+ * true today, but it's achieved by 'system'/'dark' resolving through JS as
+ * before, not by which selector is the CSS fallback here.
  */
 :root {
-  --background: oklch(0.16 0.01 260);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.18 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 260);
+  --primary: oklch(0.6 0.17 230);
+  --primary-foreground: oklch(0.99 0.005 230);
+  --secondary: oklch(0.96 0.01 230);
+  --secondary-foreground: oklch(0.25 0.02 260);
+  --muted: oklch(0.96 0.01 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --accent: oklch(0.94 0.02 230);
+  --accent-foreground: oklch(0.25 0.03 230);
+  --destructive: oklch(0.577 0.245 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+  --border: oklch(0.9 0.01 260);
+  --input: oklch(0.9 0.01 260);
+  --ring: oklch(0.6 0.17 230);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: oklch(0.15 0.01 260);
   --foreground: oklch(0.96 0.01 260);
   --card: oklch(0.2 0.01 260);
   --card-foreground: oklch(0.96 0.01 260);
-  --primary: oklch(0.72 0.15 250);
-  --primary-foreground: oklch(0.16 0.01 260);
+  --popover: oklch(0.2 0.01 260);
+  --popover-foreground: oklch(0.96 0.01 260);
+  --primary: oklch(0.72 0.15 230);
+  --primary-foreground: oklch(0.15 0.02 260);
+  --secondary: oklch(0.27 0.01 260);
+  --secondary-foreground: oklch(0.96 0.01 260);
+  --muted: oklch(0.24 0.01 260);
   --muted-foreground: oklch(0.65 0.02 260);
-  --accent: oklch(0.27 0.01 260);
+  --accent: oklch(0.3 0.02 230);
+  --accent-foreground: oklch(0.96 0.01 260);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
   --border: oklch(0.3 0.01 260);
-  --ring: oklch(0.72 0.15 250);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.96 0.01 260);
-}
-
-.light {
-  --background: oklch(0.99 0.002 260);
-  --foreground: oklch(0.18 0.01 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 260);
-  --primary: oklch(0.5 0.15 250);
-  --primary-foreground: oklch(0.99 0.002 260);
-  --muted-foreground: oklch(0.45 0.02 260);
-  --accent: oklch(0.94 0.005 260);
-  --border: oklch(0.88 0.005 260);
-  --ring: oklch(0.5 0.15 250);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.99 0.002 260);
+  --input: oklch(0.3 0.01 260);
+  --ring: oklch(0.72 0.15 230);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -50,4 +72,5 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
 }

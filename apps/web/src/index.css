@@ -1,5 +1,11 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 @import 'tailwindcss';
+/* Self-hosted (not a Google Fonts CDN link) — a self-hoster's deployment
+   then makes zero runtime calls to a third party for this. Only the
+   weights actually used (400 body, 500/600 for font-medium/font-semibold). */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
 @import '@bandstand/ui/styles.css';
 @import '@bandstand/ui/theme.css';
 
