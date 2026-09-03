@@ -21,7 +21,7 @@ import { BandAccessDenied } from '../components/BandAccessDenied';
 import { ExportRepertoire } from '../components/ExportRepertoire';
 import { IdeaVoting } from '../components/IdeaVoting';
 import { ImportSongs } from '../components/ImportSongs';
-import { PencilIcon, TrashIcon } from '../components/icons';
+import { PencilIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { useBandDoc } from '../hooks/useBandDoc';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useYMap } from '../hooks/useYMap';
@@ -193,8 +193,13 @@ export function Repertoire() {
               }}
             />
           )}
-          <Link to={`/bands/${bandId}/songs/new`}>
-            <Button>{t('repertoire.newSong')}</Button>
+          <Link
+            to={`/bands/${bandId}/songs/new`}
+            aria-label={t('repertoire.newSong')}
+            title={t('repertoire.newSong')}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <PlusIcon className="h-5 w-5" />
           </Link>
         </div>
       </div>
