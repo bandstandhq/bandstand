@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { zodResolver } from '@hookform/resolvers/zod';
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
-import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
+import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus, renameBandInputSchema } from '@bandstand/core';
 import {
   Button,
   Dialog,
@@ -9,6 +10,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
   Input,
   Select,
   SelectContent,
@@ -19,7 +25,8 @@ import {
 } from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
@@ -51,7 +58,10 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [bandName, setBandName] = useState('');
+  const renameForm = useForm<{ name: string }>({
+    resolver: zodResolver(renameBandInputSchema),
+    defaultValues: { name: '' },
+  });
   const [renameSaved, setRenameSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -75,7 +85,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       .then((bands) => {
         const band = bands.find((b) => b.id === bandId) ?? null;
         setMyBand(band);
-        if (band) setBandName(band.name);
+        if (band) renameForm.reset({ name: band.name });
       })
       // Offline/unreachable — without this, myBand stays null forever and
       // every role-gated section below (rename, invites, danger zone) just
@@ -90,6 +100,9 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       .listInvites(bandId)
       .then(setInvites)
       .catch(() => setInvites([]));
+    // `renameForm` is stable (react-hook-form guarantees the returned
+    // object's identity across renders) — omitted deliberately, not missed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bandId]);
 
   const canRename = myBand ? can(myBand.role, 'band:rename') : false;
@@ -101,9 +114,8 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   // Yjs doc (see FullRepertoireExport.tsx).
   const { doc } = useBandDoc(canExportRepertoire ? bandId : null);
 
-  async function handleRename(e: FormEvent) {
-    e.preventDefault();
-    const updated = await apiClient.renameBand(bandId, { name: bandName });
+  async function handleRename(values: { name: string }) {
+    const updated = await apiClient.renameBand(bandId, values);
     setMyBand((prev) => (prev ? { ...prev, name: updated.name } : prev));
     setRenameSaved(true);
     setTimeout(() => setRenameSaved(false), 2000);
@@ -136,23 +148,33 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
 
       <div className="mt-4">
         {canRename ? (
-          <form onSubmit={handleRename} className="flex flex-wrap items-center gap-2">
-            <Input
-              id="band-name"
-              aria-label={t('bandSettings.bandNameLabel')}
-              value={bandName}
-              onChange={(e) => setBandName(e.target.value)}
-              className="w-full max-w-sm text-xl font-medium sm:w-auto"
-            />
-            <Button type="submit" size="sm">
-              {t('bandSettings.rename.save')}
-            </Button>
-            {renameSaved && (
-              <span className="text-sm text-muted-foreground">
-                {t('bandSettings.rename.saved')}
-              </span>
-            )}
-          </form>
+          <Form {...renameForm}>
+            <form onSubmit={renameForm.handleSubmit(handleRename)} className="flex flex-wrap items-center gap-2">
+              <FormField
+                control={renameForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="contents">
+                    <FormControl>
+                      <Input
+                        aria-label={t('bandSettings.bandNameLabel')}
+                        className="w-full max-w-sm text-xl font-medium sm:w-auto"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" size="sm">
+                {t('bandSettings.rename.save')}
+              </Button>
+              {renameSaved && (
+                <span className="text-sm text-muted-foreground">
+                  {t('bandSettings.rename.saved')}
+                </span>
+              )}
+            </form>
+          </Form>
         ) : (
           <h1 className="text-xl font-medium">{myBand?.name}</h1>
         )}
@@ -579,33 +601,43 @@ function NicknameEditor({
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
   const hasNickname = Object.hasOwn(nicknames.nicknames, member.userId);
+  const form = useForm<{ value: string }>({ defaultValues: { value: '' } });
 
   if (editing) {
     return (
-      <form
-        className="flex flex-wrap items-center gap-1"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await nicknames.setNickname(member.userId, value);
-          setEditing(false);
-        }}
-      >
-        <Input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={t('bandSettings.members.nicknamePlaceholder')}
-          className="h-7 w-32 text-sm"
-        />
-        <Button type="submit" size="sm">
-          {t('bandSettings.members.saveNickname')}
-        </Button>
-        <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setEditing(false)}>
-          {t('bandSettings.members.cancelNickname')}
-        </button>
-      </form>
+      <Form {...form}>
+        <form
+          className="flex flex-wrap items-center gap-1"
+          onSubmit={form.handleSubmit(async ({ value }) => {
+            await nicknames.setNickname(member.userId, value);
+            setEditing(false);
+          })}
+        >
+          <FormField
+            control={form.control}
+            name="value"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <FormControl>
+                  <Input
+                    autoFocus
+                    placeholder={t('bandSettings.members.nicknamePlaceholder')}
+                    className="h-7 w-32 text-sm"
+                    {...field}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <Button type="submit" size="sm">
+            {t('bandSettings.members.saveNickname')}
+          </Button>
+          <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setEditing(false)}>
+            {t('bandSettings.members.cancelNickname')}
+          </button>
+        </form>
+      </Form>
     );
   }
 
@@ -617,7 +649,7 @@ function NicknameEditor({
         aria-label={t('bandSettings.members.editNickname', { name: member.name })}
         className="text-muted-foreground hover:text-foreground"
         onClick={() => {
-          setValue(nicknames.nicknames[member.userId] ?? '');
+          form.reset({ value: nicknames.nicknames[member.userId] ?? '' });
           setEditing(true);
         }}
       >
@@ -857,84 +889,95 @@ function CreateInviteForm({
   onCreated: (invite: Invite) => void;
 }) {
   const { t } = useTranslation();
-  const [label, setLabel] = useState('');
-  const [instrument, setInstrument] = useState('');
   const [role, setRole] = useState<BandRole>('member');
-  const [expiresInDays, setExpiresInDays] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const form = useForm<{ label: string; instrument: string; expiresInDays: string }>({
+    defaultValues: { label: '', instrument: '', expiresInDays: '' },
+  });
+  const labelValue = useWatch({ control: form.control, name: 'label' });
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+  async function onSubmit(values: { label: string; instrument: string; expiresInDays: string }) {
     setError(null);
     try {
       const invite = await apiClient.createInvite(bandId, {
-        label,
-        instrument: instrument.trim() || undefined,
+        label: values.label,
+        instrument: values.instrument.trim() || undefined,
         role,
-        expiresInDays: expiresInDays ? Number(expiresInDays) : undefined,
+        expiresInDays: values.expiresInDays ? Number(values.expiresInDays) : undefined,
       });
       onCreated(invite);
-      setLabel('');
-      setInstrument('');
-      setExpiresInDays('');
+      form.reset({ label: '', instrument: '', expiresInDays: '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border p-4"
-    >
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground" htmlFor="invite-label">
-          {t('bandSettings.invites.noteLabel')}
-        </label>
-        <Input
-          id="invite-label"
-          required
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder={t('bandSettings.invites.notePlaceholder')}
-          className="w-48"
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border p-4"
+      >
+        <FormField
+          control={form.control}
+          name="label"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs font-normal text-muted-foreground">
+                {t('bandSettings.invites.noteLabel')}
+              </FormLabel>
+              <FormControl>
+                <Input required placeholder={t('bandSettings.invites.notePlaceholder')} className="w-48" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
         />
-      </div>
-      <Input
-        value={instrument}
-        onChange={(e) => setInstrument(e.target.value)}
-        placeholder={t('bandSettings.invites.instrumentPlaceholder')}
-        className="w-52"
-      />
-      <Select value={role} onValueChange={(value) => setRole(value as BandRole)}>
-        <SelectTrigger aria-label={t('bandSettings.invites.role')} className="w-auto">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="member">{t('bandSettings.invites.roleMember')}</SelectItem>
-          <SelectItem value="admin">{t('bandSettings.invites.roleAdmin')}</SelectItem>
-        </SelectContent>
-      </Select>
-      <Input
-        type="number"
-        inputMode="numeric"
-        min={1}
-        max={365}
-        step={1}
-        value={expiresInDays}
-        onChange={(e) => setExpiresInDays(e.target.value)}
-        placeholder={t('bandSettings.invites.expiresInDays')}
-        className="w-40"
-      />
-      <Button type="submit" disabled={submitting || !label.trim()}>
-        {submitting ? t('bandSettings.invites.creating') : t('bandSettings.invites.create')}
-      </Button>
-      {error && <span className="text-sm text-destructive">{error}</span>}
-    </form>
+        <FormField
+          control={form.control}
+          name="instrument"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('bandSettings.invites.instrumentPlaceholder')} className="w-52" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <Select value={role} onValueChange={(value) => setRole(value as BandRole)}>
+          <SelectTrigger aria-label={t('bandSettings.invites.role')} className="w-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="member">{t('bandSettings.invites.roleMember')}</SelectItem>
+            <SelectItem value="admin">{t('bandSettings.invites.roleAdmin')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <FormField
+          control={form.control}
+          name="expiresInDays"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={365}
+                  step={1}
+                  placeholder={t('bandSettings.invites.expiresInDays')}
+                  className="w-40"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={form.formState.isSubmitting || !labelValue.trim()}>
+          {form.formState.isSubmitting ? t('bandSettings.invites.creating') : t('bandSettings.invites.create')}
+        </Button>
+        {error && <span className="text-sm text-destructive">{error}</span>}
+      </form>
+    </Form>
   );
 }
 
