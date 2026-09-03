@@ -517,6 +517,7 @@
   },
   "bandSettings": {
     "back": "Zurück zum Dashboard",
+    "offlineNotice": "Server nicht erreichbar — einige Einstellungen und die Mitgliederliste sind gerade nicht verfügbar.",
     "bandNameLabel": "Bandname",
     "rename": {
       "save": "Speichern",
