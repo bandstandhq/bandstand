@@ -80,6 +80,16 @@ describe('serverConfig', () => {
     expect(localStorage.getItem('bandstand-active-band')).toBeNull();
   });
 
+  it('setting or clearing an override wipes a stored bearer auth token', () => {
+    localStorage.setItem('bandstand.authToken', 'tok-123');
+    setServerOverride(CUSTOM);
+    expect(localStorage.getItem('bandstand.authToken')).toBeNull();
+
+    localStorage.setItem('bandstand.authToken', 'tok-123');
+    clearServerOverride();
+    expect(localStorage.getItem('bandstand.authToken')).toBeNull();
+  });
+
   it('treats malformed stored JSON as no override', () => {
     import.meta.env.DEV = false;
     localStorage.setItem('bandstand.serverConfig', 'not-json');

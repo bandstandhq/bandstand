@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { BandSwitcher } from './BandSwitcher';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { authClient } from '../lib/auth-client';
+import { signOut } from '../lib/auth-client';
 import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
 import { useUserPrefsStore } from '../stores/userPrefs';
@@ -195,7 +195,7 @@ export function AppHeader({ title }: { title: ReactNode }) {
     // nothing derived from them may still be *displayed* after this.
     setActiveBandId(null);
     resetUserPrefs();
-    void authClient.signOut();
+    void signOut();
   }
 
   // Actions (do something in place) are always `<Button>`s, styled to

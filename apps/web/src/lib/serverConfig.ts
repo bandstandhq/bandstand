@@ -28,6 +28,7 @@
 //      leaving the plain localhost fallback below in place; in practice a
 //      user of a wrapped build always ends up in ServerPicker.tsx's custom-
 //      server flow, since there's no real server at that fallback either.
+import { clearToken } from './authToken';
 import { withRuntimeHost } from './networkHost';
 
 export interface ServerConfig {
@@ -53,7 +54,7 @@ export let DEFAULT_SERVER_CONFIG: ServerConfig = {
 // deployment by protocol alone. Both Capacitor and Tauri instead inject a global into any page
 // they load, whether or not this bundle imports either SDK (neither is an apps/web dependency —
 // see apps/mobile/README.md's "no feature logic" framing), so check for that directly.
-function isWrappedApp(): boolean {
+export function isWrappedApp(): boolean {
   if (typeof window === 'undefined') return false;
   return 'Capacitor' in window || '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 }
@@ -132,6 +133,10 @@ export function clearServerOverride(): void {
 
 function wipeLocalDataForServerSwitch(): void {
   localStorage.removeItem('bandstand-active-band');
+  // A bearer token issued by the old server must never be sent to the new
+  // one — see authToken.ts. No-op for a plain browser session, which never
+  // has one stored to begin with.
+  clearToken();
   if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
   void indexedDB.databases().then((databases) => {
     for (const entry of databases) {

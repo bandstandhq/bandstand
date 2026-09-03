@@ -205,6 +205,46 @@ describe('createApiClient', () => {
     );
   });
 
+  it('attaches an Authorization header when getAuthToken returns a value', async () => {
+    mockFetchOnce({ ok: true, body: [] });
+    const client = createApiClient('http://api.example', { getAuthToken: () => 'tok-123' });
+    await client.listMyBands();
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tok-123' }) }),
+    );
+  });
+
+  it('attaches an Authorization header to checkBandMembership too, not just request()', async () => {
+    mockFetchOnce({ ok: true, status: 200, body: [] });
+    const client = createApiClient('http://api.example', { getAuthToken: () => 'tok-123' });
+    await client.checkBandMembership('band-1');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://api.example/bands/band-1/members',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tok-123' }) }),
+    );
+  });
+
+  it('omits the Authorization header when getAuthToken is not provided', async () => {
+    mockFetchOnce({ ok: true, body: [] });
+    const client = createApiClient('http://api.example');
+    await client.listMyBands();
+
+    const headers = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.headers;
+    expect(headers).not.toHaveProperty('Authorization');
+  });
+
+  it('omits the Authorization header when getAuthToken returns undefined', async () => {
+    mockFetchOnce({ ok: true, body: [] });
+    const client = createApiClient('http://api.example', { getAuthToken: () => undefined });
+    await client.listMyBands();
+
+    const headers = (fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.headers;
+    expect(headers).not.toHaveProperty('Authorization');
+  });
+
   it('falls back to a generic message when the error body is unparseable', async () => {
     vi.stubGlobal(
       'fetch',
