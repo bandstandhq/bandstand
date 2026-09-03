@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input } from '@bandstand/ui';
-import { type ChangeEvent, type FormEvent, useState } from 'react';
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, Input } from '@bandstand/ui';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { authClient } from '../lib/auth-client';
+
+interface ForgotPasswordValues {
+  email: string;
+}
 
 /**
  * The response is identical whether or not the address exists, and
@@ -14,18 +19,15 @@ import { authClient } from '../lib/auth-client';
  */
 export function ForgotPassword() {
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
+  const form = useForm<ForgotPasswordValues>({ defaultValues: { email: '' } });
+
+  async function onSubmit(values: ForgotPasswordValues) {
     await authClient.requestPasswordReset({
-      email,
+      email: values.email,
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    setSubmitting(false);
     setSubmitted(true);
   }
 
@@ -36,24 +38,26 @@ export function ForgotPassword() {
         {submitted ? (
           <p className="text-sm text-muted-foreground">{t('forgotPassword.sent')}</p>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t('forgotPassword.description')}</p>
-            <div className="space-y-2">
-              <label htmlFor="forgot-password-email" className="text-sm text-muted-foreground">
-                {t('forgotPassword.email')}
-              </label>
-              <Input
-                id="forgot-password-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t('forgotPassword.description')}</p>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('forgotPassword.email')}</FormLabel>
+                    <FormControl>
+                      <Input type="email" required {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
-            </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? t('forgotPassword.submitting') : t('forgotPassword.submit')}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? t('forgotPassword.submitting') : t('forgotPassword.submit')}
+              </Button>
+            </form>
+          </Form>
         )}
         <p className="text-sm text-muted-foreground">
           <Link to="/login" className="underline">

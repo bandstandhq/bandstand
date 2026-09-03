@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input, PasswordInput } from '@bandstand/ui';
-import { type ChangeEvent, type FormEvent, useState } from 'react';
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, Input, PasswordInput } from '@bandstand/ui';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { authClient } from '../lib/auth-client';
 import { clearDraftEmail, getDraftEmail, setDraftEmail } from '../lib/authFormDraft';
@@ -23,23 +24,27 @@ function classifySignupError(error: { status: number; code?: string } | null, th
   return 'generic';
 }
 
+interface SignupValues {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; submitLabel?: string }) {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
-  // Restores whatever was typed here before a server switch (ServerPicker's
-  // save does a real page reload) — see authFormDraft.ts.
-  const [email, setEmail] = useState(getDraftEmail);
-  const [password, setPassword] = useState('');
   const [errorKind, setErrorKind] = useState<SignupErrorKind>(null);
-  const [submitting, setSubmitting] = useState(false);
   const { refetch } = authClient.useSession();
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  const form = useForm<SignupValues>({
+    // Restores whatever was typed here before a server switch (ServerPicker's
+    // save does a real page reload) — see authFormDraft.ts.
+    defaultValues: { name: '', email: getDraftEmail(), password: '' },
+  });
+
+  async function onSubmit(values: SignupValues) {
     setErrorKind(null);
-    setSubmitting(true);
     try {
-      const { error: signUpError } = await authClient.signUp.email({ email, password, name });
+      const { error: signUpError } = await authClient.signUp.email(values);
       if (signUpError) {
         setErrorKind(classifySignupError(signUpError, false));
         return;
@@ -55,61 +60,73 @@ export function SignupForm({ onSuccess, submitLabel }: { onSuccess: () => void; 
       // see Login.tsx's identical reasoning for why this can never be
       // worded as a credentials/validation problem.
       setErrorKind('network');
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label htmlFor="signup-name" className="text-sm text-muted-foreground">
-          {t('signup.name')}
-        </label>
-        <Input
-          id="signup-name"
-          required
-          value={name}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('signup.name')}</FormLabel>
+              <FormControl>
+                <Input required {...field} />
+              </FormControl>
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="signup-email" className="text-sm text-muted-foreground">
-          {t('signup.email')}
-        </label>
-        <Input
-          id="signup-email"
-          type="email"
-          required
-          value={email}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            setEmail(e.target.value);
-            setDraftEmail(e.target.value);
-          }}
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('signup.email')}</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  required
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    setDraftEmail(e.target.value);
+                  }}
+                />
+              </FormControl>
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="signup-password" className="text-sm text-muted-foreground">
-          {t('signup.password')}
-        </label>
-        <PasswordInput
-          id="signup-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-          showLabel={t('common.showPassword')}
-          hideLabel={t('common.hidePassword')}
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('signup.password')}</FormLabel>
+              <FormControl>
+                <PasswordInput
+                  required
+                  minLength={8}
+                  {...field}
+                  showLabel={t('common.showPassword')}
+                  hideLabel={t('common.hidePassword')}
+                />
+              </FormControl>
+            </FormItem>
+          )}
         />
-      </div>
-      {errorKind === 'network' && <p className="text-sm text-destructive">{t('signup.networkError')}</p>}
-      {errorKind === 'rateLimit' && <p className="text-sm text-destructive">{t('signup.rateLimitError')}</p>}
-      {errorKind === 'invalidEmail' && <p className="text-sm text-destructive">{t('signup.invalidEmailError')}</p>}
-      {errorKind === 'passwordTooShort' && <p className="text-sm text-destructive">{t('signup.passwordTooShortError')}</p>}
-      {errorKind === 'generic' && <p className="text-sm text-destructive">{t('signup.error')}</p>}
-      <Button type="submit" className="w-full" disabled={submitting}>
-        {submitLabel ?? t('signup.submit')}
-      </Button>
-    </form>
+        {errorKind === 'network' && <p className="text-sm text-destructive">{t('signup.networkError')}</p>}
+        {errorKind === 'rateLimit' && <p className="text-sm text-destructive">{t('signup.rateLimitError')}</p>}
+        {errorKind === 'invalidEmail' && <p className="text-sm text-destructive">{t('signup.invalidEmailError')}</p>}
+        {errorKind === 'passwordTooShort' && (
+          <p className="text-sm text-destructive">{t('signup.passwordTooShortError')}</p>
+        )}
+        {errorKind === 'generic' && <p className="text-sm text-destructive">{t('signup.error')}</p>}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          {submitLabel ?? t('signup.submit')}
+        </Button>
+      </form>
+    </Form>
   );
 }
