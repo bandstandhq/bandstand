@@ -10,4 +10,5 @@ export * from './components/Input';
 export * from './components/PasswordInput';
 export * from './components/Select';
 export * from './components/Sheet';
+export * from './components/Tabs';
 export * from './components/Textarea';

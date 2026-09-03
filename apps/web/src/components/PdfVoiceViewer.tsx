@@ -25,7 +25,18 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
@@ -657,31 +668,13 @@ export function PdfVoiceViewer({
           onCancel={() => setEditingCrop(false)}
         />
       ) : (
-        <>
+        <Tabs value={mode} onValueChange={(value) => setMode(value as DisplayMode)}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex gap-1">
-              <Button
-                variant={mode === 'single' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMode('single')}
-              >
-                {t('pdfViewer.modeSingle')}
-              </Button>
-              <Button
-                variant={mode === 'spread' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMode('spread')}
-              >
-                {t('pdfViewer.modeSpread')}
-              </Button>
-              <Button
-                variant={mode === 'scroll' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMode('scroll')}
-              >
-                {t('pdfViewer.modeScroll')}
-              </Button>
-            </div>
+            <TabsList>
+              <TabsTrigger value="single">{t('pdfViewer.modeSingle')}</TabsTrigger>
+              <TabsTrigger value="spread">{t('pdfViewer.modeSpread')}</TabsTrigger>
+              <TabsTrigger value="scroll">{t('pdfViewer.modeScroll')}</TabsTrigger>
+            </TabsList>
             {mode !== 'scroll' && (
               <div className="flex items-center gap-2">
                 <Button
@@ -768,48 +761,57 @@ export function PdfVoiceViewer({
             <p className="text-xs text-muted-foreground">{t('pdfViewer.annotateSingleModeOnly')}</p>
           )}
 
-          <div className="w-full">
-            {mode === 'scroll' ? (
-              <div className="space-y-4">
-                {sequence.map((p) => (
-                  <PageView
-                    key={p.position}
-                    doc={docs.get(p.file.sha256)}
-                    imageUrl={imageUrls.get(p.file.sha256)}
-                    unavailableReason={unavailableReasons.get(p.file.sha256)}
-                    pageNumberInFile={p.pageNumberInFile}
-                    rotation={p.rotation}
-                    cropMargins={recipe?.cropMargins}
-                    containerWidth={containerWidth}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className={mode === 'spread' ? 'flex gap-2' : ''}>
-                {visiblePages.map((p, i) => (
-                  <PageView
-                    key={p.position}
-                    doc={docs.get(p.file.sha256)}
-                    imageUrl={imageUrls.get(p.file.sha256)}
-                    unavailableReason={unavailableReasons.get(p.file.sha256)}
-                    pageNumberInFile={p.pageNumberInFile}
-                    rotation={p.rotation}
-                    cropMargins={recipe?.cropMargins}
-                    containerWidth={mode === 'spread' ? containerWidth / 2 - 4 : containerWidth}
-                    onPointClick={
-                      calibratingAnchors && mode === 'single' && i === 0 ? handleCalibrationClick(p) : undefined
-                    }
-                    overlay={
-                      annotating && mode === 'single' && i === 0 ? (
-                        <AnnotationOverlay bandId={bandId} voiceId={voiceId} page={p.position} />
-                      ) : undefined
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </>
+          <TabsContent value="scroll" className="w-full">
+            <div className="space-y-4">
+              {sequence.map((p) => (
+                <PageView
+                  key={p.position}
+                  doc={docs.get(p.file.sha256)}
+                  imageUrl={imageUrls.get(p.file.sha256)}
+                  unavailableReason={unavailableReasons.get(p.file.sha256)}
+                  pageNumberInFile={p.pageNumberInFile}
+                  rotation={p.rotation}
+                  cropMargins={recipe?.cropMargins}
+                  containerWidth={containerWidth}
+                />
+              ))}
+            </div>
+          </TabsContent>
+          <TabsContent value="single" className="w-full">
+            <PageView
+              key={currentPage.position}
+              doc={docs.get(currentPage.file.sha256)}
+              imageUrl={imageUrls.get(currentPage.file.sha256)}
+              unavailableReason={unavailableReasons.get(currentPage.file.sha256)}
+              pageNumberInFile={currentPage.pageNumberInFile}
+              rotation={currentPage.rotation}
+              cropMargins={recipe?.cropMargins}
+              containerWidth={containerWidth}
+              onPointClick={calibratingAnchors ? handleCalibrationClick(currentPage) : undefined}
+              overlay={
+                annotating ? (
+                  <AnnotationOverlay bandId={bandId} voiceId={voiceId} page={currentPage.position} />
+                ) : undefined
+              }
+            />
+          </TabsContent>
+          <TabsContent value="spread" className="w-full">
+            <div className="flex gap-2">
+              {visiblePages.map((p) => (
+                <PageView
+                  key={p.position}
+                  doc={docs.get(p.file.sha256)}
+                  imageUrl={imageUrls.get(p.file.sha256)}
+                  unavailableReason={unavailableReasons.get(p.file.sha256)}
+                  pageNumberInFile={p.pageNumberInFile}
+                  rotation={p.rotation}
+                  cropMargins={recipe?.cropMargins}
+                  containerWidth={containerWidth / 2 - 4}
+                />
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
