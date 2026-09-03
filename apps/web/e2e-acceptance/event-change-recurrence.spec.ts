@@ -11,7 +11,14 @@
 // as it did before.
 import { createRecurringEvent, createSeriesException, resolveEventOccurrences } from '@bandstand/core';
 import { expect, test } from '@playwright/test';
-import { createThrowawayBand, DEMO_OWNER_EMAIL, DEMO_PASSWORD, deleteThrowawayBand, login } from './fixtures';
+import {
+  createThrowawayBand,
+  DEMO_OWNER_EMAIL,
+  DEMO_PASSWORD,
+  deleteThrowawayBand,
+  login,
+  selectComboboxOption,
+} from './fixtures';
 import { connectTestBandDoc, signInForToken } from './hocuspocusTestClient';
 
 function flush() {
@@ -49,7 +56,7 @@ test('changing a series\' recurrence from a later occurrence preserves earlier d
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('Change recurrence pattern')).toBeVisible();
     await expect(dialog.getByText(occurrence4Date, { exact: false })).toBeVisible();
-    await dialog.getByLabel('Repeats').selectOption('every4weeks');
+    await selectComboboxOption(page, dialog.getByLabel('Repeats'), 'Every 4 weeks');
     await dialog.getByRole('button', { name: 'Save changes' }).click();
 
     // Landed on the new template's own page — never the old synthetic id,

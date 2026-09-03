@@ -12,7 +12,7 @@ import {
   transposeChordProToKey,
 } from '@bandstand/chords';
 import type { RenderModel } from '@bandstand/chords';
-import { Button, Input, Textarea } from '@bandstand/ui';
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@bandstand/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
@@ -397,27 +397,30 @@ export function SongEditor() {
               {t('songEditor.key')}
             </label>
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                id="song-key"
-                value={keyLetter}
-                onChange={(e) => handleKeyLetterChange(e.target.value)}
-                className="h-10 rounded-md border border-border bg-background px-2 text-sm"
-              >
-                {KEY_LETTER_OPTIONS.map((letter) => (
-                  <option key={letter} value={letter}>
-                    {letter}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label={t('songEditor.keyMode')}
+              <Select value={keyLetter} onValueChange={handleKeyLetterChange}>
+                <SelectTrigger id="song-key" className="w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KEY_LETTER_OPTIONS.map((letter) => (
+                    <SelectItem key={letter} value={letter}>
+                      {letter}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
                 value={keyIsMinor ? 'minor' : 'major'}
-                onChange={(e) => handleKeyModeChange(e.target.value === 'minor')}
-                className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+                onValueChange={(value) => handleKeyModeChange(value === 'minor')}
               >
-                <option value="major">{t('songEditor.keyModeMajor')}</option>
-                <option value="minor">{t('songEditor.keyModeMinor')}</option>
-              </select>
+                <SelectTrigger aria-label={t('songEditor.keyMode')} className="w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="major">{t('songEditor.keyModeMajor')}</SelectItem>
+                  <SelectItem value="minor">{t('songEditor.keyModeMinor')}</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -499,16 +502,16 @@ export function SongEditor() {
             <label htmlFor="song-status" className="text-sm text-muted-foreground">
               {t('songEditor.status')}
             </label>
-            <select
-              id="song-status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as SongStatus)}
-              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            >
-              <option value="idea">{t('songEditor.statusIdea')}</option>
-              <option value="active">{t('songEditor.statusActive')}</option>
-              <option value="archived">{t('songEditor.statusArchived')}</option>
-            </select>
+            <Select value={status} onValueChange={(value) => setStatus(value as SongStatus)}>
+              <SelectTrigger id="song-status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="idea">{t('songEditor.statusIdea')}</SelectItem>
+                <SelectItem value="active">{t('songEditor.statusActive')}</SelectItem>
+                <SelectItem value="archived">{t('songEditor.statusArchived')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">

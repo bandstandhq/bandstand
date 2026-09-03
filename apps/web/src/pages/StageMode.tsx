@@ -35,7 +35,7 @@ import type {
 } from '@bandstand/core';
 import { buildRenderModel, normalizeKey, parseChordPro, shiftKeyBySemitones, transposeChordProToKey } from '@bandstand/chords';
 import type { RenderLine, RenderModel } from '@bandstand/chords';
-import { Button } from '@bandstand/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
 import { Brush, Pencil, Settings, StickyNote, X } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -385,6 +385,11 @@ function FollowPanel({
  * panel — a rehearsal is exactly the setting where the same person plays
  * both roles across a session.
  */
+// Radix Select reserves the empty string for "no selection" internally —
+// SelectItem can't use value="" the way the old native <option value="">
+// did, so "not learning from anyone" needs its own sentinel instead.
+const LEARN_FROM_NONE = '__none__';
+
 function LernmodusPanel({
   isDark,
   anchors,
@@ -449,19 +454,22 @@ function LernmodusPanel({
         <label className="block text-xs opacity-70" htmlFor="lernmodus-learn-from">
           {t('stageMode.lernmodusLearnFrom')}
         </label>
-        <select
-          id="lernmodus-learn-from"
-          value={learningFromUserId ?? ''}
-          onChange={(e) => onSetLearningFrom(e.target.value || null)}
-          className={`h-8 w-full rounded-md border px-2 text-xs ${fieldClass}`}
+        <Select
+          value={learningFromUserId ?? LEARN_FROM_NONE}
+          onValueChange={(value) => onSetLearningFrom(value === LEARN_FROM_NONE ? null : value)}
         >
-          <option value="">{t('stageMode.lernmodusLearnFromNone')}</option>
-          {peers.map((peer) => (
-            <option key={peer.userId} value={peer.userId}>
-              {peer.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="lernmodus-learn-from" className={`h-8 w-full px-2 py-1 text-xs ${fieldClass}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={LEARN_FROM_NONE}>{t('stageMode.lernmodusLearnFromNone')}</SelectItem>
+            {peers.map((peer) => (
+              <SelectItem key={peer.userId} value={peer.userId}>
+                {peer.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {proposalEntries.length > 0 && (

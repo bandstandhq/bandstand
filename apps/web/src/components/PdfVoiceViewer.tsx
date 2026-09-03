@@ -25,7 +25,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '@bandstand/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type * as Y from 'yjs';
@@ -469,19 +469,19 @@ function AnchorCalibrationToolbar({
     <div className="space-y-1 rounded-md border border-border p-2">
       <label className="flex flex-col gap-1 text-xs">
         {t('pdfViewer.calibrateChooseAnchor')}
-        <select
-          value={selectedAnchorId ?? ''}
-          onChange={(e) => onSelectAnchor(e.target.value || null)}
-          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="">{t('pdfViewer.calibrateChooseAnchorPlaceholder')}</option>
-          {anchors.map((anchor) => (
-            <option key={anchor.id} value={anchor.id}>
-              {anchor.label}
-              {calibratedAnchorIds.has(anchor.id) ? ` (${t('pdfViewer.calibrateAlreadySet')})` : ''}
-            </option>
-          ))}
-        </select>
+        <Select value={selectedAnchorId ?? undefined} onValueChange={(value) => onSelectAnchor(value)}>
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder={t('pdfViewer.calibrateChooseAnchorPlaceholder')} />
+          </SelectTrigger>
+          <SelectContent>
+            {anchors.map((anchor) => (
+              <SelectItem key={anchor.id} value={anchor.id}>
+                {anchor.label}
+                {calibratedAnchorIds.has(anchor.id) ? ` (${t('pdfViewer.calibrateAlreadySet')})` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
       <p className="text-xs text-muted-foreground">
         {selectedAnchorId ? t('pdfViewer.calibrateInstructions') : t('pdfViewer.calibratePickFirst')}

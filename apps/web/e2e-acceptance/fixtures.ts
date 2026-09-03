@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { deleteUserByEmail, withDb } from './testDb';
 
 const SERVER_URL = process.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001';
@@ -11,6 +11,18 @@ const SERVER_URL = process.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001
 export const DEMO_OWNER_EMAIL = 'alice@bandstand.local';
 export const DEMO_MEMBER_EMAIL = 'bob@bandstand.local';
 export const DEMO_PASSWORD = 'bandstand-demo';
+
+// shadcn/ui's Select (Radix, packages/ui/src/components/Select.tsx) renders
+// a role="combobox" trigger button + a portal-ed role="listbox" of
+// role="option" items, not a real native <select> — Playwright's
+// `.selectOption()` only works on the latter. `trigger` is whatever locator
+// finds the combobox button (e.g. `page.getByLabel('Active band')` or
+// `page.getByRole('combobox', { name: 'Repeats' })`, same as before this
+// helper existed); `optionName` is the option's visible text.
+export async function selectComboboxOption(page: Page, trigger: Locator, optionName: string) {
+  await trigger.click();
+  await page.getByRole('option', { name: optionName, exact: true }).click();
+}
 
 export async function login(page: Page, email: string, password = DEMO_PASSWORD) {
   await page.goto('/login');

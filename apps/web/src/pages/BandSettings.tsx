@@ -2,7 +2,17 @@
 import type { MyBand } from '@bandstand/api-client';
 import type { BandMember, BandRole, Invite } from '@bandstand/core';
 import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus } from '@bandstand/core';
-import { Button, Dialog, Input, useConfirmDialog } from '@bandstand/ui';
+import {
+  Button,
+  Dialog,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useConfirmDialog,
+} from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -773,22 +783,24 @@ function InstrumentEditor({
       )}
       <div className="flex flex-wrap items-center gap-1">
         {availableToAdd.length > 0 && (
-          <select
-            value=""
-            onChange={(e) => {
-              if (e.target.value) addInstrument(e.target.value);
-            }}
-            aria-label={t('bandSettings.members.addInstrument')}
-            disabled={saving}
-            className="h-7 rounded-md border border-border bg-background px-1 text-xs"
-          >
-            <option value="">{t('bandSettings.members.addInstrument')}</option>
-            {availableToAdd.map((instrument) => (
-              <option key={instrument} value={instrument}>
-                {instrument}
-              </option>
-            ))}
-          </select>
+          // key resets Radix's internal (uncontrolled) selection back to
+          // unset after every pick — this is a one-shot "add" action, not a
+          // persistent filter, so the trigger must show the placeholder
+          // again immediately rather than lingering on the just-added
+          // instrument (which the shrunk availableToAdd list wouldn't even
+          // contain as a valid item anymore).
+          <Select key={availableToAdd.join(',')} onValueChange={(value) => addInstrument(value)}>
+            <SelectTrigger aria-label={t('bandSettings.members.addInstrument')} disabled={saving} className="h-7 text-xs">
+              <SelectValue placeholder={t('bandSettings.members.addInstrument')} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableToAdd.map((instrument) => (
+                <SelectItem key={instrument} value={instrument}>
+                  {instrument}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
         <Input
           value={customInstrument}
@@ -875,15 +887,15 @@ function CreateInviteForm({
         placeholder={t('bandSettings.invites.instrumentPlaceholder')}
         className="w-52"
       />
-      <select
-        value={role}
-        onChange={(e) => setRole(e.target.value as BandRole)}
-        aria-label={t('bandSettings.invites.role')}
-        className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-      >
-        <option value="member">{t('bandSettings.invites.roleMember')}</option>
-        <option value="admin">{t('bandSettings.invites.roleAdmin')}</option>
-      </select>
+      <Select value={role} onValueChange={(value) => setRole(value as BandRole)}>
+        <SelectTrigger aria-label={t('bandSettings.invites.role')} className="w-auto">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="member">{t('bandSettings.invites.roleMember')}</SelectItem>
+          <SelectItem value="admin">{t('bandSettings.invites.roleAdmin')}</SelectItem>
+        </SelectContent>
+      </Select>
       <Input
         type="number"
         inputMode="numeric"

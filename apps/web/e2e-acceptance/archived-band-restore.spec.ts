@@ -22,7 +22,9 @@ test('an archived band is hidden from the switcher but restorable from Account S
   try {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto('/dashboard');
-    await expect(page.getByLabel('Active band').locator('option', { hasText: name })).toHaveCount(0);
+    await page.getByLabel('Active band').click();
+    await expect(page.getByRole('option', { name })).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     await page.goto('/settings');
     const row = page.locator('li', { hasText: name });
@@ -33,7 +35,9 @@ test('an archived band is hidden from the switcher but restorable from Account S
     await expect(row).toHaveCount(0);
 
     await page.goto('/dashboard');
-    await expect(page.getByLabel('Active band').locator('option', { hasText: name })).toHaveCount(1);
+    await page.getByLabel('Active band').click();
+    await expect(page.getByRole('option', { name })).toHaveCount(1);
+    await page.keyboard.press('Escape');
   } finally {
     await deleteThrowawayBand(ownerToken, bandId);
   }
