@@ -3,7 +3,7 @@
 // Persistent desktop (≥640px) navigation column — the wide-screen half of
 // what AppHeader used to render inline. Collapses to an icon-only rail via
 // the sidebar-prefs store (Cmd/Ctrl+B, or the trigger button), persisted
-// per-device. Narrow screens render MobileNav instead — see PageShell for
+// per-device. Narrow screens render BottomNav instead — see PageShell for
 // the fork and why 640px is a different line from useIsWideScreen's 1024px.
 import {
   Button,

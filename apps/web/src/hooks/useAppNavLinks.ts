@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// Shared between AppSidebar (desktop) and MobileNav (narrow screens) —
+// Shared between AppSidebar (wide screens) and BottomNav (narrow screens) —
 // factors out the parts of the old AppHeader that had nothing to do with
 // which layout renders them: which band the nav links should point at, and
 // what actually happens on a band switch / sign-out. Anything narrow-
 // screen-specific (the Sheet's own open state, the popstate/back-button
-// handling) stays local to MobileNav instead of living here.
+// handling) stays local to BottomNav instead of living here.
 import { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { signOut } from '../lib/auth-client';
