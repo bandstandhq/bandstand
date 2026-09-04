@@ -21,6 +21,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
   Input,
   Select,
   SelectContent,
@@ -31,6 +35,7 @@ import {
 } from '@bandstand/ui';
 import { BarChart3, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
@@ -305,6 +310,32 @@ function MonthGrid({
   );
 }
 
+interface CreateEventValues {
+  title: string;
+  type: EventType;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  location: string;
+  notes: string;
+  setlistId: string;
+  repeat: RepeatOption;
+  repeatUntil: string;
+}
+
+const createEventDefaults: CreateEventValues = {
+  title: '',
+  type: 'rehearsal',
+  startsAt: '',
+  endsAt: '',
+  allDay: false,
+  location: '',
+  notes: '',
+  setlistId: '',
+  repeat: 'none',
+  repeatUntil: '',
+};
+
 function CreateEventForm({
   doc,
   setlists,
@@ -319,35 +350,12 @@ function CreateEventForm({
   onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState<EventType>('rehearsal');
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
-  const [allDay, setAllDay] = useState(false);
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
-  const [setlistId, setSetlistId] = useState('');
-  const [repeat, setRepeat] = useState<RepeatOption>('none');
-  const [repeatUntil, setRepeatUntil] = useState('');
+  const form = useForm<CreateEventValues>({ defaultValues: createEventDefaults });
+  const values = useWatch({ control: form.control });
 
-  function reset() {
-    setTitle('');
-    setStartsAt('');
-    setEndsAt('');
-    setAllDay(false);
-    setLocation('');
-    setNotes('');
-    setSetlistId('');
-    setRepeat('none');
-    setRepeatUntil('');
-  }
-
-  const isDirty = Boolean(
-    title.trim() || startsAt || endsAt || allDay || location.trim() || notes.trim() || setlistId || repeat !== 'none' || repeatUntil,
-  );
   useEffect(() => {
-    onDirtyChange(isDirty);
-  }, [isDirty, onDirtyChange]);
+    onDirtyChange(form.formState.isDirty);
+  }, [form.formState.isDirty, onDirtyChange]);
 
   // Deliberately reassigned on every render, not behind a dependency array
   // — the unsaved-changes dialog's Save button needs whichever closure over
@@ -356,7 +364,15 @@ function CreateEventForm({
     saveRef.current = trySave;
   });
 
+  // Reads live form state itself (via form.getValues()) rather than going
+  // through RHF's own handleSubmit/resolver pipeline — the unsaved-changes
+  // dialog needs to call this synchronously and get an immediate boolean
+  // back, which an inherently-async validation pipeline can't provide. The
+  // validation here (title + a parseable start) is exactly what the
+  // disabled submit button below already enforces, so nothing is skipped.
   function trySave(): boolean {
+    const { title, type, startsAt, endsAt, allDay, location, notes, setlistId, repeat, repeatUntil } =
+      form.getValues();
     if (!title.trim() || !startsAt) return false;
     const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
     if (Number.isNaN(startMs)) return false;
@@ -384,7 +400,7 @@ function CreateEventForm({
       // Every RepeatOption other than 'none' is already a real SeriesRule['freq'] value.
       createRecurringEvent(doc, input, { freq: repeat, until: repeatUntil || undefined });
     }
-    reset();
+    form.reset();
     return true;
   }
 
@@ -394,123 +410,206 @@ function CreateEventForm({
   }
 
   return (
-    <form onSubmit={handleCreate} className="space-y-3">
-      <Input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder={t('calendarList.titlePlaceholder')}
-      />
+    <Form {...form}>
+      <form onSubmit={handleCreate} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.titlePlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.type')}
-          <Select value={type} onValueChange={(value) => setType(value as EventType)}>
-            <SelectTrigger className="w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
-              <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
-              <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
-          {t('calendarList.allDay')}
-        </label>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.startsAt')}
-          <Input
-            type={allDay ? 'date' : 'datetime-local'}
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-            className="w-auto"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.endsAt')}
-          <Input
-            type={allDay ? 'date' : 'datetime-local'}
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-            className="w-auto"
-          />
-        </label>
-      </div>
-
-      <Input
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        placeholder={t('calendarList.location')}
-      />
-      <Textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder={t('calendarList.notes')}
-      />
-
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        {t('calendarList.linkedSetlist')}
-        <Select value={setlistId || NO_SETLIST} onValueChange={(value) => setSetlistId(value === NO_SETLIST ? '' : value)}>
-          <SelectTrigger className="max-w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_SETLIST}>{t('calendarList.noSetlist')}</SelectItem>
-            {Object.entries(setlists).map(([id, setlist]) => (
-              <SelectItem key={id} value={id}>
-                {setlist.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.repeats')}
-          <Select value={repeat} onValueChange={(value) => setRepeat(value as RepeatOption)}>
-            <SelectTrigger className="w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{t('calendarList.repeatNone')}</SelectItem>
-              <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
-              <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
-              <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
-              <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-        {repeat !== 'none' && (
+        <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            {t('calendarList.repeatUntil')}
-            <Input
-              type="date"
-              value={repeatUntil}
-              onChange={(e) => setRepeatUntil(e.target.value)}
-              className="w-auto"
+            {t('calendarList.type')}
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
+                      <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
+                      <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
             />
           </label>
-        )}
-      </div>
-      {repeat === 'monthlyByWeekday' &&
-        (() => {
-          const pattern = describeMonthlyByWeekdayPattern(startsAt, allDay, i18n.language, t);
-          return pattern ? (
-            <p className="text-xs text-muted-foreground">{t('calendarList.repeatMonthlyByWeekdayHint', { pattern })}</p>
-          ) : null;
-        })()}
+          <FormField
+            control={form.control}
+            name="allDay"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  {t('calendarList.allDay')}
+                </label>
+              </FormItem>
+            )}
+          />
+        </div>
 
-      <Button type="submit" disabled={!title.trim() || !startsAt}>
-        <CalendarIcon className="h-4 w-4" aria-hidden="true" />
-        {t('calendarList.create')}
-      </Button>
-    </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.startsAt')}
+            <FormField
+              control={form.control}
+              name="startsAt"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <FormControl>
+                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.endsAt')}
+            <FormField
+              control={form.control}
+              name="endsAt"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <FormControl>
+                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </label>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.location')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Textarea placeholder={t('calendarList.notes')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {t('calendarList.linkedSetlist')}
+          <FormField
+            control={form.control}
+            name="setlistId"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <Select
+                  value={field.value || NO_SETLIST}
+                  onValueChange={(value) => field.onChange(value === NO_SETLIST ? '' : value)}
+                >
+                  <SelectTrigger className="max-w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SETLIST}>{t('calendarList.noSetlist')}</SelectItem>
+                    {Object.entries(setlists).map(([id, setlist]) => (
+                      <SelectItem key={id} value={id}>
+                        {setlist.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+        </label>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.repeats')}
+            <FormField
+              control={form.control}
+              name="repeat"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('calendarList.repeatNone')}</SelectItem>
+                      <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
+                      <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
+                      <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
+                      <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+          </label>
+          {values.repeat !== 'none' && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              {t('calendarList.repeatUntil')}
+              <FormField
+                control={form.control}
+                name="repeatUntil"
+                render={({ field }) => (
+                  <FormItem className="contents">
+                    <FormControl>
+                      <Input type="date" className="w-auto" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </label>
+          )}
+        </div>
+        {values.repeat === 'monthlyByWeekday' &&
+          (() => {
+            const pattern = describeMonthlyByWeekdayPattern(
+              values.startsAt ?? '',
+              values.allDay ?? false,
+              i18n.language,
+              t,
+            );
+            return pattern ? (
+              <p className="text-xs text-muted-foreground">{t('calendarList.repeatMonthlyByWeekdayHint', { pattern })}</p>
+            ) : null;
+          })()}
+
+        <Button type="submit" disabled={!values.title?.trim() || !values.startsAt}>
+          <CalendarIcon className="h-4 w-4" aria-hidden="true" />
+          {t('calendarList.create')}
+        </Button>
+      </form>
+    </Form>
   );
 }
 
@@ -534,6 +633,14 @@ function PollRow({ bandId, pollId, poll }: { bandId: string; pollId: string; pol
   );
 }
 
+interface CreatePollValues {
+  title: string;
+  notes: string;
+  optionStarts: { value: string }[];
+}
+
+const createPollDefaults: CreatePollValues = { title: '', notes: '', optionStarts: [{ value: '' }] };
+
 function CreatePollForm({
   doc,
   onDirtyChange,
@@ -546,14 +653,13 @@ function CreatePollForm({
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  const [optionStarts, setOptionStarts] = useState<string[]>(['']);
+  const form = useForm<CreatePollValues>({ defaultValues: createPollDefaults });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'optionStarts' });
+  const values = useWatch({ control: form.control });
 
-  const isDirty = Boolean(title.trim() || notes.trim() || optionStarts.some((s) => s));
   useEffect(() => {
-    onDirtyChange(isDirty);
-  }, [isDirty, onDirtyChange]);
+    onDirtyChange(form.formState.isDirty);
+  }, [form.formState.isDirty, onDirtyChange]);
 
   // Deliberately reassigned on every render — same reasoning as
   // CreateEventForm's own saveRef effect above.
@@ -561,16 +667,18 @@ function CreatePollForm({
     saveRef.current = trySave;
   });
 
+  // Reads live form state itself rather than going through RHF's own
+  // handleSubmit/resolver pipeline — see CreateEventForm's trySave for why.
   function trySave(): boolean {
+    const { title, notes, optionStarts } = form.getValues();
     const options = optionStarts
+      .map((o) => o.value)
       .filter((s) => s)
       .map((s) => ({ startsAt: new Date(s).getTime() }))
       .filter((o) => !Number.isNaN(o.startsAt));
     if (!title.trim() || options.length === 0) return false;
     createPoll(doc, { title: title.trim(), notes: notes.trim() || undefined, options });
-    setTitle('');
-    setNotes('');
-    setOptionStarts(['']);
+    form.reset();
     return true;
   }
 
@@ -580,53 +688,68 @@ function CreatePollForm({
   }
 
   return (
-    <form onSubmit={handleCreate} className="space-y-3">
-      <Input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder={t('calendarList.pollTitlePlaceholder')}
-      />
-      <Textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder={t('calendarList.pollNotesPlaceholder')}
-      />
-      <div className="space-y-2">
-        {optionStarts.map((value, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              type="datetime-local"
-              value={value}
-              onChange={(e) =>
-                setOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
-              }
-              className="w-auto"
-            />
-            {optionStarts.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setOptionStarts((prev) => prev.filter((_, i) => i !== index))}
-                className="text-sm text-muted-foreground hover:underline"
-              >
-                {t('calendarList.removeOption')}
-              </button>
-            )}
-          </div>
-        ))}
+    <Form {...form}>
+      <form onSubmit={handleCreate} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.pollTitlePlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Textarea placeholder={t('calendarList.pollNotesPlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <div className="space-y-2">
+          {fields.map((arrayField, index) => (
+            <div key={arrayField.id} className="flex items-center gap-2">
+              <FormField
+                control={form.control}
+                name={`optionStarts.${index}.value`}
+                render={({ field }) => (
+                  <FormItem className="contents">
+                    <FormControl>
+                      <Input type="datetime-local" className="w-auto" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              {fields.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="text-sm text-muted-foreground hover:underline"
+                >
+                  {t('calendarList.removeOption')}
+                </button>
+              )}
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => append({ value: '' })}>
+            {t('calendarList.addOption')}
+          </Button>
+        </div>
         <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setOptionStarts((prev) => [...prev, ''])}
+          type="submit"
+          disabled={!values.title?.trim() || (values.optionStarts ?? []).every((o) => !o?.value)}
         >
-          {t('calendarList.addOption')}
+          <BarChart3 className="h-4 w-4" aria-hidden="true" />
+          {t('calendarList.createPoll')}
         </Button>
-      </div>
-      <Button type="submit" disabled={!title.trim() || optionStarts.every((s) => !s)}>
-        <BarChart3 className="h-4 w-4" aria-hidden="true" />
-        {t('calendarList.createPoll')}
-      </Button>
-    </form>
+      </form>
+    </Form>
   );
 }
 
