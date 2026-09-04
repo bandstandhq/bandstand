@@ -56,3 +56,26 @@ test('the menu shows the same navigation entries on every signed-in page', async
     expect(hasAccountSettings, `Account settings link on ${path}`).toBe(true);
   }
 });
+
+// The desktop (≥640px) sidebar variant — same nav entries as the mobile
+// drawer above, reached without opening anything (it's always visible),
+// plus its own collapse behavior (button and Cmd/Ctrl+B).
+test('the sidebar shows the same navigation entries as the mobile menu, and collapses', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await login(page, DEMO_OWNER_EMAIL);
+  await page.waitForURL(/\/bands\/.+\/dashboard/);
+
+  const nav = page.getByRole('navigation', { name: 'Band sections' });
+  const bandNav = await nav.getByRole('link').allTextContents();
+  expect(bandNav).toEqual(BAND_NAV_ENTRIES);
+  await expect(page.getByRole('link', { name: 'Account settings' })).toBeVisible();
+
+  const sidebar = page.locator('aside');
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+
+  await page.keyboard.press('ControlOrMeta+b');
+  await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+});
