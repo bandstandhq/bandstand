@@ -121,13 +121,10 @@
     "icsRegenerateConfirm": "Generate a new link? The current one will stop working immediately, including for any calendar app already subscribed to it."
   },
   "appHeader": {
-    "openMenu": "Open menu",
     "navLabel": "Band sections",
-    "sectionNav": "Band",
     "sectionActions": "Account",
     "goToDashboard": "Go to dashboard",
-    "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar",
+    "more": "More",
     "repertoire": "Repertoire",
     "setlists": "Setlists",
     "calendar": "Calendar",

@@ -121,13 +121,10 @@
     "icsRegenerateConfirm": "Neuen Link erstellen? Der aktuelle funktioniert danach sofort nicht mehr — auch nicht für Kalender-Apps, die ihn bereits abonniert haben."
   },
   "appHeader": {
-    "openMenu": "Menü öffnen",
     "navLabel": "Bandbereiche",
-    "sectionNav": "Band",
     "sectionActions": "Konto",
     "goToDashboard": "Zum Dashboard",
-    "collapseSidebar": "Seitenleiste einklappen",
-    "expandSidebar": "Seitenleiste ausklappen",
+    "more": "Mehr",
     "repertoire": "Repertoire",
     "setlists": "Setlists",
     "calendar": "Kalender",

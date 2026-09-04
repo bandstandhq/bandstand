@@ -5,30 +5,31 @@
 // AppHeader's old navLinks() bailed out with `if (!currentBandId) return
 // null`) — every signed-in page must show the exact same set of entries.
 //
-// "Account settings" itself moved out of the "Band sections" nav landmark
-// into its own "Account" section (alongside sign-out) in a later pass —
-// see AppHeader.tsx's Sheet JSX — so it's asserted separately below rather
-// than as part of BAND_NAV_ENTRIES; the original regression this guards
-// against (an entry silently disappearing on some page) still applies to
-// both checks.
+// "Account settings" itself lives outside the "Band sections" nav landmark
+// (alongside sign-out) in both layouts here — desktop's topbar shows it
+// inline, mobile's bottom nav surfaces it via the "More" tab's sheet — so
+// it's asserted separately below rather than as part of BAND_NAV_ENTRIES;
+// the original regression this guards against (an entry silently
+// disappearing on some page) still applies to both checks.
 import { expect, test } from '@playwright/test';
 import { login, DEMO_OWNER_EMAIL } from './fixtures';
 
 const BAND_NAV_ENTRIES = ['Repertoire', 'Setlists', 'Calendar', 'Band settings'];
 
-async function openMenuEntries(page: import('@playwright/test').Page): Promise<{
-  bandNav: string[];
-  hasAccountSettings: boolean;
-}> {
-  await page.getByRole('button', { name: 'Open menu' }).click();
+async function bottomNavEntries(page: import('@playwright/test').Page): Promise<string[]> {
   const nav = page.getByRole('navigation', { name: 'Band sections' });
-  const bandNav = await nav.getByRole('link').allTextContents();
-  const hasAccountSettings = await page.getByRole('link', { name: 'Account settings' }).isVisible();
-  await page.keyboard.press('Escape');
-  return { bandNav, hasAccountSettings };
+  // allTextContents() reads the DOM once, with no auto-waiting — fine right
+  // after login (already settled), but each page.goto() below is a full
+  // reload that needs a moment to bootstrap and mount this nav, so wait for
+  // the first entry before reading the rest, or an early iteration races
+  // the page load and reads an empty list.
+  await nav.getByRole('link').first().waitFor();
+  return nav.getByRole('link').allTextContents();
 }
 
-test('the menu shows the same navigation entries on every signed-in page', async ({ page }) => {
+test('the bottom nav shows the same navigation entries on every signed-in page, and "More" reveals Account settings', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, DEMO_OWNER_EMAIL);
   // login() itself only waits for either the bare /dashboard or a real
@@ -51,16 +52,20 @@ test('the menu shows the same navigation entries on every signed-in page', async
 
   for (const path of pages) {
     await page.goto(path);
-    const { bandNav, hasAccountSettings } = await openMenuEntries(page);
-    expect(bandNav, `band nav entries on ${path}`).toEqual(BAND_NAV_ENTRIES);
-    expect(hasAccountSettings, `Account settings link on ${path}`).toBe(true);
+    // Unlike the old hamburger drawer, these tabs are always visible —
+    // nothing to open first.
+    expect(await bottomNavEntries(page), `bottom nav entries on ${path}`).toEqual(BAND_NAV_ENTRIES);
+
+    await page.getByRole('button', { name: 'More' }).click();
+    await expect(page.getByRole('link', { name: 'Account settings' }), `Account settings link on ${path}`).toBeVisible();
+    await page.keyboard.press('Escape');
   }
 });
 
-// The desktop (≥640px) sidebar variant — same nav entries as the mobile
-// drawer above, reached without opening anything (it's always visible),
-// plus its own collapse behavior (button and Cmd/Ctrl+B).
-test('the sidebar shows the same navigation entries as the mobile menu, and collapses', async ({ page }) => {
+// The desktop (≥640px) topbar variant — same nav entries as the mobile
+// bottom nav above, all reachable without opening anything (both the nav
+// links and Account settings sit directly in the bar).
+test('the topbar shows the same navigation entries as the mobile bottom nav', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await login(page, DEMO_OWNER_EMAIL);
   await page.waitForURL(/\/bands\/.+\/dashboard/);
@@ -69,13 +74,4 @@ test('the sidebar shows the same navigation entries as the mobile menu, and coll
   const bandNav = await nav.getByRole('link').allTextContents();
   expect(bandNav).toEqual(BAND_NAV_ENTRIES);
   await expect(page.getByRole('link', { name: 'Account settings' })).toBeVisible();
-
-  const sidebar = page.locator('aside');
-  await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
-
-  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-  await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
-
-  await page.keyboard.press('ControlOrMeta+b');
-  await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
 });
