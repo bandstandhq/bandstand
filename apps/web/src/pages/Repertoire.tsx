@@ -336,14 +336,25 @@ export function Repertoire() {
                       className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       aria-label={t('repertoire.playAria', { title: song.title })}
                     />
-                    <span className="wrap-break-word">{song.title}</span>
-                    <Link
-                      to={`/bands/${bandId}/songs/${songId}/edit`}
-                      aria-label={t('repertoire.editAria', { title: song.title })}
-                      className="relative ml-1 inline-flex h-11 w-11 -translate-y-0.5 items-center justify-center align-middle text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </Link>
+                    {/* Pencil pinned to the cell's own right edge via
+                        `justify-between`, not "immediately after the title
+                        text" — with this column's width now variable
+                        (narrower on a page with a persistent sidebar), a
+                        text-length-dependent pencil position could drift
+                        arbitrarily close to the cell's own midpoint for a
+                        long enough title. Matches the narrow-screen card
+                        view above, which already pins its own pencil this
+                        way regardless of title length. */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="wrap-break-word">{song.title}</span>
+                      <Link
+                        to={`/bands/${bandId}/songs/${songId}/edit`}
+                        aria-label={t('repertoire.editAria', { title: song.title })}
+                        className="relative inline-flex h-11 w-11 shrink-0 -translate-y-0.5 items-center justify-center text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Link>
+                    </div>
                   </td>
                   <td className="py-2 pr-4 wrap-break-word">{song.artist}</td>
                   <td className="py-2 pr-4">{normalizeKey(song.key)}</td>
