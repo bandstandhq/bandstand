@@ -364,31 +364,37 @@ function MemberList({
   }
 
   return (
-    <table className="mt-2 w-full text-sm">
-      <thead>
-        <tr className="text-left text-muted-foreground">
-          <th className="py-1 pr-4">{t('bandSettings.members.name')}</th>
-          <th className="py-1 pr-4">{t('bandSettings.members.email')}</th>
-          <th className="py-1 pr-4">{t('bandSettings.members.role')}</th>
-          <th className="py-1 pr-4">{t('bandSettings.members.instruments')}</th>
-          <th className="py-1" />
-        </tr>
-      </thead>
-      <tbody>
-        {members.map((member) => (
-          <MemberRow
-            key={member.userId}
-            bandId={bandId}
-            member={member}
-            isSelf={member.userId === viewerUserId}
-            viewerRole={viewerRole}
-            nicknames={nicknames}
-            onRefresh={onRefresh}
-            onLeftBand={onLeftBand}
-          />
-        ))}
-      </tbody>
-    </table>
+    // Scrolls within its own row rather than forcing the whole page wider —
+    // needed now that the sidebar leaves less width for content at exactly
+    // the viewports (640–1023px) where this table, not the narrow-screen
+    // card list above, is what renders (see mobile-usability.spec.ts).
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-muted-foreground">
+            <th className="py-1 pr-4">{t('bandSettings.members.name')}</th>
+            <th className="py-1 pr-4">{t('bandSettings.members.email')}</th>
+            <th className="py-1 pr-4">{t('bandSettings.members.role')}</th>
+            <th className="py-1 pr-4">{t('bandSettings.members.instruments')}</th>
+            <th className="py-1" />
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((member) => (
+            <MemberRow
+              key={member.userId}
+              bandId={bandId}
+              member={member}
+              isSelf={member.userId === viewerUserId}
+              viewerRole={viewerRole}
+              nicknames={nicknames}
+              onRefresh={onRefresh}
+              onLeftBand={onLeftBand}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

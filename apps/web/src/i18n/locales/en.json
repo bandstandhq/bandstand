@@ -126,6 +126,8 @@
     "sectionNav": "Band",
     "sectionActions": "Account",
     "goToDashboard": "Go to dashboard",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "repertoire": "Repertoire",
     "setlists": "Setlists",
     "calendar": "Calendar",
