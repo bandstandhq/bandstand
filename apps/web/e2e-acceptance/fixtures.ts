@@ -24,6 +24,16 @@ export async function selectComboboxOption(page: Page, trigger: Locator, optionN
   await page.getByRole('option', { name: optionName, exact: true }).click();
 }
 
+// The band switcher (BandSwitcher.tsx) isn't a Select — it's a
+// DropdownMenu-based "team switcher" (shadcn's sidebar-07 pattern), whose
+// items are role="menuitem", not role="option". `trigger` is whatever
+// locator finds its button (typically `page.getByLabel('Active band')`);
+// `bandName` is the band's visible label (bandOptionLabel.ts's output).
+export async function switchBand(page: Page, trigger: Locator, bandName: string) {
+  await trigger.click();
+  await page.getByRole('menuitem', { name: bandName, exact: true }).click();
+}
+
 export async function login(page: Page, email: string, password = DEMO_PASSWORD) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);

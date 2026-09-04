@@ -32,3 +32,16 @@ export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof 
     />
   );
 }
+
+export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof RadixDropdownMenu.Label>) {
+  return (
+    <RadixDropdownMenu.Label
+      className={cn('px-2 py-1.5 text-xs font-medium text-muted-foreground', className)}
+      {...props}
+    />
+  );
+}
+
+export function DropdownMenuSeparator({ className, ...props }: ComponentProps<typeof RadixDropdownMenu.Separator>) {
+  return <RadixDropdownMenu.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
+}

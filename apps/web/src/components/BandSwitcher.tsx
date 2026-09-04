@@ -1,35 +1,68 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MyBand } from '@bandstand/api-client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@bandstand/ui';
+import type { Band } from '@bandstand/core';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@bandstand/ui';
+import { Building2, Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CreateBandForm } from './CreateBandForm';
 import { apiClient } from '../lib/api-client';
 import { bandOptionLabel } from '../lib/bandOptionLabel';
 import { useActiveBandStore } from '../stores/activeBand';
+import { useMyBandsStore } from '../stores/myBands';
 
 /**
- * Which band you're currently looking at — nothing else. Joining or
- * creating a band lives in AccountSettings (1+ band) or DashboardRedirect's
- * own zero-band view instead: those aren't things a user reaches for
- * anywhere near as often as switching bands, so they don't belong cluttering
- * every page's header/menu (see the nav-cleanup ADR-equivalent discussion).
- * Renders nothing at all below two bands — with zero there's nothing to
- * switch between, and with exactly one there's nothing else it could show.
+ * Which band you're currently looking at, shaped like shadcn's own sidebar
+ * "team switcher" block — always rendered (even with a single band, even
+ * with none yet), not hidden below two bands the way this used to work:
+ * this is now the *only* place band switching lives, and doubles as the
+ * quick way to create another one via "Add team".
  *
  * `onBandChange`, if given, is called whenever the selection changes with
- * the new band's id — AppHeader uses it to actually navigate there. This
- * component only ever manages *which band is remembered*, never where the
- * app navigates.
+ * the new band's id — AppSidebar/BottomNav use it to actually navigate
+ * there. This component only ever manages *which band is remembered*
+ * plus creating new ones; joining an existing band by invite code still
+ * lives in AccountSettings, which isn't something reached for anywhere
+ * near as often.
+ *
+ * `bands` lives in a shared store (stores/myBands.ts), not local state:
+ * every page navigation remounts this component (PageShell is called by
+ * each page individually, not a persistent layout route — see
+ * PageShell.tsx), so local state would re-fetch and flash empty on every
+ * single click between nav links. Reading from the store means a remount
+ * renders instantly from whatever was last fetched, while this effect's
+ * fetch quietly keeps it current in the background.
  */
-export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string) => void }) {
+export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean; onBandChange?: (bandId: string) => void }) {
   const { t } = useTranslation();
-  const [bands, setBands] = useState<MyBand[] | null>(null);
+  const bands = useMyBandsStore((s) => s.bands);
+  const setBands = useMyBandsStore((s) => s.setBands);
+  const upsertBand = useMyBandsStore((s) => s.upsertBand);
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
+  const [createOpen, setCreateOpen] = useState(false);
 
   function handleSelect(bandId: string) {
     setActiveBandId(bandId);
     onBandChange?.(bandId);
+  }
+
+  function handleCreated(band: Band) {
+    const created: MyBand = { ...band, role: 'owner' };
+    upsertBand(created);
+    setCreateOpen(false);
+    handleSelect(created.id);
   }
 
   useEffect(() => {
@@ -59,20 +92,79 @@ export function BandSwitcher({ onBandChange }: { onBandChange?: (bandId: string)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (bands === null || bands.length < 2) return null;
+  // Only the very first load, before the store has ever been populated —
+  // unavoidable, there's genuinely no data yet. Every subsequent mount
+  // reads the already-populated store instead of hitting this.
+  if (bands === null) return null;
+
+  const activeBand = bands.find((b) => b.id === activeBandId) ?? bands[0] ?? null;
 
   return (
-    <Select value={activeBandId ?? bands[0]!.id} onValueChange={handleSelect}>
-      <SelectTrigger aria-label={t('bandSwitcher.label')} className="max-w-40 sm:max-w-xs">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {bands.map((band) => (
-          <SelectItem key={band.id} value={band.id}>
-            {bandOptionLabel(band, bands)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t('bandSwitcher.label')}
+            className={
+              'flex items-center gap-2 rounded-md text-left text-sm font-medium text-foreground/90 transition-colors hover:bg-accent hover:text-foreground' +
+              (collapsed ? ' justify-center px-2 py-2' : ' w-full px-2 py-2')
+            }
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+              <Building2 className="h-4 w-4" aria-hidden="true" />
+            </span>
+            {!collapsed && (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">
+                    {activeBand ? bandOptionLabel(activeBand, bands) : t('bandSwitcher.noTeams')}
+                  </span>
+                  {activeBand && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {activeBand.role === 'owner'
+                        ? t('bandSettings.members.roleOwner')
+                        : activeBand.role === 'admin'
+                          ? t('bandSettings.members.roleAdmin')
+                          : t('bandSettings.members.roleMember')}
+                    </span>
+                  )}
+                </span>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-56">
+          <DropdownMenuLabel>{t('bandSwitcher.teamsLabel')}</DropdownMenuLabel>
+          {bands.map((band) => (
+            <DropdownMenuItem key={band.id} onSelect={() => handleSelect(band.id)} className="gap-2">
+              <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{bandOptionLabel(band, bands)}</span>
+              {band.id === activeBand?.id && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="gap-2"
+            onSelect={(event) => {
+              event.preventDefault();
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            {t('bandSwitcher.addTeam')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('bandSwitcher.addTeam')}</DialogTitle>
+          </DialogHeader>
+          <CreateBandForm onCreated={handleCreated} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

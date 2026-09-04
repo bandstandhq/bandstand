@@ -65,11 +65,9 @@ export function AppSidebar() {
           onClick={toggle}
         />
       </SidebarHeader>
-      {!collapsed && (
-        <div className="border-b border-border p-2">
-          <BandSwitcher onBandChange={navigateToBand} />
-        </div>
-      )}
+      <div className="border-b border-border p-2">
+        <BandSwitcher collapsed={collapsed} onBandChange={navigateToBand} />
+      </div>
       <SidebarContent>
         <SidebarNav aria-label={t('appHeader.navLabel')}>
           {navItems.map(({ to, label, icon: Icon }) => {

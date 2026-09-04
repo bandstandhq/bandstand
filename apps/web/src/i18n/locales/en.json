@@ -319,6 +319,9 @@
   },
   "bandSwitcher": {
     "label": "Active band",
+    "teamsLabel": "Bands",
+    "addTeam": "Add band",
+    "noTeams": "No bands yet",
     "newBandPlaceholder": "Band name",
     "createBand": "Create band",
     "createBandToggle": "Create a new band",
