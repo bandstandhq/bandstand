@@ -11,6 +11,7 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import { signOut } from '../lib/auth-client';
 import { resolveBandSwitchPath } from '../routes/bandRouteConfig';
 import { useActiveBandStore } from '../stores/activeBand';
+import { useMyBandsStore } from '../stores/myBands';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 export function useAppNavLinks() {
@@ -24,6 +25,7 @@ export function useAppNavLinks() {
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const resetUserPrefs = useUserPrefsStore((s) => s.reset);
+  const resetMyBands = useMyBandsStore((s) => s.reset);
 
   // The store's activeBandId has exactly one remaining job: remembering
   // which band the bare /dashboard route should redirect to next time
@@ -59,8 +61,14 @@ export function useAppNavLinks() {
     // redirects to /login) — must not leak into whoever signs in next on
     // this device. IndexedDB caches deliberately stay (ADR-0006), but
     // nothing derived from them may still be *displayed* after this.
+    // myBands in particular: it's an in-memory cache of band *names*
+    // (stores/myBands.ts, kept deliberately unpersisted) — without this
+    // reset, the next person signing in on this device could briefly see
+    // this session's band names in the switcher before the first fetch
+    // overwrites it.
     setActiveBandId(null);
     resetUserPrefs();
+    resetMyBands();
     void signOut();
   }
 

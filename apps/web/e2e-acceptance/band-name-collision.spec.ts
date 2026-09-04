@@ -39,10 +39,10 @@ test('two bands with the identical name still get distinct, picklable options in
 
     const switcher = page.getByLabel('Active band');
     await switcher.click();
-    await expect(page.getByRole('option', { name: `${sharedName} (${bandA.slug})`, exact: true })).toHaveCount(1);
-    await expect(page.getByRole('option', { name: `${sharedName} (${bandB.slug})`, exact: true })).toHaveCount(1);
+    await expect(page.getByRole('menuitem', { name: `${sharedName} (${bandA.slug})`, exact: true })).toHaveCount(1);
+    await expect(page.getByRole('menuitem', { name: `${sharedName} (${bandB.slug})`, exact: true })).toHaveCount(1);
     // Every other (non-colliding) band this owner is in keeps its plain name.
-    await expect(page.getByRole('option', { name: 'The Demo Band', exact: true })).toHaveCount(1);
+    await expect(page.getByRole('menuitem', { name: 'The Demo Band', exact: true })).toHaveCount(1);
     await page.keyboard.press('Escape');
   } finally {
     await deleteThrowawayBand(ownerToken, bandA.id);

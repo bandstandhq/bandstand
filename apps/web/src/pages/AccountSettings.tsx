@@ -20,6 +20,7 @@ import { authClient } from '../lib/auth-client';
 import { getActiveServerConfig, isUsingCustomServer } from '../lib/serverConfig';
 import { deleteAllLocalBandData } from '../lib/yjs';
 import { useActiveBandStore } from '../stores/activeBand';
+import { useMyBandsStore } from '../stores/myBands';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
 const LOCALES: Locale[] = ['en', 'de'];
@@ -34,6 +35,8 @@ export function AccountSettings() {
   const load = useUserPrefsStore((s) => s.load);
   const update = useUserPrefsStore((s) => s.update);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
+  const upsertMyBand = useMyBandsStore((s) => s.upsertBand);
+  const setMyBands = useMyBandsStore((s) => s.setBands);
   const [bands, setBands] = useState<MyBand[] | null>(null);
   const [archivedBands, setArchivedBands] = useState<ArchivedBand[] | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -52,20 +55,33 @@ export function AccountSettings() {
     try {
       await apiClient.restoreBand(bandId);
       setArchivedBands((prev) => prev?.filter((b) => b.id !== bandId) ?? null);
-      apiClient.listMyBands().then(setBands);
+      // Also refreshes the sidebar's own band list (stores/myBands.ts) —
+      // this page never navigates away on a restore, so without this the
+      // switcher would keep showing the pre-restore list until some other
+      // page remounts it.
+      apiClient.listMyBands().then((result) => {
+        setBands(result);
+        setMyBands(result);
+      });
     } finally {
       setRestoringId(null);
     }
   }
 
   function handleJoined(band: Band) {
-    setBands((prev) => [...(prev ?? []), { ...band, role: 'member' }]);
+    const joined: MyBand = { ...band, role: 'member' };
+    setBands((prev) => [...(prev ?? []), joined]);
     setActiveBandId(band.id);
+    // Same reasoning as handleRestore above — keeps the sidebar's switcher
+    // in sync without requiring a navigation to remount it.
+    upsertMyBand(joined);
   }
 
   function handleCreated(band: Band) {
-    setBands((prev) => [...(prev ?? []), { ...band, role: 'owner' }]);
+    const created: MyBand = { ...band, role: 'owner' };
+    setBands((prev) => [...(prev ?? []), created]);
     setActiveBandId(band.id);
+    upsertMyBand(created);
   }
 
   async function handleDeleteLocalData() {
