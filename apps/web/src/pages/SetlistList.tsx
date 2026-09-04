@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { can, createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
 import type { BandRole, Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
-import { Button, Input, useConfirmDialog } from '@bandstand/ui';
+import { Button, Form, FormControl, FormField, FormItem, Input, useConfirmDialog } from '@bandstand/ui';
 import { Trash2 } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
@@ -154,7 +155,8 @@ export function SetlistList() {
   const { doc, status } = useBandDoc(bandId ?? null);
   const setlists = useYMap<Setlist>(doc?.getMap('setlists'));
   const songs = useYMap<Song>(doc?.getMap('songs'));
-  const [name, setName] = useState('');
+  const createSetlistForm = useForm<{ name: string }>({ defaultValues: { name: '' } });
+  const newSetlistName = useWatch({ control: createSetlistForm.control, name: 'name' });
   const [viewMode, setViewMode] = useState<SetlistViewMode>('list');
   const [viewerRole, setViewerRole] = useState<BandRole | null>(null);
   const isWideScreen = useIsWideScreen();
@@ -172,11 +174,10 @@ export function SetlistList() {
     });
   }, [bandId]);
 
-  function handleCreate(event: FormEvent) {
-    event.preventDefault();
-    if (!doc || !name.trim()) return;
-    createSetlist(doc, name.trim());
-    setName('');
+  function handleCreate(values: { name: string }) {
+    if (!doc || !values.name.trim()) return;
+    createSetlist(doc, values.name.trim());
+    createSetlistForm.reset();
   }
 
   function toggleViewMode() {
@@ -203,22 +204,32 @@ export function SetlistList() {
         )}
       </div>
 
-      <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-center gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('setlistList.newPlaceholder')}
-          className="w-full sm:w-64"
-        />
-        <Button type="submit" disabled={!doc || !name.trim()}>
-          {t('setlistList.create')}
-        </Button>
-        {/* Without this, tapping Create while the band doc hasn't loaded yet
-            (a slower or just-reconnecting mobile connection) silently did
-            nothing — handleCreate's own `!doc` guard bailed with no
-            indication why, indistinguishable from the button being broken. */}
-        {!doc && <p className="text-sm text-muted-foreground">{t('setlistList.waitingForConnection')}</p>}
-      </form>
+      <Form {...createSetlistForm}>
+        <form
+          onSubmit={createSetlistForm.handleSubmit(handleCreate)}
+          className="mt-4 flex flex-wrap items-center gap-2"
+        >
+          <FormField
+            control={createSetlistForm.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <FormControl>
+                  <Input placeholder={t('setlistList.newPlaceholder')} className="w-full sm:w-64" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <Button type="submit" disabled={!doc || !newSetlistName.trim()}>
+            {t('setlistList.create')}
+          </Button>
+          {/* Without this, tapping Create while the band doc hasn't loaded yet
+              (a slower or just-reconnecting mobile connection) silently did
+              nothing — handleCreate's own `!doc` guard bailed with no
+              indication why, indistinguishable from the button being broken. */}
+          {!doc && <p className="text-sm text-muted-foreground">{t('setlistList.waitingForConnection')}</p>}
+        </form>
+      </Form>
 
       {entries.length === 0 || !doc ? (
         <p className="mt-6 text-sm text-muted-foreground">{t('setlistList.noSetlists')}</p>

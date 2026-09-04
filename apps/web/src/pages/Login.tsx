@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Input, PasswordInput } from '@bandstand/ui';
-import { type ChangeEvent, type FormEvent, useState } from 'react';
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, Input, PasswordInput } from '@bandstand/ui';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ServerPicker } from '../components/ServerPicker';
 import { authClient } from '../lib/auth-client';
 import { clearDraftEmail, getDraftEmail, setDraftEmail } from '../lib/authFormDraft';
 
+interface LoginValues {
+  email: string;
+  password: string;
+}
+
 export function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // Restores whatever was typed here before a server switch (ServerPicker's
-  // save does a real page reload) — see authFormDraft.ts.
-  const [email, setEmail] = useState(getDraftEmail);
-  const [password, setPassword] = useState('');
   // Deliberately distinct from a plain boolean: a request that never got a
   // response from the server (unreachable host, blocked by CORS, DNS
   // failure — see authClient's underlying better-fetch, which lets a raw
@@ -24,15 +26,18 @@ export function Login() {
   // one — that sends someone hunting for a typo in a password that was
   // never actually checked.
   const [errorKind, setErrorKind] = useState<'credentials' | 'network' | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const { refetch } = authClient.useSession();
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  const form = useForm<LoginValues>({
+    // Restores whatever was typed here before a server switch (ServerPicker's
+    // save does a real page reload) — see authFormDraft.ts.
+    defaultValues: { email: getDraftEmail(), password: '' },
+  });
+
+  async function onSubmit(values: LoginValues) {
     setErrorKind(null);
-    setSubmitting(true);
     try {
-      const { error: signInError } = await authClient.signIn.email({ email, password });
+      const { error: signInError } = await authClient.signIn.email(values);
       if (signInError) {
         // A non-2xx response the server actually sent — status 401 is the
         // real "wrong email or password"; anything else (a 5xx, a rate
@@ -56,8 +61,6 @@ export function Login() {
       // The request itself never completed — no response to have been
       // wrong about, so this is never a credentials error.
       setErrorKind('network');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -66,56 +69,67 @@ export function Login() {
       <div className="w-full max-w-sm">
         <ServerPicker />
       </div>
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6"
-      >
-        <h1 className="text-lg font-medium text-card-foreground">{t('login.title')}</h1>
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm text-muted-foreground">
-            {t('login.email')}
-          </label>
-          <Input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              setEmail(e.target.value);
-              setDraftEmail(e.target.value);
-            }}
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6"
+        >
+          <h1 className="text-lg font-medium text-card-foreground">{t('login.title')}</h1>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('login.email')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    required
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setDraftEmail(e.target.value);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
           />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-sm text-muted-foreground">
-              {t('login.password')}
-            </label>
-            <Link to="/forgot-password" className="text-sm text-muted-foreground underline">
-              {t('login.forgotPassword')}
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>{t('login.password')}</FormLabel>
+                  <Link to="/forgot-password" className="text-sm text-muted-foreground underline">
+                    {t('login.forgotPassword')}
+                  </Link>
+                </div>
+                <FormControl>
+                  <PasswordInput
+                    required
+                    {...field}
+                    showLabel={t('common.showPassword')}
+                    hideLabel={t('common.hidePassword')}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          {errorKind === 'credentials' && <p className="text-sm text-destructive">{t('login.error')}</p>}
+          {errorKind === 'network' && <p className="text-sm text-destructive">{t('login.networkError')}</p>}
+          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? t('login.submitting') : t('login.submit')}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            {t('login.noAccount')}{' '}
+            <Link to="/signup" className="underline">
+              {t('login.signUp')}
             </Link>
-          </div>
-          <PasswordInput
-            id="password"
-            required
-            value={password}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-            showLabel={t('common.showPassword')}
-            hideLabel={t('common.hidePassword')}
-          />
-        </div>
-        {errorKind === 'credentials' && <p className="text-sm text-destructive">{t('login.error')}</p>}
-        {errorKind === 'network' && <p className="text-sm text-destructive">{t('login.networkError')}</p>}
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? t('login.submitting') : t('login.submit')}
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          {t('login.noAccount')}{' '}
-          <Link to="/signup" className="underline">
-            {t('login.signUp')}
-          </Link>
-        </p>
-      </form>
+          </p>
+        </form>
+      </Form>
     </main>
   );
 }

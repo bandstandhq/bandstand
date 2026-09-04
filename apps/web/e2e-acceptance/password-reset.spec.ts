@@ -43,6 +43,7 @@ test('requesting a reset, following the emailed link, and setting a new password
     await page.waitForURL(/\/reset-password\?token=/);
 
     await page.getByLabel('New password', { exact: true }).fill(newPassword);
+    await page.getByLabel('Confirm new password').fill(newPassword);
     await page.getByRole('button', { name: 'Set new password' }).click();
     await expect(page.getByText('Your password has been changed.')).toBeVisible();
 

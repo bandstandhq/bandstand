@@ -42,6 +42,8 @@
     "title": "Set a new password",
     "missingToken": "This link is missing its reset token. Request a new one from the forgot-password page.",
     "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "mismatchError": "New password and confirmation don't match.",
     "submit": "Set new password",
     "submitting": "Saving…",
     "error": "This link is invalid or has expired. Request a new one.",

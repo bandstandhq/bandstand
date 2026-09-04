@@ -23,6 +23,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
   Input,
   Select,
   SelectContent,
@@ -33,7 +37,8 @@ import {
   useConfirmDialog,
 } from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
@@ -125,6 +130,18 @@ const EVENT_STATUS_LABEL_KEY: Record<EventStatus, string> = {
  * any *other* occurrence's own existing exception alone — untouched
  * either way, per the user's own call on this).
  */
+interface EditEventValues {
+  title: string;
+  type: EventType;
+  allDay: boolean;
+  startsAt: string;
+  endsAt: string;
+  location: string;
+  notes: string;
+  setlistId: string;
+  status: EventStatus;
+}
+
 function EditEventForm({
   doc,
   event,
@@ -142,22 +159,23 @@ function EditEventForm({
 }) {
   const { t } = useTranslation();
   const { chooseAction } = useConfirmDialog();
-  const [title, setTitle] = useState(event.title);
-  const [type, setType] = useState<EventType>(event.type);
-  const [allDay, setAllDay] = useState(event.allDay);
-  const [startsAt, setStartsAt] = useState(
-    event.allDay ? toDateValue(event.startsAt) : toDateTimeLocalValue(event.startsAt),
-  );
-  const [endsAt, setEndsAt] = useState(
-    event.endsAt === undefined ? '' : event.allDay ? toDateValue(event.endsAt) : toDateTimeLocalValue(event.endsAt),
-  );
-  const [location, setLocation] = useState(event.location ?? '');
-  const [notes, setNotes] = useState(event.notes ?? '');
-  const [setlistId, setSetlistId] = useState(event.setlistId ?? '');
-  const [status, setStatus] = useState<EventStatus>(event.status);
+  const form = useForm<EditEventValues>({
+    defaultValues: {
+      title: event.title,
+      type: event.type,
+      allDay: event.allDay,
+      startsAt: event.allDay ? toDateValue(event.startsAt) : toDateTimeLocalValue(event.startsAt),
+      endsAt: event.endsAt === undefined ? '' : event.allDay ? toDateValue(event.endsAt) : toDateTimeLocalValue(event.endsAt),
+      location: event.location ?? '',
+      notes: event.notes ?? '',
+      setlistId: event.setlistId ?? '',
+      status: event.status,
+    },
+  });
+  const values = useWatch({ control: form.control });
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function onSubmit(formValues: EditEventValues) {
+    const { title, type, allDay, startsAt, endsAt, location, notes, setlistId, status } = formValues;
     if (!title.trim() || !startsAt) return;
     const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
     if (Number.isNaN(startMs)) return;
@@ -203,105 +221,197 @@ function EditEventForm({
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.titlePlaceholder')} />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.titlePlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.type')}
-          <Select value={type} onValueChange={(value) => setType(value as EventType)}>
-            <SelectTrigger className="w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
-              <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
-              <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('eventDetail.status')}
-          <Select value={status} onValueChange={(value) => setStatus(value as EventStatus)}>
-            <SelectTrigger className="w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(EVENT_STATUS_LABEL_KEY) as EventStatus[]).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {t(EVENT_STATUS_LABEL_KEY[s])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={allDay}
-            onChange={(e) => {
-              const nextAllDay = e.target.checked;
-              setAllDay(nextAllDay);
-              // Switching representations mid-edit would otherwise carry a
-              // stale local-time or UTC-midnight value across into the
-              // other input type — re-derive both from the same instant.
-              const startMs = allDay ? Date.parse(`${startsAt}T00:00:00.000Z`) : new Date(startsAt).getTime();
-              if (!Number.isNaN(startMs)) setStartsAt(nextAllDay ? toDateValue(startMs) : toDateTimeLocalValue(startMs));
-              if (endsAt) {
-                const endMs = allDay ? Date.parse(`${endsAt}T23:59:59.999Z`) : new Date(endsAt).getTime();
-                if (!Number.isNaN(endMs)) setEndsAt(nextAllDay ? toDateValue(endMs) : toDateTimeLocalValue(endMs));
-              }
-            }}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.type')}
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gig">{t('calendarList.typeGig')}</SelectItem>
+                      <SelectItem value="rehearsal">{t('calendarList.typeRehearsal')}</SelectItem>
+                      <SelectItem value="other">{t('calendarList.typeOther')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('eventDetail.status')}
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(EVENT_STATUS_LABEL_KEY) as EventStatus[]).map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {t(EVENT_STATUS_LABEL_KEY[s])}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+          </label>
+          <FormField
+            control={form.control}
+            name="allDay"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      onChange={(e) => {
+                        const nextAllDay = e.target.checked;
+                        const prevAllDay = field.value;
+                        field.onChange(nextAllDay);
+                        // Switching representations mid-edit would otherwise
+                        // carry a stale local-time or UTC-midnight value
+                        // across into the other input type — re-derive both
+                        // from the same instant.
+                        const { startsAt: curStartsAt, endsAt: curEndsAt } = form.getValues();
+                        const startMs = prevAllDay
+                          ? Date.parse(`${curStartsAt}T00:00:00.000Z`)
+                          : new Date(curStartsAt).getTime();
+                        if (!Number.isNaN(startMs)) {
+                          form.setValue('startsAt', nextAllDay ? toDateValue(startMs) : toDateTimeLocalValue(startMs));
+                        }
+                        if (curEndsAt) {
+                          const endMs = prevAllDay
+                            ? Date.parse(`${curEndsAt}T23:59:59.999Z`)
+                            : new Date(curEndsAt).getTime();
+                          if (!Number.isNaN(endMs)) {
+                            form.setValue('endsAt', nextAllDay ? toDateValue(endMs) : toDateTimeLocalValue(endMs));
+                          }
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  {t('calendarList.allDay')}
+                </label>
+              </FormItem>
+            )}
           />
-          {t('calendarList.allDay')}
-        </label>
-      </div>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.startsAt')}
+            <FormField
+              control={form.control}
+              name="startsAt"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <FormControl>
+                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.endsAt')}
+            <FormField
+              control={form.control}
+              name="endsAt"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <FormControl>
+                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </label>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.location')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Textarea placeholder={t('calendarList.notes')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.startsAt')}
-          <Input
-            type={allDay ? 'date' : 'datetime-local'}
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-            className="w-auto"
+          {t('calendarList.linkedSetlist')}
+          <FormField
+            control={form.control}
+            name="setlistId"
+            render={({ field }) => (
+              <FormItem className="contents">
+                <Select
+                  value={field.value || NO_SETLIST}
+                  onValueChange={(value) => field.onChange(value === NO_SETLIST ? '' : value)}
+                >
+                  <SelectTrigger className="max-w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SETLIST}>{t('calendarList.noSetlist')}</SelectItem>
+                    {Object.entries(setlists).map(([id, setlist]) => (
+                      <SelectItem key={id} value={id}>
+                        {setlist.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.endsAt')}
-          <Input
-            type={allDay ? 'date' : 'datetime-local'}
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-            className="w-auto"
-          />
-        </label>
-      </div>
 
-      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t('calendarList.location')} />
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.notes')} />
-
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        {t('calendarList.linkedSetlist')}
-        <Select value={setlistId || NO_SETLIST} onValueChange={(value) => setSetlistId(value === NO_SETLIST ? '' : value)}>
-          <SelectTrigger className="max-w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_SETLIST}>{t('calendarList.noSetlist')}</SelectItem>
-            {Object.entries(setlists).map(([id, setlist]) => (
-              <SelectItem key={id} value={id}>
-                {setlist.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
-
-      <Button type="submit" disabled={!title.trim() || !startsAt}>
-        {t('eventDetail.saveChanges')}
-      </Button>
-    </form>
+        <Button type="submit" disabled={!values.title?.trim() || !values.startsAt}>
+          {t('eventDetail.saveChanges')}
+        </Button>
+      </form>
+    </Form>
   );
 }
 
@@ -329,48 +439,69 @@ function ChangeRecurrenceForm({
   onSaved: (newTemplateId: string) => void;
 }) {
   const { t } = useTranslation();
-  const [repeat, setRepeat] = useState<RepeatOption>(
-    currentRule && currentRule.freq !== 'monthly' ? currentRule.freq : 'weekly',
-  );
-  const [until, setUntil] = useState(currentRule?.until ?? '');
+  const form = useForm<{ repeat: RepeatOption; until: string }>({
+    defaultValues: {
+      repeat: currentRule && currentRule.freq !== 'monthly' ? currentRule.freq : 'weekly',
+      until: currentRule?.until ?? '',
+    },
+  });
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    onSaved(changeSeriesRecurrence(doc, seriesTemplateId, effectiveFromDate, { freq: repeat, until: until || undefined }));
+  function onSubmit(values: { repeat: RepeatOption; until: string }) {
+    onSaved(
+      changeSeriesRecurrence(doc, seriesTemplateId, effectiveFromDate, {
+        freq: values.repeat,
+        until: values.until || undefined,
+      }),
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {t('eventDetail.changeRecurrenceDescription', { date: effectiveFromDate })}
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.repeats')}
-          <Select value={repeat} onValueChange={(value) => setRepeat(value as RepeatOption)}>
-            <SelectTrigger className="w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
-              <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
-              <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
-              <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          {t('calendarList.repeatUntil')}
-          <Input
-            type="date"
-            value={until}
-            onChange={(e) => setUntil(e.target.value)}
-            className="w-auto"
-          />
-        </label>
-      </div>
-      <Button type="submit">{t('eventDetail.saveChanges')}</Button>
-    </form>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {t('eventDetail.changeRecurrenceDescription', { date: effectiveFromDate })}
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.repeats')}
+            <FormField
+              control={form.control}
+              name="repeat"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
+                      <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
+                      <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
+                      <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {t('calendarList.repeatUntil')}
+            <FormField
+              control={form.control}
+              name="until"
+              render={({ field }) => (
+                <FormItem className="contents">
+                  <FormControl>
+                    <Input type="date" className="w-auto" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </label>
+        </div>
+        <Button type="submit">{t('eventDetail.saveChanges')}</Button>
+      </form>
+    </Form>
   );
 }
 

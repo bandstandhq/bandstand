@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Eye, EyeOff } from 'lucide-react';
-import type { InputHTMLAttributes } from 'react';
-import { useState } from 'react';
+import { forwardRef, useState, type InputHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
 import { Input } from './Input';
 
@@ -14,18 +13,19 @@ import { Input } from './Input';
  *
  * `showLabel`/`hideLabel` are required rather than defaulting to an
  * English string here: packages/ui has no i18n context of its own.
+ *
+ * Forwards its ref to the underlying `<input>` — needed for shadcn's
+ * `FormControl` (a Radix `Slot`), which composes a ref onto its child.
  */
-export function PasswordInput({
-  className,
-  showLabel,
-  hideLabel,
-  ...props
-}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { showLabel: string; hideLabel: string }) {
+export const PasswordInput = forwardRef<
+  HTMLInputElement,
+  Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { showLabel: string; hideLabel: string }
+>(function PasswordInput({ className, showLabel, hideLabel, ...props }, ref) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div className="relative">
-      <Input type={visible ? 'text' : 'password'} className={cn('pr-10', className)} {...props} />
+      <Input ref={ref} type={visible ? 'text' : 'password'} className={cn('pr-10', className)} {...props} />
       <button
         type="button"
         tabIndex={-1}
@@ -42,4 +42,4 @@ export function PasswordInput({
       </button>
     </div>
   );
-}
+});
