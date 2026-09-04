@@ -11,6 +11,7 @@ export * from './components/Form';
 export * from './components/Input';
 export * from './components/Label';
 export * from './components/PasswordInput';
+export * from './components/RadioGroup';
 export * from './components/Select';
 export * from './components/Sheet';
 export * from './components/Tabs';
