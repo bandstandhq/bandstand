@@ -15,6 +15,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
   Input,
   Select,
   SelectContent,
@@ -25,7 +29,8 @@ import {
   useConfirmDialog,
 } from '@bandstand/ui';
 import { Pencil, Trash2 } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { PageShell } from '../components/PageShell';
@@ -65,20 +70,27 @@ function ranksToShow(optionCount: number): number {
  * naturally start with no votes at all, same as any other freshly-created
  * option).
  */
+interface EditPollValues {
+  title: string;
+  notes: string;
+  newOptionStarts: { value: string }[];
+}
+
 function EditPollForm({ doc, poll, pollId, onSaved }: { doc: import('yjs').Doc; poll: Poll; pollId: string; onSaved: () => void }) {
   const { t, i18n } = useTranslation();
-  const [title, setTitle] = useState(poll.title);
-  const [notes, setNotes] = useState(poll.notes ?? '');
-  const [newOptionStarts, setNewOptionStarts] = useState<string[]>(['']);
+  const form = useForm<EditPollValues>({
+    defaultValues: { title: poll.title, notes: poll.notes ?? '', newOptionStarts: [{ value: '' }] },
+  });
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'newOptionStarts' });
+  const titleValue = useWatch({ control: form.control, name: 'title' });
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    const trimmedNotes = notes.trim() || undefined;
-    if (title.trim() !== poll.title || trimmedNotes !== poll.notes) {
-      updatePoll(doc, pollId, { title: title.trim(), notes: trimmedNotes });
+  function onSubmit(values: EditPollValues) {
+    if (!values.title.trim()) return;
+    const trimmedNotes = values.notes.trim() || undefined;
+    if (values.title.trim() !== poll.title || trimmedNotes !== poll.notes) {
+      updatePoll(doc, pollId, { title: values.title.trim(), notes: trimmedNotes });
     }
-    for (const value of newOptionStarts) {
+    for (const { value } of values.newOptionStarts) {
       if (!value) continue;
       const startsAt = new Date(value).getTime();
       if (!Number.isNaN(startsAt)) addPollOption(doc, pollId, { startsAt });
@@ -87,49 +99,76 @@ function EditPollForm({ doc, poll, pollId, onSaved }: { doc: import('yjs').Doc; 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('calendarList.pollTitlePlaceholder')} />
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('calendarList.pollNotesPlaceholder')} />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Input placeholder={t('calendarList.pollTitlePlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem className="contents">
+              <FormControl>
+                <Textarea placeholder={t('calendarList.pollNotesPlaceholder')} {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.existingOptions')}</p>
-        <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
-          {poll.options.map((option) => (
-            <li key={option.id}>{formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}</li>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.existingOptions')}</p>
+          <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+            {poll.options.map((option) => (
+              <li key={option.id}>{formatOptionWhen(option.startsAt, option.endsAt, i18n.language)}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.addProposals')}</p>
+          {fields.map((arrayField, index) => (
+            <div key={arrayField.id} className="flex items-center gap-2">
+              <FormField
+                control={form.control}
+                name={`newOptionStarts.${index}.value`}
+                render={({ field }) => (
+                  <FormItem className="contents">
+                    <FormControl>
+                      <Input type="datetime-local" className="w-auto" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              {fields.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="text-sm text-muted-foreground hover:underline"
+                >
+                  {t('calendarList.removeOption')}
+                </button>
+              )}
+            </div>
           ))}
-        </ul>
-      </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => append({ value: '' })}>
+            {t('calendarList.addOption')}
+          </Button>
+        </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">{t('pollDetail.addProposals')}</p>
-        {newOptionStarts.map((value, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              type="datetime-local"
-              value={value}
-              onChange={(e) => setNewOptionStarts((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))}
-              className="w-auto"
-            />
-            {newOptionStarts.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setNewOptionStarts((prev) => prev.filter((_, i) => i !== index))}
-                className="text-sm text-muted-foreground hover:underline"
-              >
-                {t('calendarList.removeOption')}
-              </button>
-            )}
-          </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={() => setNewOptionStarts((prev) => [...prev, ''])}>
-          {t('calendarList.addOption')}
+        <Button type="submit" disabled={!titleValue?.trim()}>
+          {t('pollDetail.saveChanges')}
         </Button>
-      </div>
-
-      <Button type="submit" disabled={!title.trim()}>
-        {t('pollDetail.saveChanges')}
-      </Button>
-    </form>
+      </form>
+    </Form>
   );
 }
 
