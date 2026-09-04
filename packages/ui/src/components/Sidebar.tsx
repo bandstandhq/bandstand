@@ -21,12 +21,17 @@ export function Sidebar({
     <aside
       data-collapsed={collapsed}
       className={cn(
+        // sticky top-0 + h-screen keeps this pinned to the viewport while
+        // <main> scrolls — without it, a page taller than one viewport
+        // (e.g. Account Settings) scrolls the sidebar away with everything
+        // else, since a plain h-screen block is otherwise normal document
+        // flow, not fixed to the viewport (issue #241).
         // Width only, not `transition-all` — a theme toggle changing
         // border/background tokens at the same moment shouldn't visibly
         // animate. prefers-reduced-motion is already handled globally
         // (packages/ui/src/styles.css's blanket transition-duration
         // override), not repeated here.
-        'flex h-screen shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200',
+        'sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200',
         collapsed ? 'w-16' : 'w-64',
         className,
       )}
