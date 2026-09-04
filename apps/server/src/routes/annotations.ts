@@ -33,7 +33,7 @@ function toLayerDto(row: typeof voiceAnnotationLayers.$inferSelect) {
 annotationsRoute.get('/voices/:voiceId', async (c) => {
   const bandId = c.req.param('bandId');
   const voiceId = c.req.param('voiceId');
-  if (!bandId || !voiceId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !voiceId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'voiceId'}` }, 400);
   const userId = c.get('userId');
 
   const rows = await db
@@ -48,7 +48,7 @@ annotationsRoute.get('/voices/:voiceId', async (c) => {
 annotationsRoute.get('/voices/:voiceId/shared', async (c) => {
   const bandId = c.req.param('bandId');
   const voiceId = c.req.param('voiceId');
-  if (!bandId || !voiceId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !voiceId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'voiceId'}` }, 400);
 
   const rows = await db
     .select()
@@ -67,7 +67,7 @@ annotationsRoute.get('/voices/:voiceId/shared', async (c) => {
 annotationsRoute.post('/voices/:voiceId', async (c) => {
   const bandId = c.req.param('bandId');
   const voiceId = c.req.param('voiceId');
-  if (!bandId || !voiceId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !voiceId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'voiceId'}` }, 400);
   const userId = c.get('userId');
   const { name } = createAnnotationLayerInputSchema.parse(await c.req.json());
 
@@ -89,7 +89,7 @@ annotationsRoute.post('/voices/:voiceId', async (c) => {
 annotationsRoute.put('/:layerId', async (c) => {
   const bandId = c.req.param('bandId');
   const layerId = c.req.param('layerId');
-  if (!bandId || !layerId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !layerId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'layerId'}` }, 400);
   const userId = c.get('userId');
   const { objects, expectedUpdatedAt } = updateAnnotationLayerInputSchema.parse(await c.req.json());
 
@@ -97,7 +97,7 @@ annotationsRoute.put('/:layerId', async (c) => {
     .select()
     .from(voiceAnnotationLayers)
     .where(and(eq(voiceAnnotationLayers.id, layerId), eq(voiceAnnotationLayers.bandId, bandId)));
-  if (!existing) return c.json({ error: 'Not found' }, 404);
+  if (!existing) return c.json({ error: 'Annotation layer not found' }, 404);
   if (existing.userId !== userId) return c.json({ error: 'Forbidden' }, 403);
 
   const [updated] = await db
@@ -129,14 +129,14 @@ annotationsRoute.put('/:layerId', async (c) => {
 annotationsRoute.delete('/:layerId', async (c) => {
   const bandId = c.req.param('bandId');
   const layerId = c.req.param('layerId');
-  if (!bandId || !layerId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !layerId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'layerId'}` }, 400);
   const userId = c.get('userId');
 
   const [existing] = await db
     .select()
     .from(voiceAnnotationLayers)
     .where(and(eq(voiceAnnotationLayers.id, layerId), eq(voiceAnnotationLayers.bandId, bandId)));
-  if (!existing) return c.json({ error: 'Not found' }, 404);
+  if (!existing) return c.json({ error: 'Annotation layer not found' }, 404);
 
   if (!existing.shared) {
     if (existing.userId !== userId) return c.json({ error: 'Forbidden' }, 403);
@@ -166,14 +166,14 @@ annotationsRoute.delete('/:layerId', async (c) => {
 annotationsRoute.post('/:layerId/share', async (c) => {
   const bandId = c.req.param('bandId');
   const layerId = c.req.param('layerId');
-  if (!bandId || !layerId) return c.json({ error: 'Missing params' }, 400);
+  if (!bandId || !layerId) return c.json({ error: `Missing ${!bandId ? 'bandId' : 'layerId'}` }, 400);
   const userId = c.get('userId');
 
   const [source] = await db
     .select()
     .from(voiceAnnotationLayers)
     .where(and(eq(voiceAnnotationLayers.id, layerId), eq(voiceAnnotationLayers.bandId, bandId)));
-  if (!source) return c.json({ error: 'Not found' }, 404);
+  if (!source) return c.json({ error: 'Annotation layer not found' }, 404);
   if (source.userId !== userId) return c.json({ error: 'Forbidden' }, 403);
   if (source.shared) return c.json({ error: 'A shared layer cannot itself be shared' }, 400);
 
