@@ -240,6 +240,26 @@ describe('voice annotations (integration)', () => {
     expect(row?.objects).toEqual([]);
   });
 
+  it('names the missing layer on update, delete, and share of a nonexistent id', async () => {
+    const { band, member } = await setupBand(cleanupUserIds, cleanupBandIds);
+    const missingLayerId = randomUUID();
+
+    const updateRes = await req(`/${band.id}/annotations/${missingLayerId}`, 'PUT', member.token, {
+      objects: [],
+      expectedUpdatedAt: new Date().toISOString(),
+    });
+    expect(updateRes.status).toBe(404);
+    expect(await updateRes.json()).toEqual({ error: 'Annotation layer not found' });
+
+    const deleteRes = await req(`/${band.id}/annotations/${missingLayerId}`, 'DELETE', member.token);
+    expect(deleteRes.status).toBe(404);
+    expect(await deleteRes.json()).toEqual({ error: 'Annotation layer not found' });
+
+    const shareRes = await req(`/${band.id}/annotations/${missingLayerId}/share`, 'POST', member.token);
+    expect(shareRes.status).toBe(404);
+    expect(await shareRes.json()).toEqual({ error: 'Annotation layer not found' });
+  });
+
   it('lets the original sharer, or an admin, remove a shared layer — but not an unrelated member', async () => {
     const { band, member, admin } = await setupBand(cleanupUserIds, cleanupBandIds);
 
