@@ -1,14 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Form, FormControl, FormField, FormItem, FormLabel, PasswordInput } from '@bandstand/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, PasswordInput } from '@bandstand/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
+import { z } from 'zod';
 import { authClient } from '../lib/auth-client';
 
-interface ResetPasswordValues {
-  newPassword: string;
-}
+// `message` is an i18n key, not display text — packages/ui's Form has no
+// i18n context of its own, so the confirm field translates its own error
+// via `t()` rather than rendering FormMessage's raw fallback (same
+// reasoning as ChangePasswordForm's schema).
+const resetPasswordSchema = z
+  .object({
+    newPassword: z.string().min(8, 'accountSettings.passwordError_tooShort'),
+    confirmPassword: z.string().min(8, 'accountSettings.passwordError_tooShort'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'resetPassword.mismatchError',
+    path: ['confirmPassword'],
+  });
+type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
 export function ResetPassword() {
   const { t } = useTranslation();
@@ -17,7 +30,10 @@ export function ResetPassword() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
 
-  const form = useForm<ResetPasswordValues>({ defaultValues: { newPassword: '' } });
+  const form = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { newPassword: '', confirmPassword: '' },
+  });
 
   async function onSubmit(values: ResetPasswordValues) {
     if (!token) return;
@@ -49,7 +65,7 @@ export function ResetPassword() {
               <FormField
                 control={form.control}
                 name="newPassword"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>{t('resetPassword.newPassword')}</FormLabel>
                     <FormControl>
@@ -61,6 +77,26 @@ export function ResetPassword() {
                         hideLabel={t('common.hidePassword')}
                       />
                     </FormControl>
+                    <FormMessage>{fieldState.error && t(fieldState.error.message ?? '')}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <FormLabel>{t('resetPassword.confirmNewPassword')}</FormLabel>
+                    <FormControl>
+                      <PasswordInput
+                        required
+                        minLength={8}
+                        {...field}
+                        showLabel={t('common.showPassword')}
+                        hideLabel={t('common.hidePassword')}
+                      />
+                    </FormControl>
+                    <FormMessage>{fieldState.error && t(fieldState.error.message ?? '')}</FormMessage>
                   </FormItem>
                 )}
               />

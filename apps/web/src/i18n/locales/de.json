@@ -42,6 +42,8 @@
     "title": "Neues Passwort festlegen",
     "missingToken": "Diesem Link fehlt das Reset-Token. Fordere über die Seite \"Passwort vergessen\" einen neuen an.",
     "newPassword": "Neues Passwort",
+    "confirmNewPassword": "Neues Passwort bestätigen",
+    "mismatchError": "Neues Passwort und Bestätigung stimmen nicht überein.",
     "submit": "Neues Passwort festlegen",
     "submitting": "Wird gespeichert…",
     "error": "Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an.",
