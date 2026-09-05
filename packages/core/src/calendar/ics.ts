@@ -88,9 +88,14 @@ function buildRRule(recurrence: NonNullable<IcsFeedEntry['recurrence']>, dtstart
   } else if (recurrence.freq === 'every4weeks') {
     parts.push('FREQ=WEEKLY', 'INTERVAL=4');
   } else if (recurrence.freq === 'monthlyByWeekday') {
+    // Always UTC, allDay or not: a non-all-day DTSTART is itself always
+    // emitted in UTC (formatIcsDateTime's toISOString()), so deriving the
+    // weekday/ordinal from the machine's local calendar date instead would
+    // let BYDAY name a different day than DTSTART whenever the server
+    // isn't running in UTC — see issue #238.
     const d = new Date(dtstartMs);
-    const weekday = allDay ? d.getUTCDay() : d.getDay();
-    const dayOfMonth = allDay ? d.getUTCDate() : d.getDate();
+    const weekday = d.getUTCDay();
+    const dayOfMonth = d.getUTCDate();
     const ordinal = Math.min(Math.ceil(dayOfMonth / 7), 4);
     parts.push('FREQ=MONTHLY', `BYDAY=${ordinal}${ICS_WEEKDAY[weekday]}`);
   } else {
