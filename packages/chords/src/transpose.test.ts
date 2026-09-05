@@ -180,6 +180,28 @@ describe('transposeChordProToKey', () => {
     expect(() => transposeChordProToKey(song, 'G', 'B#')).toThrow();
   });
 
+  // Regression test for issue #265: the song editor's Key letter dropdown
+  // offers Db/Gb/Cb (major-only alternate spellings), and its Major/Minor
+  // toggle reuses whatever letter is currently selected — so transposing
+  // to "Dbm"/"Gbm"/"Cbm" is a real, UI-reachable request, not a made-up
+  // input. Before the fix, none of the three existed in STANDARD_KEYS at
+  // all, so this threw "Couldn't transpose" for a perfectly valid song.
+  it.each(['Dbm', 'Gbm', 'Cbm'])('reaches the flat-spelled minor target %s without throwing', (target) => {
+    const song = parseChordPro('{key: Am}\n[Am]a [Dm]b [E7]c [G]d');
+    const transposed = transposeChordProToKey(song, 'Am', target);
+    expect(transposed.key).toBe(target);
+    expect(chordsOf(transposed).some((c) => c.includes('#'))).toBe(false);
+  });
+
+  it('round-trips through the newly-reachable Dbm and back to the exact original', () => {
+    const song = parseChordPro('{key: Am}\n[Am]a [Dm]b [E7]c [G]d');
+    const original = chordsOf(song);
+    const toDbm = transposeChordProToKey(song, 'Am', 'Dbm');
+    const backToAm = transposeChordProToKey(toDbm, 'Dbm', 'Am');
+    expect(backToAm.key).toBe('Am');
+    expect(chordsOf(backToAm)).toEqual(original);
+  });
+
   it('accepts a legacy-invalid stored source key by normalizing it first', () => {
     const song = parseChordPro('{key: B#}\n[B#]a [F]b');
     const transposed = transposeChordProToKey(song, 'B#', 'D');

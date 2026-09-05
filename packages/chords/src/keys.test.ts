@@ -13,9 +13,14 @@ const MAJOR_KEYS = STANDARD_KEYS.filter((k) => k.mode === 'major').map((k) => k.
 const MINOR_KEYS = STANDARD_KEYS.filter((k) => k.mode === 'minor').map((k) => k.name);
 
 describe('STANDARD_KEYS', () => {
-  it('has exactly 15 major and 15 minor keys', () => {
+  it('has exactly 15 major and 18 minor keys', () => {
+    // Minor has more entries than major: every major-key letter+accidental
+    // needs a matching minor spelling so the song editor's Major/Minor
+    // toggle always lands on a real entry (issue #265) — pushing minor's
+    // enharmonic-pair count from 3 to 6 (its own pre-existing 3 plus
+    // major's 3), while major keeps just its own 3.
     expect(MAJOR_KEYS).toHaveLength(15);
-    expect(MINOR_KEYS).toHaveLength(15);
+    expect(MINOR_KEYS).toHaveLength(18);
   });
 
   it('covers all 12 semitones in each mode, with exactly one standard key per semitone', () => {
