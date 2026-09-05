@@ -69,7 +69,23 @@
   }
 }
 
+/*
+ * Explicit, not relying on the UA's body->canvas background propagation —
+ * on Android edge-to-edge (targetSdk 35+, see apps/mobile), the WebView
+ * surface itself extends past the system bars while unstyled `<html>`
+ * defaults to white, so any gap between laid-out content and the true
+ * screen edges showed as a stray unstyled strip regardless of theme —
+ * most visible in dark mode, but present in light mode too (issue #221).
+ * `min-height: 100dvh` (not `100vh`, see PageShell.tsx and every other
+ * full-screen container in apps/web) keeps that gap from existing in the
+ * first place; this is the fallback for whatever's left.
+ */
+html {
+  background-color: var(--background);
+}
+
 body {
+  min-height: 100dvh;
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);

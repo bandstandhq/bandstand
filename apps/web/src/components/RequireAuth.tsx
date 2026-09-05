@@ -38,7 +38,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (isPending) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <main className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
         {t('common.loading')}
       </main>
     );

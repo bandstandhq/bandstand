@@ -38,7 +38,7 @@ export function JoinBand() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-4">
+      <main className="flex min-h-dvh items-center justify-center bg-background p-4">
         <p className="text-sm text-destructive">{error}</p>
       </main>
     );
@@ -46,14 +46,14 @@ export function JoinBand() {
 
   if (session) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-4">
+      <main className="flex min-h-dvh items-center justify-center bg-background p-4">
         <p className="text-sm text-muted-foreground">{t('joinBand.redeeming')}</p>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6">
         <h1 className="text-lg font-medium text-card-foreground">{t('joinBand.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('joinBand.codeLabel', { code })}</p>

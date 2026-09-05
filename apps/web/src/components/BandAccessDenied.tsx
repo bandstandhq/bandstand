@@ -29,7 +29,7 @@ export function BandAccessDenied() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
       <p className="text-sm text-muted-foreground">{t('bandAccess.denied')}</p>
       <button type="button" onClick={handleGoToDashboard} className="text-sm underline">
         {t('dashboard.title')}

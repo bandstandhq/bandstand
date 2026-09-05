@@ -32,7 +32,7 @@ export function ForgotPassword() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6">
         <h1 className="text-lg font-medium text-card-foreground">{t('forgotPassword.title')}</h1>
         {submitted ? (
