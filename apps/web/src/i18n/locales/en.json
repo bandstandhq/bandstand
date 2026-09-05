@@ -423,10 +423,7 @@
     "required": "required",
     "transposeError": "Couldn't transpose. Check if the ChordPro content is valid.",
     "transposeSong": "Transpose song",
-    "transposeSongHint": "Moves the key and every chord together, for everyone in the band.",
-    "personalTranspose": "My view only",
-    "personalTransposeHint": "Shifts the preview for you only — never saved to the song.",
-    "transposeSemitones": "{{semitones}} semitones"
+    "transposeSongHint": "Moves the key and every chord together, for everyone in the band."
   },
   "songVoices": {
     "voicesTitle": "Voices ({{count}})",

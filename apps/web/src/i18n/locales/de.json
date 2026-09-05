@@ -423,10 +423,7 @@
     "required": "erforderlich",
     "transposeError": "Transponieren nicht möglich. Prüfe, ob der ChordPro-Inhalt gültig ist.",
     "transposeSong": "Song transponieren",
-    "transposeSongHint": "Verschiebt die Tonart und jeden Akkord zusammen, für alle in der Band.",
-    "personalTranspose": "Nur meine Ansicht",
-    "personalTransposeHint": "Verschiebt die Vorschau nur für dich — wird nie im Song gespeichert.",
-    "transposeSemitones": "{{semitones}} Halbtöne"
+    "transposeSongHint": "Verschiebt die Tonart und jeden Akkord zusammen, für alle in der Band."
   },
   "songVoices": {
     "voicesTitle": "Stimmen ({{count}})",
