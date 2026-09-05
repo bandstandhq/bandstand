@@ -63,6 +63,8 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
     defaultValues: { name: '' },
   });
   const [renameSaved, setRenameSaved] = useState(false);
+  const renameNameValue = useWatch({ control: renameForm.control, name: 'name' });
+  const renameUnchanged = myBand ? renameNameValue?.trim() === myBand.name : true;
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -121,6 +123,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const { doc } = useBandDoc(canExportRepertoire ? bandId : null);
 
   async function handleRename(values: { name: string }) {
+    if (renameUnchanged) return;
     const updated = await apiClient.renameBand(bandId, values);
     setMyBand((prev) => (prev ? { ...prev, name: updated.name } : prev));
     setRenameSaved(true);
@@ -167,12 +170,16 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
                         aria-label={t('bandSettings.bandNameLabel')}
                         className="w-full max-w-sm text-xl font-medium sm:w-auto"
                         {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          setRenameSaved(false);
+                        }}
                       />
                     </FormControl>
                   </FormItem>
                 )}
               />
-              <Button type="submit" size="sm">
+              <Button type="submit" size="sm" disabled={renameForm.formState.isSubmitting || renameUnchanged}>
                 {t('bandSettings.rename.save')}
               </Button>
               {renameSaved && (
