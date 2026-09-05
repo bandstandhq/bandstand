@@ -16,5 +16,6 @@ export * from './components/RadioGroup';
 export * from './components/Select';
 export * from './components/Sheet';
 export * from './components/Sidebar';
+export * from './components/Switch';
 export * from './components/Tabs';
 export * from './components/Textarea';

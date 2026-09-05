@@ -5,7 +5,7 @@
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
 import type { ArchivedBand } from '@bandstand/api-client';
 import type { Locale, Theme } from '@bandstand/core';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useConfirmDialog } from '@bandstand/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChangeEmailForm } from '../components/ChangeEmailForm';
@@ -129,7 +129,6 @@ export function AccountSettings() {
 
         <div className="mt-4 rounded-md border border-border p-4">
           <h2 className="font-medium">{t('accountSettings.languageTitle')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.languageDescription')}</p>
           <label className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">{t('accountSettings.languageLabel')}</span>
             <Select value={prefs.locale ?? undefined} onValueChange={(value) => void update({ locale: value as Locale })}>
@@ -149,13 +148,11 @@ export function AccountSettings() {
 
         <div className="mt-4 rounded-md border border-border p-4">
           <h2 className="font-medium">{t('accountSettings.wakeLockTitle')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.wakeLockDescription')}</p>
           <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Switch
               checked={prefs.keepScreenAwake}
               disabled={!wakeLockSupported}
-              onChange={() => void update({ keepScreenAwake: !prefs.keepScreenAwake })}
+              onCheckedChange={() => void update({ keepScreenAwake: !prefs.keepScreenAwake })}
             />
             {t('accountSettings.wakeLockLabel')}
           </label>

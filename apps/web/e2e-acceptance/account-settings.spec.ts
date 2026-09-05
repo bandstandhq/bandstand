@@ -27,18 +27,18 @@ test('the wake-lock and language settings persist across reloads', async ({ page
 
     await page.goto('/settings');
 
-    const wakeLockCheckbox = page.getByRole('checkbox', { name: 'Keep the display on while Bandstand is open' });
-    await expect(wakeLockCheckbox).toBeVisible();
-    await expect(wakeLockCheckbox).not.toBeChecked(); // off by default
-    // Not .check() — the checkbox is controlled by an async PATCH round-trip
-    // (see AccountSettings.tsx's onChange), so its own built-in "did the
-    // click actually change the state" verification can race that request.
-    // A plain click plus a separately-retrying assertion doesn't.
-    await wakeLockCheckbox.click();
-    await expect(wakeLockCheckbox).toBeChecked();
+    const wakeLockSwitch = page.getByRole('switch', { name: 'Keep the display on while Bandstand is open' });
+    await expect(wakeLockSwitch).toBeVisible();
+    await expect(wakeLockSwitch).not.toBeChecked(); // off by default
+    // Not .check() — the switch is controlled by an async PATCH round-trip
+    // (see AccountSettings.tsx's onCheckedChange), so its own built-in "did
+    // the click actually change the state" verification can race that
+    // request. A plain click plus a separately-retrying assertion doesn't.
+    await wakeLockSwitch.click();
+    await expect(wakeLockSwitch).toBeChecked();
 
     await page.reload();
-    await expect(page.getByRole('checkbox', { name: 'Keep the display on while Bandstand is open' })).toBeChecked();
+    await expect(page.getByRole('switch', { name: 'Keep the display on while Bandstand is open' })).toBeChecked();
 
     // Not getByLabel — the only combobox on this page, so its role is
     // unambiguous without relying on label-association matching.
