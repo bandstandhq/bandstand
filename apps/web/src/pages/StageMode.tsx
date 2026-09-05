@@ -1223,15 +1223,16 @@ export function StageMode() {
       </button>
 
       {chromeVisible && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={handleExit}
           aria-label={t('stageMode.exit')}
           title={t('stageMode.exit')}
-          className={`absolute right-4 top-1 z-20 flex h-8 w-8 items-center justify-center rounded-full ${chromeHoverClass} ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}
+          className={`absolute right-4 top-1 z-20 h-8 w-8 rounded-full p-0 ${chromeHoverClass} ${isDark ? 'bg-white/10 text-white' : 'bg-black/10 text-black'}`}
         >
           <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        </Button>
       )}
 
       {chromeVisible && (
