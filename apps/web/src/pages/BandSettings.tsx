@@ -135,7 +135,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   }
 
   return (
-    <PageShell title={myBand?.name}>
+    <PageShell title={t('appHeader.bandSettings')}>
       {/* Hidden on mobile: BottomNav's own Dashboard tab already covers this there. */}
       <Link to="/dashboard" className="mt-4 hidden text-sm text-muted-foreground hover:underline sm:inline-block">
         &larr; {t('bandSettings.back')}
@@ -147,8 +147,8 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
         </p>
       )}
 
-      <div className="mt-4">
-        {canRename ? (
+      {canRename && (
+        <div className="mt-4">
           <Form {...renameForm}>
             <form onSubmit={renameForm.handleSubmit(handleRename)} className="flex flex-wrap items-center gap-2">
               <FormField
@@ -176,10 +176,8 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
               )}
             </form>
           </Form>
-        ) : (
-          <h1 className="text-xl font-medium">{myBand?.name}</h1>
-        )}
-      </div>
+        </div>
+      )}
 
       <section className="mt-8">
         <h2 className="text-lg font-medium">{t('bandSettings.members.title')}</h2>
