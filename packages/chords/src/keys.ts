@@ -2,13 +2,19 @@
 //
 // The circle of fifths' 15 conventional major keys (≤7 sharps or ≤7 flats)
 // and their relative minors — the only keys this app treats as valid
-// transpose targets. Two pitches have two idiomatic spellings each (F#/Gb,
-// C#/Db, and their relative minors D#m/Ebm, A#m/Bbm); both are listed, one
-// marked `standard` for when a single default is needed (the semitone
-// nudge buttons, normalizing legacy data). Anything else a naive
-// semitone-based transpose can produce — B#, E#, Fb, and their like — is
-// deliberately unrepresentable here: that's the bug this table exists to
-// close (see transpose.ts's transposeChordProToKey).
+// transpose targets. Major has 3 enharmonic pairs (C#/Db, F#/Gb, B/Cb);
+// minor independently has its own 3 commonly-used pairs (D#m/Ebm, A#m/Bbm,
+// G#m/Abm) that don't line up with major's at all, *plus* C#m/Dbm, F#m/Gbm,
+// and Bm/Cbm purely so every major-key letter+accidental the song editor's
+// Key dropdown offers (KEY_LETTER_OPTIONS) has a matching minor spelling —
+// without these three, toggling Major/Minor mode on a song whose key is
+// Db, Gb, or Cb constructed a key name ("Dbm" etc.) this table didn't
+// recognize, and transposeChordProToKey threw (issue #265). Every pair
+// keeps one entry marked `standard` for when a single default is needed
+// (the semitone nudge buttons, normalizing legacy data). Anything else a
+// naive semitone-based transpose can produce — B#, E#, Fb, and their like
+// — is deliberately unrepresentable here: that's the bug this table exists
+// to close (see transpose.ts's transposeChordProToKey).
 export type KeyMode = 'major' | 'minor';
 
 export interface KeyInfo {
@@ -42,13 +48,16 @@ export const STANDARD_KEYS: readonly KeyInfo[] = [
   { name: 'Bbm', mode: 'minor', semitone: 10, accidental: 'b', standard: false },
   { name: 'A#m', mode: 'minor', semitone: 10, accidental: '#', standard: true },
   { name: 'Bm', mode: 'minor', semitone: 11, accidental: '#', standard: true },
+  { name: 'Cbm', mode: 'minor', semitone: 11, accidental: 'b', standard: false },
   { name: 'Cm', mode: 'minor', semitone: 0, accidental: 'b', standard: true },
+  { name: 'Dbm', mode: 'minor', semitone: 1, accidental: 'b', standard: false },
   { name: 'C#m', mode: 'minor', semitone: 1, accidental: '#', standard: true },
   { name: 'Dm', mode: 'minor', semitone: 2, accidental: 'b', standard: true },
   { name: 'Ebm', mode: 'minor', semitone: 3, accidental: 'b', standard: false },
   { name: 'D#m', mode: 'minor', semitone: 3, accidental: '#', standard: true },
   { name: 'Em', mode: 'minor', semitone: 4, accidental: '#', standard: true },
   { name: 'Fm', mode: 'minor', semitone: 5, accidental: 'b', standard: true },
+  { name: 'Gbm', mode: 'minor', semitone: 6, accidental: 'b', standard: false },
   { name: 'F#m', mode: 'minor', semitone: 6, accidental: '#', standard: true },
   { name: 'Gm', mode: 'minor', semitone: 7, accidental: 'b', standard: true },
   { name: 'G#m', mode: 'minor', semitone: 8, accidental: '#', standard: true },
