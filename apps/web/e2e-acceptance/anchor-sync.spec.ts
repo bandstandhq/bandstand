@@ -462,20 +462,45 @@ test.describe('anchor-based Stage Mode sync (docs/adr/0010-anchor-sync.md)', () 
       }
       await flush();
 
+      // context.setOffline() alone doesn't sever an already-open WebSocket —
+      // it only blocks *new* connection attempts (confirmed: the Hocuspocus
+      // provider's own 30s stale-connection check never even fires within
+      // this test's timeout, because messages just keep flowing over the
+      // socket setOffline left untouched). Routing the socket ourselves lets
+      // us force-close the live connection on demand, which is what actually
+      // reproduces "the network dropped" — setOffline is kept alongside it
+      // only to also block any stray plain HTTP calls during the window.
       const bobContext = await browser.newContext();
+      const hocuspocusHost = new URL(process.env.VITE_DEFAULT_HOCUSPOCUS_URL ?? 'ws://localhost:3002').host;
+      let simulateOffline = false;
+      let activeSocket: Parameters<Parameters<typeof bobContext.routeWebSocket>[1]>[0] | null = null;
+      await bobContext.routeWebSocket(
+        (url) => url.host === hocuspocusHost,
+        (ws) => {
+          if (simulateOffline) {
+            ws.close();
+            return;
+          }
+          activeSocket = ws;
+          ws.connectToServer();
+        },
+      );
       const bob = await bobContext.newPage();
       try {
         await login(bob, DEMO_MEMBER_EMAIL);
         await gotoStageForSong(bob, bandId, setlistName, 'Solo Song One');
         const startTitle = await stageModeHeading(bob).textContent();
 
+        simulateOffline = true;
         await bobContext.setOffline(true);
+        await activeSocket?.close();
         await expect(bob.getByText('Offline')).toBeVisible({ timeout: 10000 });
 
         await bob.getByRole('button', { name: 'Next' }).click();
         const offlineTitle = await stageModeHeading(bob).textContent();
         expect(offlineTitle).not.toBe(startTitle);
 
+        simulateOffline = false;
         await bobContext.setOffline(false);
         await expect(bob.getByText('Offline')).toBeHidden({ timeout: 10000 });
       } finally {

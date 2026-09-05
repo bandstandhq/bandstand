@@ -316,9 +316,21 @@ test('a touch starting on a row\'s label, not its drag handle, never starts a dr
     // drag surface, so a scroll swipe starting anywhere on it (which is
     // most of the visible list) fought dnd-kit instead of reaching the
     // browser's native scroll.
+    //
+    // Not labelPoint()'s usual fixed offset from the card's edge, though:
+    // confirmed via a real touchstart listener that under CDP touch
+    // dispatch (mobile emulation), Chromium's touch-target hit-slop
+    // extends the small drag handle's effective hit area well past its own
+    // CSS box — a point a good ~15px clear of the handle's measured edge
+    // still resolved to the handle itself. Using the label's own measured
+    // center lands comfortably outside that halo regardless of exactly how
+    // wide it is.
     const poolCard = page.locator('li', { hasText: 'Scarborough Fair' }).first();
     const dropZone = page.locator('.border-dashed');
-    const from = await labelPoint(poolCard);
+    const label = poolCard.locator('span.flex-1');
+    const labelBox = await label.boundingBox();
+    if (!labelBox) throw new Error('Could not measure label element for touch point');
+    const from = { x: labelBox.x + labelBox.width / 2, y: labelBox.y + labelBox.height / 2 };
     const to = await leftEdgePoint(dropZone);
 
     await touchDragTo(cdp, from, to);
