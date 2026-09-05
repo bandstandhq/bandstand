@@ -145,15 +145,15 @@ test.describe('switching bands updates every band-scoped page immediately', () =
   test('Band settings', async ({ page }) => {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandA.bandId}/settings`);
-    // getByText would also match the band switcher's own trigger, which
-    // shows the current band's name as its value — scope to the page's
-    // actual heading instead.
-    await expect(page.getByRole('heading', { name: bandA.name })).toBeVisible();
+    // The page heading is a fixed "Band settings" label, not the band's own
+    // name (issue #245) — the owner-only rename Input is the actual signal
+    // for which band is showing.
+    await expect(page.getByRole('heading', { name: 'Band settings' })).toBeVisible();
+    await expect(page.getByLabel('Band name')).toHaveValue(bandA.name);
 
     await switchBand(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/settings$`));
-    await expect(page.getByRole('heading', { name: bandB.name })).toBeVisible();
-    await expect(page.getByRole('heading', { name: bandA.name })).not.toBeVisible();
+    await expect(page.getByLabel('Band name')).toHaveValue(bandB.name);
   });
 
   test('Dashboard', async ({ page }) => {
