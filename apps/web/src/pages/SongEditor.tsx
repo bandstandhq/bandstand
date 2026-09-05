@@ -87,32 +87,15 @@ function RequiredMark({ t }: { t: (key: string) => string }) {
   );
 }
 
-function ChordProPreview({
-  body,
-  baseKey,
-  personalTranspose,
-}: {
-  body: string;
-  baseKey: string;
-  personalTranspose: number;
-}) {
+function ChordProPreview({ body }: { body: string }) {
   const { t } = useTranslation();
   const model: RenderModel | null = useMemo(() => {
     try {
-      const parsed = parseChordPro(body);
-      // View-only — the actual song/voice being edited never sees this.
-      // personalTranspose is an interval, not a target key — it still
-      // resolves to one (a single semitone offset from baseKey) so the
-      // spelling follows *that* key, not baseKey's.
-      const displayed =
-        personalTranspose !== 0
-          ? transposeChordProToKey(parsed, baseKey, shiftKeyBySemitones(baseKey, personalTranspose))
-          : parsed;
-      return buildRenderModel(displayed);
+      return buildRenderModel(parseChordPro(body));
     } catch {
       return null;
     }
-  }, [body, baseKey, personalTranspose]);
+  }, [body]);
 
   if (!model) {
     return <p className="text-sm text-destructive">{t('songEditor.previewError')}</p>;
@@ -191,20 +174,6 @@ export function SongEditor() {
   const body = useWatch({ control: form.control, name: 'body' });
   const durationSecValue = useWatch({ control: form.control, name: 'durationSec' });
   const [error, setError] = useState<string | null>(null);
-  const [personalTranspose, setPersonalTranspose] = useState(0);
-
-  useEffect(() => {
-    apiClient.getMyPrefs().then((prefs) => setPersonalTranspose(prefs.personalTranspose));
-  }, []);
-
-  function handlePersonalTransposeChange(delta: number) {
-    const next = personalTranspose + delta;
-    setPersonalTranspose(next);
-    apiClient.updateMyPrefs({ personalTranspose: next }).catch(() => {
-      // Best-effort — the view already reflects `next`; a failed save just
-      // means it won't persist for next time, not worth blocking on.
-    });
-  }
 
   // The key/body this editing session started from — every transpose
   // action (the letter/mode selects, the ±1 buttons) re-transposes from
@@ -603,22 +572,9 @@ export function SongEditor() {
           </div>
 
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{t('songEditor.preview')}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{t('songEditor.personalTranspose')}</span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => handlePersonalTransposeChange(-1)}>
-                −1
-              </Button>
-              <span className="text-xs tabular-nums">{t('songEditor.transposeSemitones', { semitones: personalTranspose })}</span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => handlePersonalTransposeChange(1)}>
-                +1
-              </Button>
-            </div>
-          </div>
-          <p className="mb-2 text-xs text-muted-foreground">{t('songEditor.personalTransposeHint')}</p>
+          <p className="mb-2 text-sm text-muted-foreground">{t('songEditor.preview')}</p>
           <div className="rounded-md border border-border p-4">
-            <ChordProPreview body={body} baseKey={key} personalTranspose={personalTranspose} />
+            <ChordProPreview body={body} />
           </div>
         </div>
         </form>
