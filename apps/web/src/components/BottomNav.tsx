@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Narrow-screen (<640px) nav — a fixed bottom tab bar replacing the old
-// hamburger+Sheet drawer entirely. 4 tabs go straight to a band section;
-// the 5th ("More") opens a Sheet with the band switcher, Account settings,
-// and Sign out — the same content the old hamburger menu showed, just
-// reached from a tab instead of a top-left button. Rendered by PageShell,
-// which owns the wide/narrow fork (see its own comment).
+// hamburger+Sheet drawer entirely. 4 tabs go straight to a band section,
+// leftmost is Dashboard (the one thing worth a dedicated thumb-reach tab on
+// mobile, unlike the sidebar, which only offers it via the header logo); the
+// 5th ("More") opens a Sheet with the band switcher, Band settings, Account
+// settings, and Sign out — the same content the old hamburger menu showed
+// (plus Band settings, which used to be a 4th direct tab — moved in here to
+// make room for Dashboard), just reached from a tab instead of a top-left
+// button. Rendered by PageShell, which owns the wide/narrow fork (see its
+// own comment).
 import { BottomNav as BottomNavRoot, BottomNavItem, Button, Sheet } from '@bandstand/ui';
-import { Calendar, ChevronRight, ListMusic, ListOrdered, MoreHorizontal, Settings } from 'lucide-react';
+import { Calendar, ChevronRight, LayoutDashboard, ListMusic, ListOrdered, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
@@ -44,10 +48,10 @@ export function BottomNav() {
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   const tabs = [
+    { to: bandPath('dashboard'), label: t('appHeader.dashboard'), icon: LayoutDashboard },
     { to: bandPath('repertoire'), label: t('appHeader.repertoire'), icon: ListMusic },
     { to: bandPath('setlists'), label: t('appHeader.setlists'), icon: ListOrdered },
     { to: bandPath('calendar'), label: t('appHeader.calendar'), icon: Calendar },
-    { to: bandPath('settings'), label: t('appHeader.bandSettings'), icon: Settings },
   ];
 
   function handleBandChange(newBandId: string) {
@@ -136,6 +140,9 @@ export function BottomNav() {
           <div>
             <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
             <div className="mt-2 flex flex-col gap-2">
+              <SheetNavLink to={bandPath('settings')} onNavigate={() => setMoreOpen(false)}>
+                {t('appHeader.bandSettings')}
+              </SheetNavLink>
               <SheetNavLink to="/settings" onNavigate={() => setMoreOpen(false)}>
                 {t('appHeader.accountSettings')}
               </SheetNavLink>

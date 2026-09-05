@@ -192,7 +192,8 @@ export function SetlistList() {
 
   return (
     <PageShell title={t('setlistList.title')}>
-      <Link to="/dashboard" className="mt-4 inline-block text-sm text-muted-foreground hover:underline">
+      {/* Hidden on mobile: BottomNav's own Dashboard tab already covers this there. */}
+      <Link to="/dashboard" className="mt-4 hidden text-sm text-muted-foreground hover:underline sm:inline-block">
         &larr; {t('setlistList.back')}
       </Link>
 

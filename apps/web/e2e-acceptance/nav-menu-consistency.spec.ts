@@ -3,18 +3,27 @@
 // Regression test for: the menu's Navigation section vanished entirely on
 // a band-independent page (Account Settings had no :bandId route param, so
 // AppHeader's old navLinks() bailed out with `if (!currentBandId) return
-// null`) — every signed-in page must show the exact same set of entries.
+// null`) — every signed-in page must show the exact same set of entries
+// *within* each layout.
+//
+// The two layouts deliberately no longer show the same tab set (issue
+// #244): the bottom nav leads with a Dashboard tab (useful one-handed, on
+// mobile) and tucks Band settings into "More" to make room for it, while
+// the sidebar has no Dashboard entry (the header logo already covers that
+// on wide screens) and keeps Band settings as a direct link — so this file
+// asserts each layout's own entries separately instead of one shared array.
 //
 // "Account settings" itself lives outside the "Band sections" nav landmark
 // (alongside sign-out) in both layouts here — the sidebar's footer shows it
 // directly, the bottom nav's "More" tab surfaces it via a sheet — so it's
-// asserted separately below rather than as part of BAND_NAV_ENTRIES; the
-// original regression this guards against (an entry silently disappearing
-// on some page) still applies to both checks.
+// asserted separately below rather than as part of either entries array;
+// the original regression this guards against (an entry silently
+// disappearing on some page) still applies to both checks.
 import { expect, test } from '@playwright/test';
 import { login, DEMO_OWNER_EMAIL } from './fixtures';
 
-const BAND_NAV_ENTRIES = ['Repertoire', 'Setlists', 'Calendar', 'Band settings'];
+const MOBILE_NAV_ENTRIES = ['Dashboard', 'Repertoire', 'Setlists', 'Calendar'];
+const DESKTOP_NAV_ENTRIES = ['Repertoire', 'Setlists', 'Calendar', 'Band settings'];
 
 async function bottomNavEntries(page: import('@playwright/test').Page): Promise<string[]> {
   const nav = page.getByRole('navigation', { name: 'Band sections' });
@@ -27,7 +36,7 @@ async function bottomNavEntries(page: import('@playwright/test').Page): Promise<
   return nav.getByRole('link').allTextContents();
 }
 
-test('the bottom nav shows the same navigation entries on every signed-in page, and "More" reveals Account settings', async ({
+test('the bottom nav shows the same navigation entries on every signed-in page, and "More" reveals Band settings and Account settings', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -53,25 +62,27 @@ test('the bottom nav shows the same navigation entries on every signed-in page, 
   for (const path of pages) {
     await page.goto(path);
     // These tabs are always visible — nothing to open first.
-    expect(await bottomNavEntries(page), `bottom nav entries on ${path}`).toEqual(BAND_NAV_ENTRIES);
+    expect(await bottomNavEntries(page), `bottom nav entries on ${path}`).toEqual(MOBILE_NAV_ENTRIES);
 
     await page.getByRole('button', { name: 'More' }).click();
+    await expect(page.getByRole('link', { name: 'Band settings' }), `Band settings link on ${path}`).toBeVisible();
     await expect(page.getByRole('link', { name: 'Account settings' }), `Account settings link on ${path}`).toBeVisible();
     await page.keyboard.press('Escape');
   }
 });
 
-// The wide-screen (≥640px) sidebar — same nav entries as the mobile bottom
-// nav above, reached without opening anything (it's always visible), plus
-// its own collapse behavior (button and Cmd/Ctrl+B).
-test('the sidebar shows the same navigation entries as the mobile bottom nav, and collapses', async ({ page }) => {
+// The wide-screen (≥640px) sidebar — its own nav entries (deliberately not
+// the same set as the mobile bottom nav above — see the file comment),
+// reached without opening anything (it's always visible), plus its own
+// collapse behavior (button and Cmd/Ctrl+B).
+test('the sidebar shows its own navigation entries, and collapses', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await login(page, DEMO_OWNER_EMAIL);
   await page.waitForURL(/\/bands\/.+\/dashboard/);
 
   const nav = page.getByRole('navigation', { name: 'Band sections' });
   const bandNav = await nav.getByRole('link').allTextContents();
-  expect(bandNav).toEqual(BAND_NAV_ENTRIES);
+  expect(bandNav).toEqual(DESKTOP_NAV_ENTRIES);
   await expect(page.getByRole('link', { name: 'Account settings' })).toBeVisible();
 
   const sidebar = page.locator('aside');
