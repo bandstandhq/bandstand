@@ -31,9 +31,9 @@ export function PageShell({ title, children }: { title: ReactNode; children: Rea
 
   if (isWide) {
     return (
-      <div className="flex min-h-screen bg-background text-foreground">
+      <div className="flex min-h-dvh bg-background text-foreground">
         <AppSidebar />
-        <main className="min-w-0 flex-1 p-6">
+        <main className="min-w-0 flex-1 p-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
           <h1 className="mb-4 text-xl font-medium">{title}</h1>
           {children}
         </main>
@@ -42,7 +42,7 @@ export function PageShell({ title, children }: { title: ReactNode; children: Rea
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 pb-20 text-foreground">
+    <main className="min-h-dvh bg-background p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-20 text-foreground">
       <h1 className="mb-4 text-xl font-medium">{title}</h1>
       {children}
       <BottomNav />
