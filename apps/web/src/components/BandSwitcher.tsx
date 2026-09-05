@@ -13,10 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@bandstand/ui';
-import { Building2, Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, KeyRound, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CreateBandForm } from './CreateBandForm';
+import { JoinBandForm } from './JoinBandForm';
 import { apiClient } from '../lib/api-client';
 import { bandOptionLabel } from '../lib/bandOptionLabel';
 import { useActiveBandStore } from '../stores/activeBand';
@@ -27,14 +28,14 @@ import { useMyBandsStore } from '../stores/myBands';
  * "team switcher" block — always rendered (even with a single band, even
  * with none yet), not hidden below two bands the way this used to work:
  * this is now the *only* place band switching lives, and doubles as the
- * quick way to create another one via "Add team".
+ * quick way to create a new band or join one by invite code (Account
+ * Settings still has its own copies of both forms too, for anyone who
+ * lands there directly rather than through this dropdown).
  *
  * `onBandChange`, if given, is called whenever the selection changes with
  * the new band's id — AppSidebar/BottomNav use it to actually navigate
  * there. This component only ever manages *which band is remembered*
- * plus creating new ones; joining an existing band by invite code still
- * lives in AccountSettings, which isn't something reached for anywhere
- * near as often.
+ * plus creating/joining new ones.
  *
  * `bands` lives in a shared store (stores/myBands.ts), not local state:
  * every page navigation remounts this component (PageShell is called by
@@ -52,6 +53,7 @@ export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean;
   const activeBandId = useActiveBandStore((s) => s.activeBandId);
   const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
   const [createOpen, setCreateOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
 
   function handleSelect(bandId: string) {
     setActiveBandId(bandId);
@@ -63,6 +65,13 @@ export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean;
     upsertBand(created);
     setCreateOpen(false);
     handleSelect(created.id);
+  }
+
+  function handleJoined(band: Band) {
+    const joined: MyBand = { ...band, role: 'member' };
+    upsertBand(joined);
+    setJoinOpen(false);
+    handleSelect(joined.id);
   }
 
   useEffect(() => {
@@ -149,18 +158,36 @@ export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean;
             className="gap-2"
             onSelect={(event) => {
               event.preventDefault();
+              setJoinOpen(true);
+            }}
+          >
+            <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            {t('bandSwitcher.joinBand')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="gap-2"
+            onSelect={(event) => {
+              event.preventDefault();
               setCreateOpen(true);
             }}
           >
             <Plus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {t('bandSwitcher.addTeam')}
+            {t('bandSwitcher.createBand')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('bandSwitcher.joinBand')}</DialogTitle>
+          </DialogHeader>
+          <JoinBandForm onJoined={handleJoined} />
+        </DialogContent>
+      </Dialog>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>{t('bandSwitcher.addTeam')}</DialogTitle>
+            <DialogTitle>{t('bandSwitcher.createBand')}</DialogTitle>
           </DialogHeader>
           <CreateBandForm onCreated={handleCreated} />
         </DialogContent>

@@ -320,7 +320,7 @@
   "bandSwitcher": {
     "label": "Aktive Band",
     "teamsLabel": "Bands",
-    "addTeam": "Band hinzufügen",
+    "joinBand": "Band beitreten",
     "noTeams": "Noch keine Band",
     "newBandPlaceholder": "Bandname",
     "createBand": "Band erstellen",
