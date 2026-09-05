@@ -45,7 +45,25 @@ import { useMyBandsStore } from '../stores/myBands';
  * renders instantly from whatever was last fetched, while this effect's
  * fetch quietly keeps it current in the background.
  */
-export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean; onBandChange?: (bandId: string) => void }) {
+export function BandSwitcher({
+  collapsed,
+  onBandChange,
+  compact,
+}: {
+  collapsed?: boolean;
+  onBandChange?: (bandId: string) => void;
+  /**
+   * BottomNav's "More" sheet is already fairly narrow — forcing the same
+   * fixed 224px (`min-w-56`) desktop floor there leaves a lot of empty
+   * trailing space after a short band name and reads as oversized (issue
+   * #248). That floor exists only to stop the popup shrinking to the
+   * sidebar's own collapsed, icon-only trigger width (#246) — a concern
+   * that doesn't exist on mobile, since BottomNav never collapses its
+   * trigger. Letting the popup size to its own content there (down to the
+   * shared 128px `min-w-32` every dropdown already has) is enough.
+   */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const bands = useMyBandsStore((s) => s.bands);
   const setBands = useMyBandsStore((s) => s.setBands);
@@ -144,7 +162,7 @@ export function BandSwitcher({ collapsed, onBandChange }: { collapsed?: boolean;
             )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-56">
+        <DropdownMenuContent align="start" className={compact ? undefined : 'min-w-56'}>
           <DropdownMenuLabel>{t('bandSwitcher.teamsLabel')}</DropdownMenuLabel>
           {bands.map((band) => (
             <DropdownMenuItem key={band.id} onSelect={() => handleSelect(band.id)} className="gap-2">
