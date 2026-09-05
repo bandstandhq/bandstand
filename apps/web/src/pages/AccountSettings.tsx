@@ -3,23 +3,20 @@
 // Personal, cross-band settings — everything here lives in user_prefs, so
 // it follows the user to any device, unlike a band's own settings
 // (BandSettings.tsx). Reachable from AppHeader's menu on every page.
-import type { ArchivedBand, MyBand } from '@bandstand/api-client';
-import type { Band, Locale, Theme } from '@bandstand/core';
+import type { ArchivedBand } from '@bandstand/api-client';
+import type { Locale, Theme } from '@bandstand/core';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useConfirmDialog } from '@bandstand/ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChangeEmailForm } from '../components/ChangeEmailForm';
 import { ChangeNameForm } from '../components/ChangeNameForm';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
-import { CreateBandForm } from '../components/CreateBandForm';
-import { JoinBandForm } from '../components/JoinBandForm';
 import { PageShell } from '../components/PageShell';
 import { isWakeLockSupported } from '../hooks/useWakeLock';
 import { apiClient } from '../lib/api-client';
 import { authClient } from '../lib/auth-client';
 import { getActiveServerConfig, isUsingCustomServer } from '../lib/serverConfig';
 import { deleteAllLocalBandData } from '../lib/yjs';
-import { useActiveBandStore } from '../stores/activeBand';
 import { useMyBandsStore } from '../stores/myBands';
 import { useUserPrefsStore } from '../stores/userPrefs';
 
@@ -34,10 +31,7 @@ export function AccountSettings() {
   const loaded = useUserPrefsStore((s) => s.loaded);
   const load = useUserPrefsStore((s) => s.load);
   const update = useUserPrefsStore((s) => s.update);
-  const setActiveBandId = useActiveBandStore((s) => s.setActiveBandId);
-  const upsertMyBand = useMyBandsStore((s) => s.upsertBand);
   const setMyBands = useMyBandsStore((s) => s.setBands);
-  const [bands, setBands] = useState<MyBand[] | null>(null);
   const [archivedBands, setArchivedBands] = useState<ArchivedBand[] | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
@@ -46,7 +40,6 @@ export function AccountSettings() {
   }, [loaded, load]);
 
   useEffect(() => {
-    apiClient.listMyBands().then(setBands);
     apiClient.listArchivedBands().then(setArchivedBands);
   }, []);
 
@@ -55,33 +48,14 @@ export function AccountSettings() {
     try {
       await apiClient.restoreBand(bandId);
       setArchivedBands((prev) => prev?.filter((b) => b.id !== bandId) ?? null);
-      // Also refreshes the sidebar's own band list (stores/myBands.ts) —
-      // this page never navigates away on a restore, so without this the
+      // Refreshes the sidebar's own band list (stores/myBands.ts) — this
+      // page never navigates away on a restore, so without this the
       // switcher would keep showing the pre-restore list until some other
       // page remounts it.
-      apiClient.listMyBands().then((result) => {
-        setBands(result);
-        setMyBands(result);
-      });
+      apiClient.listMyBands().then(setMyBands);
     } finally {
       setRestoringId(null);
     }
-  }
-
-  function handleJoined(band: Band) {
-    const joined: MyBand = { ...band, role: 'member' };
-    setBands((prev) => [...(prev ?? []), joined]);
-    setActiveBandId(band.id);
-    // Same reasoning as handleRestore above — keeps the sidebar's switcher
-    // in sync without requiring a navigation to remount it.
-    upsertMyBand(joined);
-  }
-
-  function handleCreated(band: Band) {
-    const created: MyBand = { ...band, role: 'owner' };
-    setBands((prev) => [...(prev ?? []), created]);
-    setActiveBandId(band.id);
-    upsertMyBand(created);
   }
 
   async function handleDeleteLocalData() {
@@ -125,21 +99,6 @@ export function AccountSettings() {
             <h2 className="font-medium">{t('accountSettings.emailTitle')}</h2>
             <div className="mt-3">
               <ChangeEmailForm currentEmail={session.user.email} />
-            </div>
-          </div>
-        )}
-
-        {/* Only once there's at least one band to switch away from —
-            joining/creating your very first band has its own, more
-            prominent spot on the empty /dashboard instead (see
-            DashboardRedirect.tsx). */}
-        {bands !== null && bands.length > 0 && (
-          <div className="mt-4 rounded-md border border-border p-4">
-            <h2 className="font-medium">{t('accountSettings.bandsTitle')}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t('accountSettings.bandsDescription')}</p>
-            <div className="mt-3 space-y-3">
-              <JoinBandForm onJoined={handleJoined} />
-              <CreateBandForm onCreated={handleCreated} />
             </div>
           </div>
         )}

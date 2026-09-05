@@ -142,8 +142,6 @@
   },
   "accountSettings": {
     "title": "Settings",
-    "bandsTitle": "Bands",
-    "bandsDescription": "Join another band with an invite code, or start a new one.",
     "archivedTitle": "Recently deleted bands",
     "archivedDescription": "You can restore any of these until its permanent deletion date.",
     "archivedPermanentDeletionAt": "Permanently deleted on {{date}}",
