@@ -136,7 +136,7 @@ export function BottomNav() {
         side="right"
       >
         <div className="[&>*+*]:mt-4 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-4">
-          <BandSwitcher onBandChange={handleBandChange} />
+          <BandSwitcher onBandChange={handleBandChange} compact />
           <div>
             <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
             <div className="mt-2 flex flex-col gap-2">
