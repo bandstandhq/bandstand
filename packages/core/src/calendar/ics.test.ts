@@ -112,6 +112,23 @@ describe('buildIcsFeed', () => {
       expect(ics).toContain('RRULE:FREQ=MONTHLY;BYDAY=2TH');
     });
 
+    it('derives BYDAY from the UTC date, not the server process\'s local timezone (issue #238)', () => {
+      // 18:00 UTC on 2026-09-10 (a Thursday) is already 2026-09-11 (a
+      // Friday) in UTC+9 — a naive `d.getDay()`/`d.getDate()` read of this
+      // same Date object would silently pick up whatever offset the
+      // process happens to be running under and disagree with the DTSTART
+      // this RRULE is supposed to describe, which is always emitted in UTC
+      // for a non-all-day event (formatIcsDateTime's toISOString()).
+      const originalTz = process.env.TZ;
+      process.env.TZ = 'Asia/Seoul';
+      try {
+        const ics = buildIcsFeed([baseEntry({ startsAt: Date.parse('2026-09-10T18:00:00.000Z'), recurrence: { freq: 'monthlyByWeekday' } })]);
+        expect(ics).toContain('RRULE:FREQ=MONTHLY;BYDAY=2TH');
+      } finally {
+        process.env.TZ = originalTz;
+      }
+    });
+
     it('maps legacy monthly onto plain FREQ=MONTHLY', () => {
       const ics = buildIcsFeed([baseEntry({ recurrence: { freq: 'monthly' } })]);
       expect(ics).toContain('RRULE:FREQ=MONTHLY');
