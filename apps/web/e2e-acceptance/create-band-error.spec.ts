@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// CreateBandForm.tsx (used both for a brand-new account's very first band,
-// via DashboardRedirect, and for adding another one from Account Settings)
-// used to render a failed request's raw exception message directly —
-// whatever the fetch/network layer happened to throw, in English, never
-// translated. It now shows a generic, translated fallback instead.
+// CreateBandForm.tsx (used for a brand-new account's very first band, via
+// DashboardRedirect, and inside the band switcher's own dialog everywhere
+// else — see BandSwitcher.tsx) used to render a failed request's raw
+// exception message directly — whatever the fetch/network layer happened
+// to throw, in English, never translated. It now shows a generic,
+// translated fallback instead.
 import { expect, test } from '@playwright/test';
 import { deleteTestAccount, freshEmail } from './fixtures';
 

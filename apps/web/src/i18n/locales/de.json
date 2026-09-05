@@ -142,8 +142,6 @@
   },
   "accountSettings": {
     "title": "Einstellungen",
-    "bandsTitle": "Bands",
-    "bandsDescription": "Einer weiteren Band mit einem Einladungscode beitreten oder eine neue anlegen.",
     "archivedTitle": "Kürzlich gelöschte Bands",
     "archivedDescription": "Du kannst jede davon bis zu ihrem endgültigen Löschdatum wiederherstellen.",
     "archivedPermanentDeletionAt": "Endgültig gelöscht am {{date}}",
