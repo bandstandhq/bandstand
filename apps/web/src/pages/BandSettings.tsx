@@ -108,7 +108,13 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const canRename = myBand ? can(myBand.role, 'band:rename') : false;
   const canManageInvites = myBand ? can(myBand.role, 'invite:create') : false;
   const canDelete = myBand ? can(myBand.role, 'band:delete') : false;
+  const canLeaveBand = myBand ? can(myBand.role, 'band:leave') : false;
   const canExportRepertoire = myBand ? can(myBand.role, 'repertoire:export') : false;
+  const {
+    busy: leaveBusy,
+    error: leaveError,
+    handleLeave,
+  } = useLeaveBand({ bandId, viewerRole: myBand?.role ?? 'member', onLeftBand: () => navigate('/dashboard') });
   // Only connected when actually needed — every other section here is
   // plain REST, and the full export is the one feature that needs the live
   // Yjs doc (see FullRepertoireExport.tsx).
@@ -189,7 +195,6 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
             viewerUserId={currentUserId}
             nicknames={nicknames}
             onRefresh={refreshMembers}
-            onLeftBand={() => navigate('/dashboard')}
           />
         )}
       </section>
@@ -220,28 +225,35 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
         </section>
       )}
 
-      {canDelete && myBand && (
+      {myBand && (canLeaveBand || canDelete) && (
         <section className="mt-8 rounded-md border border-destructive p-4">
           <h2 className="text-lg font-medium text-destructive">{t('bandSettings.danger.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('bandSettings.danger.description')}
           </p>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="mt-3"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            {t('bandSettings.danger.delete')}
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {canLeaveBand && (
+              <Button variant="destructive" size="sm" disabled={leaveBusy} onClick={() => void handleLeave()}>
+                {t('bandSettings.members.leave')}
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                {t('bandSettings.danger.delete')}
+              </Button>
+            )}
+          </div>
+          {leaveError && <p className="mt-2 text-sm text-destructive">{leaveError}</p>}
           {deleteError && <p className="mt-2 text-sm text-destructive">{deleteError}</p>}
-          <DeleteBandDialog
-            open={deleteDialogOpen}
-            onOpenChange={setDeleteDialogOpen}
-            bandName={myBand.name}
-            deleting={deleting}
-            onConfirm={handleDelete}
-          />
+          {canDelete && (
+            <DeleteBandDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+              bandName={myBand.name}
+              deleting={deleting}
+              onConfirm={handleDelete}
+            />
+          )}
         </section>
       )}
     </PageShell>
@@ -325,7 +337,6 @@ function MemberList({
   viewerUserId,
   nicknames,
   onRefresh,
-  onLeftBand,
 }: {
   bandId: string;
   members: BandMember[];
@@ -333,7 +344,6 @@ function MemberList({
   viewerUserId: string;
   nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
-  onLeftBand: () => void;
 }) {
   const { t } = useTranslation();
   // Renders either the table or its narrow-screen card equivalent, never
@@ -355,7 +365,6 @@ function MemberList({
             viewerRole={viewerRole}
             nicknames={nicknames}
             onRefresh={onRefresh}
-            onLeftBand={onLeftBand}
           />
         ))}
       </ul>
@@ -388,7 +397,6 @@ function MemberList({
               viewerRole={viewerRole}
               nicknames={nicknames}
               onRefresh={onRefresh}
-              onLeftBand={onLeftBand}
             />
           ))}
         </tbody>
@@ -403,14 +411,12 @@ function useMemberActions({
   isSelf,
   viewerRole,
   onRefresh,
-  onLeftBand,
 }: {
   bandId: string;
   member: BandMember;
   isSelf: boolean;
   viewerRole: BandRole;
   onRefresh: () => Promise<void>;
-  onLeftBand: () => void;
 }) {
   const { t } = useTranslation();
   const { confirm } = useConfirmDialog();
@@ -454,6 +460,38 @@ function useMemberActions({
     if (!confirmed) return;
     void run(() => apiClient.transferOwnership(bandId, member.userId));
   }
+
+  const canChangeRole = !isSelf && member.role !== 'owner' && can(viewerRole, 'member:changeRole');
+  const canRemove = !isSelf && canRemoveMember(viewerRole, member.role);
+  const canTransfer =
+    !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
+
+  return {
+    busy,
+    error,
+    canChangeRole,
+    canRemove,
+    canTransfer,
+    handleChangeRole,
+    handleRemove,
+    handleTransfer,
+  };
+}
+
+/** Leaving is a band-level, not a per-member-row, action — surfaced in the Danger Zone (issue #216). */
+function useLeaveBand({
+  bandId,
+  viewerRole,
+  onLeftBand,
+}: {
+  bandId: string;
+  viewerRole: BandRole;
+  onLeftBand: () => void;
+}) {
+  const { t } = useTranslation();
+  const { confirm } = useConfirmDialog();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleLeave() {
     if (viewerRole === 'owner') {
@@ -504,24 +542,7 @@ function useMemberActions({
     }
   }
 
-  const canChangeRole = !isSelf && member.role !== 'owner' && can(viewerRole, 'member:changeRole');
-  const canRemove = !isSelf && canRemoveMember(viewerRole, member.role);
-  const canTransfer =
-    !isSelf && member.role !== 'owner' && can(viewerRole, 'band:transferOwnership');
-  const canLeave = isSelf && can(viewerRole, 'band:leave');
-
-  return {
-    busy,
-    error,
-    canChangeRole,
-    canRemove,
-    canTransfer,
-    canLeave,
-    handleChangeRole,
-    handleRemove,
-    handleTransfer,
-    handleLeave,
-  };
+  return { busy, error, handleLeave };
 }
 
 function MemberActionButtons({
@@ -530,22 +551,18 @@ function MemberActionButtons({
   canChangeRole,
   canRemove,
   canTransfer,
-  canLeave,
   handleChangeRole,
   handleRemove,
   handleTransfer,
-  handleLeave,
 }: {
   member: BandMember;
   busy: boolean;
   canChangeRole: boolean;
   canRemove: boolean;
   canTransfer: boolean;
-  canLeave: boolean;
   handleChangeRole: (role: 'admin' | 'member') => void;
   handleRemove: () => void;
   handleTransfer: () => void;
-  handleLeave: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -580,16 +597,6 @@ function MemberActionButtons({
           className="text-destructive hover:underline"
         >
           {t('bandSettings.members.remove')}
-        </button>
-      )}
-      {canLeave && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void handleLeave()}
-          className="text-destructive hover:underline"
-        >
-          {t('bandSettings.members.leave')}
         </button>
       )}
     </>
@@ -680,7 +687,6 @@ function MemberCard({
   viewerRole,
   nicknames,
   onRefresh,
-  onLeftBand,
 }: {
   bandId: string;
   member: BandMember;
@@ -688,10 +694,9 @@ function MemberCard({
   viewerRole: BandRole;
   nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
-  onLeftBand: () => void;
 }) {
   const { t } = useTranslation();
-  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh, onLeftBand });
+  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh });
 
   return (
     <li className="rounded-md border border-border p-3">
@@ -732,7 +737,6 @@ function MemberRow({
   viewerRole,
   nicknames,
   onRefresh,
-  onLeftBand,
 }: {
   bandId: string;
   member: BandMember;
@@ -740,9 +744,8 @@ function MemberRow({
   viewerRole: BandRole;
   nicknames: ReturnType<typeof useNicknames>;
   onRefresh: () => Promise<void>;
-  onLeftBand: () => void;
 }) {
-  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh, onLeftBand });
+  const actions = useMemberActions({ bandId, member, isSelf, viewerRole, onRefresh });
 
   return (
     <>
