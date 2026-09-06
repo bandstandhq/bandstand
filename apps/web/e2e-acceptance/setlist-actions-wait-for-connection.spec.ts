@@ -40,6 +40,9 @@ test('setlist actions are disabled with a clear reason while the band doc is sti
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/setlists`);
 
+    // Opening the "new setlist" dialog itself doesn't need `doc` — only
+    // the form inside it does.
+    await page.getByRole('button', { name: 'New setlist' }).click();
     await expect(page.getByText('Connecting', { exact: false })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create setlist' })).toBeDisabled();
     await page.getByPlaceholder('Setlist name').fill('Should Not Appear Yet');
