@@ -410,7 +410,13 @@ export function SongEditor() {
                 {t('songEditor.key')}
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <Select value={keyLetter} onValueChange={handleKeyLetterChange}>
+                <Select
+                  value={keyLetter}
+                  onValueChange={(value) => {
+                    // Radix fires a spurious onValueChange('') on mount (issue #235) — ignore it.
+                    if (value) handleKeyLetterChange(value);
+                  }}
+                >
                   <SelectTrigger id="song-key" className="w-auto">
                     <SelectValue />
                   </SelectTrigger>
@@ -424,7 +430,9 @@ export function SongEditor() {
                 </Select>
                 <Select
                   value={keyIsMinor ? 'minor' : 'major'}
-                  onValueChange={(value) => handleKeyModeChange(value === 'minor')}
+                  onValueChange={(value) => {
+                    if (value) handleKeyModeChange(value === 'minor');
+                  }}
                 >
                   <SelectTrigger aria-label={t('songEditor.keyMode')} className="w-auto">
                     <SelectValue />
