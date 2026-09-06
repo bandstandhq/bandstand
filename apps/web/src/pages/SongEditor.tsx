@@ -185,6 +185,13 @@ export function SongEditor() {
 
   function applyTargetKey(newKey: string) {
     setError(null);
+    // A new song's refs below are never seeded by the load effect (issue #233) — do it here instead.
+    if (isNew && !initializedRef.current) {
+      const current = form.getValues();
+      originalKeyRef.current = normalizeKey(current.key);
+      originalBodyRef.current = current.body;
+      initializedRef.current = true;
+    }
     try {
       const transposed = transposeChordProToKey(parseChordPro(originalBodyRef.current), originalKeyRef.current, newKey);
       form.setValue('key', newKey, { shouldDirty: true });
