@@ -1,0 +1,1 @@
+ALTER TABLE "user_prefs" ADD COLUMN "week_starts_monday" boolean DEFAULT true NOT NULL;

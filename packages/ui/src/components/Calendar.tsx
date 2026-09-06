@@ -26,7 +26,12 @@ export function Calendar({ className, classNames, components, ...props }: Calend
           'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50',
         button_next:
           'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50',
-        month_grid: 'w-full border-collapse',
+        // table-fixed, not the default auto layout: a bare <table> sizes
+        // each column to its own widest cell content, so a week with a
+        // long event title renders visibly wider columns than a week
+        // without one. Fixed layout gives every column an equal 1/7 share
+        // regardless of what's inside any one cell (issue #286).
+        month_grid: 'w-full table-fixed border-collapse',
         weekdays: '',
         weekday: 'p-1 text-center text-xs font-normal text-muted-foreground',
         week: '',
