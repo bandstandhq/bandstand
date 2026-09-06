@@ -14,5 +14,6 @@ export * from './pendingEmailChanges';
 export * from './pendingUploads';
 export * from './pushReminderLog';
 export * from './pushSubscriptions';
+export * from './permissionGuardWarnings';
 export * from './auth';
 export * from './relations';

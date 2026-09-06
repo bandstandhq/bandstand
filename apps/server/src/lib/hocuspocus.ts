@@ -23,7 +23,7 @@ import { Database } from '@hocuspocus/extension-database';
 import { isTransactionOrigin, Server } from '@hocuspocus/server';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { bandDocs, bandMembers } from '../db/schema/index';
+import { bandDocs, bandMembers, permissionGuardWarnings } from '../db/schema/index';
 import { sendPushToUsers } from '../push/send';
 import { auth } from './auth';
 import { getBandMembership } from './bandAuthz';
@@ -425,6 +425,19 @@ export const hocuspocusServer = new Server({
           actingUserId: actor?.userId,
           actingRole: actor?.bandRole,
         });
+        // Best-effort, matching notifyEventsAndPolls's own fire-and-forget
+        // pattern above — an admin never seeing this warning is worse than
+        // this insert occasionally failing, but it must never break sync.
+        db.insert(permissionGuardWarnings)
+          .values({ bandId: documentName, mapName, key, actingUserId: actor?.userId })
+          .catch((err) => {
+            console.warn('[hocuspocus] failed to persist a permission-guard warning', {
+              bandId: documentName,
+              mapName,
+              key,
+              error: err,
+            });
+          });
       }
 
       for (const { mapName, key } of revertedOwnership) {
