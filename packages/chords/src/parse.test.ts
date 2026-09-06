@@ -31,6 +31,14 @@ describe('parseChordPro edge cases', () => {
     expect(chordsOf('{title: My Song}\n{artist: Someone}\n{key: G}\n[G]Hello')).toEqual(['G']);
   });
 
+  it('parses a capo directive as metadata without leaking it into the body', () => {
+    const song = parseChordPro('{key: G}\n{capo: 2}\n[G]Hello');
+    const model = buildRenderModel(song);
+
+    expect(song.capo).toBe('2');
+    expect(model.sections[0]?.lines[0]?.segments).toEqual([{ chord: 'G', lyric: 'Hello' }]);
+  });
+
   it('does not throw on an unknown/invalid chord token, passing it through as-is', () => {
     expect(() => parseChordPro('[Xmaj9#11]Hello')).not.toThrow();
     expect(chordsOf('[Xmaj9#11]Hello')).toEqual(['Xmaj9#11']);

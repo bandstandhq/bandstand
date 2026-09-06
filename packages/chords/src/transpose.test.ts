@@ -55,6 +55,27 @@ describe('transposeChordPro', () => {
     expect(chords.some((c) => c.includes('b'))).toBe(true);
     expect(chords.some((c) => c.includes('#'))).toBe(false);
   });
+
+  it('preserves the capo while transposing the written key and chords', () => {
+    const song = parseChordPro('{key: Bb}\n{capo: 2}\n[Bb]one [Eb]two');
+    const transposed = transposeChordPro(song, 2);
+
+    expect(transposed.capo).toBe('2');
+    expect(transposed.key).toBe('C');
+    expect(chordsOf(transposed)).toEqual(['C', 'F']);
+
+    expect(song.capo).toBe('2');
+    expect(song.key).toBe('Bb');
+    expect(chordsOf(song)).toEqual(['Bb', 'Eb']);
+  });
+
+  it('uses the song key, not the capo, to choose accidental spelling', () => {
+    const song = parseChordPro('{key: Bb}\n{capo: 2}\n[C]one');
+    const transposed = transposeChordPro(song, 1);
+
+    expect(transposed.capo).toBe('2');
+    expect(chordsOf(transposed)).toEqual(['Db']);
+  });
 });
 
 // The exact seed content of "Amazing Grace" (apps/server/src/seed/songs.ts)
