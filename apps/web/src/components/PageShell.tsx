@@ -42,7 +42,7 @@ export function PageShell({ title, children }: { title: ReactNode; children: Rea
   }
 
   return (
-    <main className="min-h-dvh bg-background p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-20 text-foreground">
+    <main className="min-h-dvh bg-background p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-foreground">
       <h1 className="mb-4 text-xl font-medium">{title}</h1>
       {children}
       <BottomNav />

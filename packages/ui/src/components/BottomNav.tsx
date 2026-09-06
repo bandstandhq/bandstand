@@ -20,7 +20,14 @@ export function BottomNav({ className, ...props }: ComponentProps<'nav'>) {
         // there. z-30, one below Sheet's own overlay (z-40) — when the
         // "More" tab opens its sheet, the dimmed overlay must cover this
         // bar too, not leave it poking through above the dimming.
-        'fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-border bg-background pb-[env(safe-area-inset-bottom)]',
+        // Explicit height = 3.5rem (Material's standard bottom-nav row) +
+        // inset, not h-14/min-h-14: this is a border-box element, so either
+        // of those still lets the inset padding eat into the 3.5rem box
+        // instead of adding to it — measured on a real device, the tab row
+        // was squeezed to 3.5rem minus the inset. Adding the inset to the
+        // height itself is what actually grows the bar to keep a full
+        // 3.5rem for its content, on top of (not instead of) the inset.
+        'fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-stretch border-t border-border bg-background pb-[env(safe-area-inset-bottom)]',
         className,
       )}
       {...props}
