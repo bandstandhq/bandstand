@@ -40,7 +40,8 @@ export type Action =
   | 'poll:create'
   | 'poll:edit'
   | 'poll:close'
-  | 'repertoire:export';
+  | 'repertoire:export'
+  | 'permissionGuardWarning:view';
 
 /**
  * The minimum role each action requires — the exact matrix from
@@ -93,6 +94,11 @@ export type Action =
  * relying on it, not just the acting member's own contribution. Uploading a
  * brand-new voice, or a file that doesn't collide with an existing one on
  * this song, stays `file:upload`'s member-level bar.
+ *
+ * `permissionGuardWarning:view` gates seeing that the `onChange` guard
+ * (docs/adr/0005-permissions.md) has reverted an unauthorized attempt to
+ * delete a song/setlist for this band — admin-level, same bar as the
+ * `song:deleteForever`/`setlist:delete` actions the guard is protecting.
  */
 const MIN_ROLE: Record<Action, BandRole> = {
   'band:rename': 'admin',
@@ -128,6 +134,7 @@ const MIN_ROLE: Record<Action, BandRole> = {
   'poll:edit': 'admin',
   'poll:close': 'admin',
   'repertoire:export': 'admin',
+  'permissionGuardWarning:view': 'admin',
 };
 
 /** Every action the matrix covers, derived from `MIN_ROLE` so there's exactly one list. */

@@ -16,3 +16,4 @@ export * from './event';
 export * from './poll';
 export * from './pushPayload';
 export * from './pushSubscription';
+export * from './permissionGuardWarning';

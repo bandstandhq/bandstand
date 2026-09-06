@@ -518,6 +518,15 @@
   "bandSettings": {
     "back": "Back to dashboard",
     "offlineNotice": "Couldn't reach the server — some settings and the member list aren't available right now.",
+    "guardWarning": {
+      "title": "Security warning",
+      "message": "{{user}} tried to permanently delete a {{itemType}} directly, bypassing the normal process — it was restored automatically.",
+      "unknownUser": "Someone",
+      "itemTypeSong": "song",
+      "itemTypeVoice": "voice",
+      "itemTypeSetlist": "setlist",
+      "dismiss": "Dismiss"
+    },
     "bandNameLabel": "Band name",
     "rename": {
       "save": "Save",

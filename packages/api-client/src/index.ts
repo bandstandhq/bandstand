@@ -15,6 +15,7 @@ import type {
   FileRef,
   Invite,
   MemberNicknames,
+  PermissionGuardWarning,
   PresignUploadInput,
   PushTriggers,
   RedeemInviteInput,
@@ -254,6 +255,12 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
 
     revokeInvite: (bandId: string, inviteId: string) =>
       req<Invite>(`/bands/${bandId}/invites/${inviteId}/revoke`, { method: 'POST' }),
+
+    listPermissionGuardWarnings: (bandId: string) =>
+      req<PermissionGuardWarning[]>(`/bands/${bandId}/permission-guard-warnings`),
+
+    acknowledgePermissionGuardWarning: (bandId: string, id: string) =>
+      req<{ ok: true }>(`/bands/${bandId}/permission-guard-warnings/${id}/acknowledge`, { method: 'POST' }),
 
     redeemInvite: (input: RedeemInviteInput) =>
       req<{ band: Band; role: BandRole }>('/invites/redeem', { method: 'POST', body: JSON.stringify(input) }),

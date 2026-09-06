@@ -16,6 +16,7 @@ import {
   bandDocs,
   bandMembers,
   bands,
+  permissionGuardWarnings,
   pushSubscriptions,
   userPrefs,
   users,
@@ -249,6 +250,16 @@ describe('Hocuspocus onAuthenticate (integration)', () => {
       .from(bandDocs)
       .where(eq(bandDocs.bandId, band.id));
     expect(row?.snapshot?.songs[songId]).toMatchObject({ title: 'Guarded Song' });
+
+    // Issue #48: the revert must also leave a warning an admin can see in
+    // Band Settings, not just a server-side console.warn.
+    await vi.waitFor(async () => {
+      const [warning] = await db
+        .select()
+        .from(permissionGuardWarnings)
+        .where(eq(permissionGuardWarnings.bandId, band.id));
+      expect(warning).toMatchObject({ mapName: 'songs', key: songId, actingUserId: member.userId });
+    });
   }, 15000);
 
   // availability:respond/poll:vote are open to every member with no REST

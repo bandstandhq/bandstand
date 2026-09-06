@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { MyBand } from '@bandstand/api-client';
-import type { BandMember, BandRole, Invite } from '@bandstand/core';
+import type { BandMember, BandRole, Invite, PermissionGuardWarning } from '@bandstand/core';
 import { can, canRemoveMember, COMMON_INSTRUMENTS, getInviteStatus, renameBandInputSchema } from '@bandstand/core';
 import {
   Button,
@@ -39,6 +39,13 @@ import { useNicknames } from '../hooks/useNicknames';
 import { useTrustedSession } from '../hooks/useTrustedSession';
 import { apiClient } from '../lib/api-client';
 
+/** `mapName` is one of hocuspocus.ts's `GUARDED_MAPS` ('songs' | 'voices' | 'setlists') — maps to the matching `bandSettings.guardWarning.itemType*` i18n key suffix. */
+function guardWarningItemType(mapName: string): 'Song' | 'Voice' | 'Setlist' {
+  if (mapName === 'voices') return 'Voice';
+  if (mapName === 'setlists') return 'Setlist';
+  return 'Song';
+}
+
 export function BandSettings() {
   const { bandId } = useParams<{ bandId: string }>();
   if (!bandId) return null;
@@ -58,6 +65,7 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const [myBand, setMyBand] = useState<MyBand | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [guardWarnings, setGuardWarnings] = useState<PermissionGuardWarning[]>([]);
   const renameForm = useForm<{ name: string }>({
     resolver: zodResolver(renameBandInputSchema),
     defaultValues: { name: '' },
@@ -102,6 +110,11 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
       .listInvites(bandId)
       .then(setInvites)
       .catch(() => setInvites([]));
+    // Same non-admin-403-is-fine shape as invites above.
+    apiClient
+      .listPermissionGuardWarnings(bandId)
+      .then(setGuardWarnings)
+      .catch(() => setGuardWarnings([]));
     // `renameForm` is stable (react-hook-form guarantees the returned
     // object's identity across renders) — omitted deliberately, not missed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +125,21 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
   const canDelete = myBand ? can(myBand.role, 'band:delete') : false;
   const canLeaveBand = myBand ? can(myBand.role, 'band:leave') : false;
   const canExportRepertoire = myBand ? can(myBand.role, 'repertoire:export') : false;
+  const canViewGuardWarnings = myBand ? can(myBand.role, 'permissionGuardWarning:view') : false;
+
+  async function handleAcknowledgeGuardWarning(id: string) {
+    setGuardWarnings((prev) => prev.filter((w) => w.id !== id));
+    try {
+      await apiClient.acknowledgePermissionGuardWarning(bandId, id);
+    } catch {
+      // Refetch rather than re-inserting the optimistic removal by hand —
+      // simplest way to reconcile with whatever the server actually has.
+      apiClient
+        .listPermissionGuardWarnings(bandId)
+        .then(setGuardWarnings)
+        .catch(() => undefined);
+    }
+  }
   const {
     busy: leaveBusy,
     error: leaveError,
@@ -154,6 +182,28 @@ function BandSettingsContent({ bandId }: { bandId: string }) {
         <p className="mt-4 rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">
           {t('bandSettings.offlineNotice')}
         </p>
+      )}
+
+      {canViewGuardWarnings && guardWarnings.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <h2 className="text-lg font-medium text-destructive">{t('bandSettings.guardWarning.title')}</h2>
+          {guardWarnings.map((warning) => (
+            <div
+              key={warning.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <span>
+                {t('bandSettings.guardWarning.message', {
+                  user: warning.actingUserName ?? t('bandSettings.guardWarning.unknownUser'),
+                  itemType: t(`bandSettings.guardWarning.itemType${guardWarningItemType(warning.mapName)}`),
+                })}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => handleAcknowledgeGuardWarning(warning.id)}>
+                {t('bandSettings.guardWarning.dismiss')}
+              </Button>
+            </div>
+          ))}
+        </div>
       )}
 
       {canRename && (

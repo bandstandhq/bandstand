@@ -33,6 +33,7 @@ owner.
 | Create, edit, or close a scheduling poll | ✅ | ✅ | — |
 | Respond to your own availability, or vote in a poll ³ | ✅ | ✅ | ✅ |
 | Export the full repertoire (ChordPro + JSON + files) as a ZIP ⁴ | ✅ | ✅ | — |
+| See a warning when an unauthorized delete attempt was reverted ⁶ | ✅ | ✅ | — |
 
 ¹ An admin can remove a member, but never the owner or another admin.
 ² Leaving automatically hands ownership to the highest-ranked remaining member (admin over
@@ -48,6 +49,10 @@ owner.
   leave the band with no owner at all (the partial unique index that guarantees at most one owner
   says nothing about at least one). Handing the role to someone else is Transfer ownership's job,
   which demotes the outgoing owner in the same transaction as it promotes the incoming one.
+⁶ "Permanently delete a song"/"Delete a setlist" are enforced below the UI too (a server-side guard
+  reverts the underlying CRDT write if attempted directly, bypassing REST) — this is that guard
+  actually firing, surfaced so an admin/owner sees it happened instead of it being silent. See
+  [ADR-0005](adr/0005-permissions.md).
 
 ## Enforcement
 
