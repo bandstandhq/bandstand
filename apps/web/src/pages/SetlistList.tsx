@@ -1,8 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { can, createSetlist, getSetlistStats, itemsKey } from '@bandstand/core';
 import type { BandRole, Setlist, SetlistItem, SetlistViewMode, Song } from '@bandstand/core';
-import { Button, Form, FormControl, FormField, FormItem, Input, useConfirmDialog } from '@bandstand/ui';
-import { Trash2 } from 'lucide-react';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  Input,
+  useConfirmDialog,
+} from '@bandstand/ui';
+import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -162,6 +174,7 @@ export function SetlistList() {
   const isWideScreen = useIsWideScreen();
   const effectiveViewMode: SetlistViewMode = isWideScreen ? viewMode : 'list';
   const canDelete = viewerRole ? can(viewerRole, 'setlist:delete') : false;
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     apiClient.getMyPrefs().then((prefs) => setViewMode(prefs.setlistViewMode));
@@ -178,6 +191,7 @@ export function SetlistList() {
     if (!doc || !values.name.trim()) return;
     createSetlist(doc, values.name.trim());
     createSetlistForm.reset();
+    setCreateOpen(false);
   }
 
   function toggleViewMode() {
@@ -197,40 +211,53 @@ export function SetlistList() {
         &larr; {t('setlistList.back')}
       </Link>
 
-      <div className="mt-4 flex items-center justify-end">
+      <div className="mt-4 flex items-center justify-end gap-2">
         {isWideScreen && (
           <Button type="button" variant="outline" onClick={toggleViewMode}>
             {viewMode === 'board' ? t('setlistList.listView') : t('setlistList.boardView')}
           </Button>
         )}
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          aria-label={t('setlistList.newTitle')}
+          title={t('setlistList.newTitle')}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus className="h-5 w-5" aria-hidden="true" />
+        </button>
       </div>
 
-      <Form {...createSetlistForm}>
-        <form
-          onSubmit={createSetlistForm.handleSubmit(handleCreate)}
-          className="mt-4 flex flex-wrap items-center gap-2"
-        >
-          <FormField
-            control={createSetlistForm.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem className="contents">
-                <FormControl>
-                  <Input placeholder={t('setlistList.newPlaceholder')} className="w-full sm:w-64" {...field} />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          <Button type="submit" disabled={!doc || !newSetlistName.trim()}>
-            {t('setlistList.create')}
-          </Button>
-          {/* Without this, tapping Create while the band doc hasn't loaded yet
-              (a slower or just-reconnecting mobile connection) silently did
-              nothing — handleCreate's own `!doc` guard bailed with no
-              indication why, indistinguishable from the button being broken. */}
-          {!doc && <p className="text-sm text-muted-foreground">{t('setlistList.waitingForConnection')}</p>}
-        </form>
-      </Form>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('setlistList.newTitle')}</DialogTitle>
+          </DialogHeader>
+          <Form {...createSetlistForm}>
+            <form onSubmit={createSetlistForm.handleSubmit(handleCreate)} className="flex flex-wrap items-center gap-2">
+              <FormField
+                control={createSetlistForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="contents">
+                    <FormControl>
+                      <Input placeholder={t('setlistList.newPlaceholder')} className="w-full sm:w-64" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={!doc || !newSetlistName.trim()}>
+                {t('setlistList.create')}
+              </Button>
+              {/* Without this, tapping Create while the band doc hasn't loaded yet
+                  (a slower or just-reconnecting mobile connection) silently did
+                  nothing — handleCreate's own `!doc` guard bailed with no
+                  indication why, indistinguishable from the button being broken. */}
+              {!doc && <p className="text-sm text-muted-foreground">{t('setlistList.waitingForConnection')}</p>}
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {entries.length === 0 || !doc ? (
         <p className="mt-6 text-sm text-muted-foreground">{t('setlistList.noSetlists')}</p>

@@ -79,24 +79,28 @@ test('the calendar page guards its create-event and create-poll dialogs too, eve
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/calendar`);
 
-    // Both create forms now live behind an icon button, opened as a modal
-    // dialog — which, being a real modal, hides the rest of the page (the
-    // nav links) from interaction while it's open. So the way to "leave"
-    // a dirty create-event dialog is to close the dialog itself (its own X,
-    // Escape, or the overlay), not to click a link elsewhere on the page.
-    await page.getByRole('button', { name: 'New event' }).click();
+    // Both create forms now live behind a single "Create" menu button,
+    // opened as a modal dialog — which, being a real modal, hides the rest
+    // of the page (the nav links) from interaction while it's open. So the
+    // way to "leave" a dirty create-event dialog is to close the dialog
+    // itself (its own X, Escape, or the overlay), not to click a link
+    // elsewhere on the page.
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('menuitem', { name: 'New event' }).click();
     await page.getByPlaceholder('Event title').fill('Unsaved Rehearsal');
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('heading', { name: 'Unsaved changes' })).toBeVisible();
     await page.getByRole('button', { name: 'Discard' }).click();
     await expect(page.getByRole('heading', { name: 'New event' })).not.toBeVisible();
     // Discarding actually cleared the form, not just closed the dialog.
-    await page.getByRole('button', { name: 'New event' }).click();
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('menuitem', { name: 'New event' }).click();
     await expect(page.getByPlaceholder('Event title')).toHaveValue('');
     await page.getByRole('button', { name: 'Close' }).click();
 
     // Same for the create-poll dialog, this time choosing to keep editing.
-    await page.getByRole('button', { name: 'New poll' }).click();
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('menuitem', { name: 'New poll' }).click();
     await page.getByPlaceholder('Poll title').fill('Unsaved Poll');
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('heading', { name: 'Unsaved changes' })).toBeVisible();

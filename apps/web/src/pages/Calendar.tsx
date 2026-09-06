@@ -21,6 +21,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Form,
   FormControl,
   FormField,
@@ -778,16 +782,24 @@ export function Calendar() {
   const pollFormSaveRef = useRef<(() => boolean) | null>(null);
   const unsavedGuard = useUnsavedChangesGuard(eventFormDirty || pollFormDirty);
 
-  // Each create form now lives behind its own icon button, opened as a
-  // modal — a second, independent unsaved-changes prompt for just closing
-  // that one dialog (Escape, the overlay, or its own X) while dirty, on
-  // top of the page-wide guard above for actually navigating away. Nested
-  // rather than replacing: the dialog stays open underneath, matching how
-  // a native "leave without saving?" prompt stacks over its own page.
+  // Each create form now lives behind a single "Create" menu button, opened
+  // as a modal — a second, independent unsaved-changes prompt for just
+  // closing that one dialog (Escape, the overlay, or its own X) while
+  // dirty, on top of the page-wide guard above for actually navigating
+  // away. Nested rather than replacing: the dialog stays open underneath,
+  // matching how a native "leave without saving?" prompt stacks over its
+  // own page.
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [pollDialogOpen, setPollDialogOpen] = useState(false);
   const [eventCloseConfirmOpen, setEventCloseConfirmOpen] = useState(false);
   const [pollCloseConfirmOpen, setPollCloseConfirmOpen] = useState(false);
+  // Controlled, not left uncontrolled: Radix's own onSelect preventDefault
+  // (needed below so selecting an item doesn't yank focus back to the
+  // trigger while the dialog it opens is trying to claim it) also skips
+  // Radix's default auto-close — without closing it ourselves here, the
+  // menu silently stays "open" underneath the dialog and reopening the
+  // trigger afterwards just toggles it shut again instead of showing it.
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   function handleSaveFromUnsavedDialog() {
     const eventOk = !eventFormDirty || (eventFormSaveRef.current?.() ?? false);
@@ -853,16 +865,43 @@ export function Calendar() {
         >
           {viewMode === 'month' ? t('calendarList.listView') : t('calendarList.monthView')}
         </Button>
-        {canCreate && doc && (
-          <button
-            type="button"
-            onClick={() => setEventDialogOpen(true)}
-            aria-label={t('calendarList.createTitle')}
-            title={t('calendarList.createTitle')}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </button>
+        {(canCreate || canCreatePoll) && doc && (
+          <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('calendarList.createMenuAria')}
+                title={t('calendarList.createMenuAria')}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canCreate && (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setCreateMenuOpen(false);
+                    setEventDialogOpen(true);
+                  }}
+                >
+                  {t('calendarList.createTitle')}
+                </DropdownMenuItem>
+              )}
+              {canCreatePoll && (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setCreateMenuOpen(false);
+                    setPollDialogOpen(true);
+                  }}
+                >
+                  {t('calendarList.createPollTitle')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -912,20 +951,7 @@ export function Calendar() {
       )}
 
       <div className="mt-8">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
-          {canCreatePoll && doc && (
-            <button
-              type="button"
-              onClick={() => setPollDialogOpen(true)}
-              aria-label={t('calendarList.createPollTitle')}
-              title={t('calendarList.createPollTitle')}
-              className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-accent"
-            >
-              <Plus className="h-5 w-5" aria-hidden="true" />
-            </button>
-          )}
-        </div>
+        <h2 className="text-lg font-medium">{t('calendarList.pollsTitle')}</h2>
         {pollEntries.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">{t('calendarList.noPolls')}</p>
         ) : (

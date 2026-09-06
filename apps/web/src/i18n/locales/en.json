@@ -214,6 +214,7 @@
   "setlistList": {
     "back": "Back to dashboard",
     "title": "Setlists",
+    "newTitle": "New setlist",
     "newPlaceholder": "Setlist name",
     "create": "Create setlist",
     "waitingForConnection": "Connecting — try again in a moment.",
@@ -613,6 +614,7 @@
     "openAria": "Open {{name}}",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
+    "createMenuAria": "Create",
     "createTitle": "New event",
     "titlePlaceholder": "Event title",
     "type": "Type",
