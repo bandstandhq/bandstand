@@ -29,6 +29,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   Input,
   Select,
   SelectContent,
@@ -472,35 +473,38 @@ function CreateEventForm({
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            {t('calendarList.startsAt')}
-            <FormField
-              control={form.control}
-              name="startsAt"
-              render={({ field }) => (
-                <FormItem className="contents">
-                  <FormControl>
-                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            {t('calendarList.endsAt')}
-            <FormField
-              control={form.control}
-              name="endsAt"
-              render={({ field }) => (
-                <FormItem className="contents">
-                  <FormControl>
-                    <Input type={values.allDay ? 'date' : 'datetime-local'} className="w-auto" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </label>
+        {/* A fixed two-column grid, not the flex-wrap row this used to be:
+            the native datetime-local input renders wide enough that
+            flex-wrap would drop "Ends" onto its own line while other rows
+            stayed on one, an inconsistency that read as broken/uneven
+            spacing (issue #288) despite the underlying gap scale being
+            uniform throughout the form. A grid keeps every row's rhythm
+            identical regardless of how wide any one control renders. */}
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="startsAt"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('calendarList.startsAt')}</FormLabel>
+                <FormControl>
+                  <Input type={values.allDay ? 'date' : 'datetime-local'} {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="endsAt"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('calendarList.endsAt')}</FormLabel>
+                <FormControl>
+                  <Input type={values.allDay ? 'date' : 'datetime-local'} {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
         </div>
 
         <FormField
@@ -554,45 +558,47 @@ function CreateEventForm({
           />
         </label>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            {t('calendarList.repeats')}
-            <FormField
-              control={form.control}
-              name="repeat"
-              render={({ field }) => (
-                <FormItem className="contents">
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-auto">
+        {/* Same fixed-grid reasoning as the Starts/Ends row above — "Repeat
+            until" only appears once a repeat option is chosen, and letting
+            it flex-wrap in made the row's height/alignment jump around
+            depending on both fields' rendered widths. */}
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="repeat"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('calendarList.repeats')}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t('calendarList.repeatNone')}</SelectItem>
-                      <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
-                      <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
-                      <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
-                      <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">{t('calendarList.repeatNone')}</SelectItem>
+                    <SelectItem value="weekly">{t('calendarList.repeatWeekly')}</SelectItem>
+                    <SelectItem value="biweekly">{t('calendarList.repeatBiweekly')}</SelectItem>
+                    <SelectItem value="every4weeks">{t('calendarList.repeatEvery4Weeks')}</SelectItem>
+                    <SelectItem value="monthlyByWeekday">{t('calendarList.repeatMonthlyByWeekday')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+          {values.repeat !== 'none' && (
+            <FormField
+              control={form.control}
+              name="repeatUntil"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('calendarList.repeatUntil')}</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                 </FormItem>
               )}
             />
-          </label>
-          {values.repeat !== 'none' && (
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              {t('calendarList.repeatUntil')}
-              <FormField
-                control={form.control}
-                name="repeatUntil"
-                render={({ field }) => (
-                  <FormItem className="contents">
-                    <FormControl>
-                      <Input type="date" className="w-auto" {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </label>
           )}
         </div>
         {values.repeat === 'monthlyByWeekday' &&
