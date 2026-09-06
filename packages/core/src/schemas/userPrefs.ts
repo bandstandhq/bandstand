@@ -83,6 +83,11 @@ export const userPrefsSchema = z.object({
   // the browser once and immediately persists that as the real choice, so
   // this is never null for long in practice. See GlobalPrefsEffects.tsx.
   locale: localeSchema.nullable(),
+  // Calendar's month view (Calendar.tsx's MonthGrid). Defaults to true —
+  // Monday-first (ISO 8601) is the broadly expected convention outside the
+  // US, and this app has no per-user region beyond UI language to derive
+  // a locale-specific default from (issue #286).
+  weekStartsMonday: z.boolean(),
 });
 export type UserPrefs = z.infer<typeof userPrefsSchema>;
 
@@ -101,4 +106,5 @@ export const DEFAULT_USER_PREFS: UserPrefs = {
   pushTriggers: DEFAULT_PUSH_TRIGGERS,
   keepScreenAwake: false,
   locale: null,
+  weekStartsMonday: true,
 };

@@ -42,4 +42,7 @@ export const userPrefs = pgTable('user_prefs', {
   // 'en' | 'de' | null ("never explicitly chosen" — see userPrefsSchema);
   // validated in packages/core's userPrefsSchema.
   locale: text('locale'),
+  // Calendar's month view weekday order; validated in packages/core's
+  // userPrefsSchema.
+  weekStartsMonday: boolean('week_starts_monday').notNull().default(true),
 });

@@ -52,6 +52,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { useYMap } from '../hooks/useYMap';
 import { apiClient } from '../lib/api-client';
+import { useUserPrefsStore } from '../stores/userPrefs';
 
 type ViewMode = 'list' | 'month';
 // Every non-'none' value matches a real SeriesRule['freq'] 1:1 (see
@@ -166,6 +167,7 @@ function MonthGrid({
 }) {
   const { t, i18n } = useTranslation();
   const isNarrowScreen = useMediaQuery('(max-width: 639px)');
+  const weekStartsMonday = useUserPrefsStore((s) => s.prefs.weekStartsMonday);
   const byDate = useMemo(() => {
     const map = new Map<string, ResolvedOccurrence[]>();
     for (const occ of occurrences) {
@@ -263,6 +265,12 @@ function MonthGrid({
           month={localMonth}
           hideNavigation
           showOutsideDays
+          weekStartsOn={weekStartsMonday ? 1 : 0}
+          // hideNavigation only removes react-day-picker's own prev/next
+          // buttons, not its month/year caption — this page already shows
+          // both (the header above), so without this the month name
+          // rendered twice (issue #286).
+          classNames={{ month_caption: 'hidden' }}
           formatters={{
             formatWeekdayName: (date) =>
               new Intl.DateTimeFormat(i18n.language, { weekday: 'short' }).format(date),

@@ -160,6 +160,8 @@
     "wakeLockLabel": "Keep the display on while Bandstand is open",
     "wakeLockUnsupported": "Not supported on this browser — there's no way to hold the screen awake here.",
     "wakeLockStageModeNote": "Stage Mode always keeps the display on, regardless of this setting.",
+    "calendarTitle": "Calendar",
+    "weekStartsMondayLabel": "Week starts on Monday",
     "profileTitle": "Profile",
     "nameLabel": "Display name",
     "nameSave": "Save",
