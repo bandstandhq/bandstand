@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router';
 import { GlobalPrefsEffects } from './components/GlobalPrefsEffects';
 import { RequireAuth } from './components/RequireAuth';
+import { ScrollToTop } from './components/ScrollToTop';
 import { AccountSettings } from './pages/AccountSettings';
 import { BandSettings } from './pages/BandSettings';
 import { Calendar } from './pages/Calendar';
@@ -68,6 +69,7 @@ export function AppRouter() {
     <BrowserRouter>
       <ConfirmDialogProvider closeLabel={t('common.close')}>
         <GlobalPrefsEffects />
+        <ScrollToTop />
         <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
