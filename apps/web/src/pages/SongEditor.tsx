@@ -615,12 +615,14 @@ export function SongEditor() {
             <Button type="submit">{t('songEditor.save')}</Button>
           </div>
 
-        <div>
-          <p className="mb-2 text-sm text-muted-foreground">{t('songEditor.preview')}</p>
-          <div className="rounded-md border border-border p-4">
-            <ChordProPreview body={body} />
+        {body.trim() && (
+          <div>
+            <p className="mb-2 text-sm text-muted-foreground">{t('songEditor.preview')}</p>
+            <div className="rounded-md border border-border p-4">
+              <ChordProPreview body={body} />
+            </div>
           </div>
-        </div>
+        )}
         </form>
       </Form>
     </PageShell>
