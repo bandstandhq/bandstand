@@ -478,3 +478,5 @@ export function SetlistDetail() {
     </PageShell>
   );
 }
+
+export default SetlistDetail;

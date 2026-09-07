@@ -1011,3 +1011,5 @@ export function Calendar() {
     </PageShell>
   );
 }
+
+export default Calendar;

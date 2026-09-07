@@ -885,3 +885,5 @@ export function EventDetail() {
     </PageShell>
   );
 }
+
+export default EventDetail;

@@ -1168,3 +1168,5 @@ function InviteRow({
     </li>
   );
 }
+
+export default BandSettings;

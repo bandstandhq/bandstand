@@ -436,3 +436,5 @@ export function PollDetail() {
     </PageShell>
   );
 }
+
+export default PollDetail;

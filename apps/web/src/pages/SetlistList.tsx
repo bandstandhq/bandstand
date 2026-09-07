@@ -295,3 +295,5 @@ export function SetlistList() {
     </PageShell>
   );
 }
+
+export default SetlistList;
