@@ -111,3 +111,5 @@ export function ResetPassword() {
     </main>
   );
 }
+
+export default ResetPassword;

@@ -68,3 +68,5 @@ export function ForgotPassword() {
     </main>
   );
 }
+
+export default ForgotPassword;

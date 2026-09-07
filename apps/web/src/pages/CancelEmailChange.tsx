@@ -40,3 +40,5 @@ export function CancelEmailChange() {
     </main>
   );
 }
+
+export default CancelEmailChange;

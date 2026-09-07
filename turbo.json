@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@bandstand/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["build/**"]
+    },
     "@bandstand/mobile#build": {
       "dependsOn": ["@bandstand/web#build"],
       "outputs": []

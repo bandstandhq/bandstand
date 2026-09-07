@@ -47,3 +47,5 @@ export function ConfirmEmailChange() {
     </main>
   );
 }
+
+export default ConfirmEmailChange;

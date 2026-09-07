@@ -17,7 +17,7 @@
 //      unexpected. See getActiveServerConfig()'s DEV branch.
 //   2. A production build served by a Bandstand server (the normal case):
 //      GET /config.json, fetched once at startup (initializeServerConfig(),
-//      called from main.tsx before the app renders) — same-origin, since
+//      called from entry.client.tsx before the app renders) — same-origin, since
 //      the server also serves this build's static files (see
 //      docs/SELF_HOSTING.md). This means changing the server's domain is a
 //      restart, not a rebuild: nothing about the server's real URL is
@@ -42,7 +42,7 @@ const STORAGE_KEY = 'bandstand.serverConfig';
 // GET /config.json resolves, so every existing synchronous reader (this
 // module's own getActiveServerConfig(), ServerPicker.tsx's direct
 // reference) keeps working unchanged — they just see the resolved value by
-// the time they actually run, since main.tsx awaits initialization before
+// the time they actually run, since entry.client.tsx awaits initialization before
 // the app tree ever renders.
 export let DEFAULT_SERVER_CONFIG: ServerConfig = {
   serverUrl: withRuntimeHost(import.meta.env.VITE_DEFAULT_SERVER_URL ?? 'http://localhost:3001'),
@@ -71,7 +71,7 @@ function isServerConfig(value: unknown): value is ServerConfig {
 /**
  * Resolves the real default server config for a production browser deployment by fetching
  * GET /config.json from the same origin this build was served from. Must be awaited once at app
- * bootstrap (main.tsx), before anything reads DEFAULT_SERVER_CONFIG or renders — a no-op in dev
+ * bootstrap (entry.client.tsx), before anything reads DEFAULT_SERVER_CONFIG or renders — a no-op in dev
  * (see the DEV branch above) and in a wrapped app (no server listens at a capacitor:/tauri:
  * "origin", so there's nothing to fetch). Leaves DEFAULT_SERVER_CONFIG's existing fallback in
  * place on any failure (offline first load, misconfigured server) rather than blocking the app.

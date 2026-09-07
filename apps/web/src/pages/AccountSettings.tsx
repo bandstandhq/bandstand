@@ -216,3 +216,5 @@ export function AccountSettings() {
     </PageShell>
   );
 }
+
+export default AccountSettings;

@@ -7,7 +7,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'io.bandstand.app',
   appName: 'Bandstand',
-  webDir: '../web/dist',
+  webDir: '../web/build/client',
 };
 
 export default config;

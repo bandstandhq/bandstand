@@ -23,10 +23,21 @@ import { useAppNavLinks } from '../hooks/useAppNavLinks';
  * never a `<Button>`, so it can't be confused with something that performs
  * an action in place. Same list-row look the old hamburger menu used.
  */
-function SheetNavLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {
+function SheetNavLink({
+  to,
+  prefetch,
+  onNavigate,
+  children,
+}: {
+  to: string;
+  prefetch?: 'intent' | 'none' | 'render' | 'viewport';
+  onNavigate: () => void;
+  children: ReactNode;
+}) {
   return (
     <Link
       to={to}
+      prefetch={prefetch}
       onClick={onNavigate}
       className="flex items-center justify-between gap-2 rounded-lg px-3 py-3 text-base font-medium text-foreground/90 transition-colors hover:bg-accent hover:text-foreground"
     >
@@ -110,7 +121,7 @@ export function BottomNav() {
           const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
           return (
             <BottomNavItem key={to} asChild active={active}>
-              <Link to={to}>
+              <Link to={to} prefetch="intent">
                 <Icon aria-hidden="true" />
                 {label}
               </Link>
@@ -140,10 +151,10 @@ export function BottomNav() {
           <div>
             <SectionLabel>{t('appHeader.sectionActions')}</SectionLabel>
             <div className="mt-2 flex flex-col gap-2">
-              <SheetNavLink to={bandPath('settings')} onNavigate={() => setMoreOpen(false)}>
+              <SheetNavLink to={bandPath('settings')} prefetch="intent" onNavigate={() => setMoreOpen(false)}>
                 {t('appHeader.bandSettings')}
               </SheetNavLink>
-              <SheetNavLink to="/settings" onNavigate={() => setMoreOpen(false)}>
+              <SheetNavLink to="/settings" prefetch="intent" onNavigate={() => setMoreOpen(false)}>
                 {t('appHeader.accountSettings')}
               </SheetNavLink>
               <Button variant="outline" onClick={handleSignOut} className="w-full">

@@ -54,7 +54,7 @@ export function AppSidebar() {
     <Sidebar collapsed={collapsed}>
       <SidebarHeader className={collapsed ? 'justify-center' : 'justify-between'}>
         {!collapsed && (
-          <Link to="/dashboard" aria-label={t('appHeader.goToDashboard')} className="rounded-md font-medium hover:underline">
+          <Link to="/dashboard" prefetch="intent" aria-label={t('appHeader.goToDashboard')} className="rounded-md font-medium hover:underline">
             Bandstand
           </Link>
         )}
@@ -80,7 +80,7 @@ export function AppSidebar() {
                 active={active}
                 title={collapsed ? label : undefined}
               >
-                <Link to={to}>
+                <Link to={to} prefetch="intent">
                   <Icon aria-hidden="true" />
                   <span className={collapsed ? 'sr-only' : undefined}>{label}</span>
                 </Link>
@@ -91,7 +91,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="flex flex-col gap-1">
         <SidebarMenuButton asChild collapsed={collapsed} title={collapsed ? t('appHeader.accountSettings') : undefined}>
-          <Link to="/settings">
+          <Link to="/settings" prefetch="intent">
             <UserCog aria-hidden="true" />
             <span className={collapsed ? 'sr-only' : undefined}>{t('appHeader.accountSettings')}</span>
           </Link>

@@ -68,3 +68,5 @@ export function JoinBand() {
     </main>
   );
 }
+
+export default JoinBand;

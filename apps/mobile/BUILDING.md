@@ -6,14 +6,14 @@ build — see `README.md`. `apps/mobile/android/` is a real, checked-in native A
 so it lives in version control rather than being regenerated from scratch every time). Everything
 that doesn't require the Android SDK is already done:
 
-- `capacitor.config.ts`: `appId: 'io.bandstand.app'`, `appName: 'Bandstand'`, `webDir: '../web/dist'`.
+- `capacitor.config.ts`: `appId: 'io.bandstand.app'`, `appName: 'Bandstand'`, `webDir: '../web/build/client'`.
 - `android/app/src/main/AndroidManifest.xml`: `INTERNET`, `WAKE_LOCK` (Stage Mode's
   "keep the screen awake" toggle), and `POST_NOTIFICATIONS` (required on Android 13+ to show any
   notification at all) permissions declared. No camera permission — nothing in the app uses the
   camera; invite-code QR codes are only ever generated for display, never scanned.
 - `android/app/build.gradle`: `versionCode 1`, `versionName "0.1.0"`.
-- `apps/web/dist` is built and synced into `android/app/src/main/assets/public` via `npx cap sync
-  android`.
+- `apps/web/build/client` is built and synced into `android/app/src/main/assets/public` via `npx cap
+  sync android`.
 
 ## What you still need to do
 

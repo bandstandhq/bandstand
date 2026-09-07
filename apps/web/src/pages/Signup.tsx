@@ -26,3 +26,5 @@ export function Signup() {
     </main>
   );
 }
+
+export default Signup;
