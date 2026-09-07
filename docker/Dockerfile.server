@@ -47,8 +47,9 @@ COPY --from=builder /app /app
 EXPOSE 3001 3002
 # Migrations are idempotent (Drizzle tracks what's already applied), so running them on every
 # container start is safe and needs no separate one-shot service/compose dependency ordering.
-# apps/web/dist is found via app.ts's own default WEB_DIST_ROOT (../web/dist, relative to this
-# WORKDIR) — no override needed since the sibling apps/server/ + apps/web/ layout is preserved as-is.
+# apps/web/build/client is found via app.ts's own default WEB_DIST_ROOT (../web/build/client,
+# relative to this WORKDIR) — no override needed since the sibling apps/server/ + apps/web/ layout
+# is preserved as-is. build/client (not dist) is @react-router/dev's fixed SPA-mode output path.
 # No --env-file here (unlike pnpm start locally): env vars already arrive as real process
 # environment, via docker-compose's env_file/environment, not a .env file inside the image.
 CMD ["sh", "-c", "node_modules/.bin/tsx src/db/migrate.ts && node_modules/.bin/tsx src/index.ts"]

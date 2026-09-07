@@ -177,10 +177,12 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 // GET /config.json above a same-origin fetch for a normal browser deployment. Registered last so
 // every real route above takes priority; WEB_DIST_ROOT is relative to the process's own CWD (per
 // @hono/node-server's serveStatic — "root" is not relative to this file), defaulting to the
-// natural sibling path when run locally (`pnpm start`'s CWD is apps/server/) and overridden by
-// docker/Dockerfile.server's flattened runner layout. Harmless if the directory doesn't exist
-// (nothing to serve, e.g. apps/web was never built) — requests just fall through to Hono's normal
-// 404, same as before this route existed.
-const WEB_DIST_ROOT = process.env.WEB_DIST_ROOT ?? '../web/dist';
+// natural sibling path when run locally (`pnpm start`'s CWD is apps/server/) and preserved as-is by
+// docker/Dockerfile.server's flattened runner layout. `build/client` (not `dist`) is
+// @react-router/dev's fixed client-output path in SPA mode — it always nests under
+// `<buildDirectory>/client` and that subpath isn't configurable. Harmless if the directory doesn't
+// exist (nothing to serve, e.g. apps/web was never built) — requests just fall through to Hono's
+// normal 404, same as before this route existed.
+const WEB_DIST_ROOT = process.env.WEB_DIST_ROOT ?? '../web/build/client';
 app.use('*', serveStatic({ root: WEB_DIST_ROOT }));
 app.use('*', serveStatic({ root: WEB_DIST_ROOT, path: 'index.html' }));

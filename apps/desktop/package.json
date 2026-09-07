@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "build": "node -e \"if (!require('node:fs').existsSync('../web/dist')) { console.error('apps/web must be built first'); process.exit(1); }\"",
+    "build": "node -e \"if (!require('node:fs').existsSync('../web/build/client')) { console.error('apps/web must be built first'); process.exit(1); }\"",
     "build:native": "tauri build",
     "dev:native": "tauri dev",
     "typecheck": "tsc --noEmit",

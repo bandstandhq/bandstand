@@ -10,6 +10,7 @@ export default tseslint.config(
     ignores: [
       '**/dist/**',
       '**/build/**',
+      '**/.react-router/**',
       '**/coverage/**',
       '**/.turbo/**',
       '**/playwright-report/**',

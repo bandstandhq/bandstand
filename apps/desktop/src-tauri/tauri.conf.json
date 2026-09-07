@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "net.bandstandhq.app",
   "build": {
-    "frontendDist": "../../web/dist",
+    "frontendDist": "../../web/build/client",
     "devUrl": "http://localhost:5173"
   },
   "app": {

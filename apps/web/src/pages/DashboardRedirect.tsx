@@ -99,3 +99,5 @@ export function DashboardRedirect() {
     </PageShell>
   );
 }
+
+export default DashboardRedirect;
