@@ -29,7 +29,8 @@ test('picking "monthly (same weekday)" shows a live hint and creates a series th
   try {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/calendar`);
-    await page.getByRole('button', { name: 'New event' }).click();
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('menuitem', { name: 'New event' }).click();
 
     // The first Monday, two months from now — computed rather than
     // hardcoded, so this test stays valid regardless of which real month
@@ -70,7 +71,8 @@ test('"every 4 weeks" is offered as its own option, distinct from monthly-by-wee
   try {
     await login(page, DEMO_OWNER_EMAIL);
     await page.goto(`/bands/${bandId}/calendar`);
-    await page.getByRole('button', { name: 'New event' }).click();
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('menuitem', { name: 'New event' }).click();
 
     const repeatSelect = page.getByLabel('Repeats');
     await repeatSelect.click();

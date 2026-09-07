@@ -160,6 +160,8 @@
     "wakeLockLabel": "Keep the display on while Bandstand is open",
     "wakeLockUnsupported": "Not supported on this browser — there's no way to hold the screen awake here.",
     "wakeLockStageModeNote": "Stage Mode always keeps the display on, regardless of this setting.",
+    "calendarTitle": "Calendar",
+    "weekStartsMondayLabel": "Week starts on Monday",
     "profileTitle": "Profile",
     "nameLabel": "Display name",
     "nameSave": "Save",
@@ -214,6 +216,7 @@
   "setlistList": {
     "back": "Back to dashboard",
     "title": "Setlists",
+    "newTitle": "New setlist",
     "newPlaceholder": "Setlist name",
     "create": "Create setlist",
     "waitingForConnection": "Connecting — try again in a moment.",
@@ -518,6 +521,15 @@
   "bandSettings": {
     "back": "Back to dashboard",
     "offlineNotice": "Couldn't reach the server — some settings and the member list aren't available right now.",
+    "guardWarning": {
+      "title": "Security warning",
+      "message": "{{user}} tried to permanently delete a {{itemType}} directly, bypassing the normal process — it was restored automatically.",
+      "unknownUser": "Someone",
+      "itemTypeSong": "song",
+      "itemTypeVoice": "voice",
+      "itemTypeSetlist": "setlist",
+      "dismiss": "Dismiss"
+    },
     "bandNameLabel": "Band name",
     "rename": {
       "save": "Save",
@@ -604,6 +616,7 @@
     "openAria": "Open {{name}}",
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
+    "createMenuAria": "Create",
     "createTitle": "New event",
     "titlePlaceholder": "Event title",
     "type": "Type",

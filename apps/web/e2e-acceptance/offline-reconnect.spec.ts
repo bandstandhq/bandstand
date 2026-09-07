@@ -38,6 +38,7 @@ test('an edit made while offline reaches other clients once reconnected', async 
     const setlistName = freshName('offline-setlist');
     await aliceContext.setOffline(true);
 
+    await alice.getByRole('button', { name: 'New setlist' }).click();
     await alice.getByPlaceholder('Setlist name').fill(setlistName);
     await alice.getByRole('button', { name: 'Create setlist' }).click();
     // Yjs applies the change to the local doc immediately regardless of

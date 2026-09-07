@@ -160,6 +160,8 @@
     "wakeLockLabel": "Display anlassen, solange Bandstand geöffnet ist",
     "wakeLockUnsupported": "In diesem Browser nicht unterstützt — das Display kann hier nicht wachgehalten werden.",
     "wakeLockStageModeNote": "Im Stage Mode bleibt das Display unabhängig von dieser Einstellung immer an.",
+    "calendarTitle": "Kalender",
+    "weekStartsMondayLabel": "Woche beginnt mit Montag",
     "profileTitle": "Profil",
     "nameLabel": "Anzeigename",
     "nameSave": "Speichern",
@@ -214,6 +216,7 @@
   "setlistList": {
     "back": "Zurück zum Dashboard",
     "title": "Setlists",
+    "newTitle": "Neue Setlist",
     "newPlaceholder": "Setlist-Name",
     "create": "Setlist erstellen",
     "waitingForConnection": "Verbindet — gleich nochmal versuchen.",
@@ -518,6 +521,15 @@
   "bandSettings": {
     "back": "Zurück zum Dashboard",
     "offlineNotice": "Server nicht erreichbar — einige Einstellungen und die Mitgliederliste sind gerade nicht verfügbar.",
+    "guardWarning": {
+      "title": "Sicherheitswarnung",
+      "message": "{{user}} hat versucht, einen {{itemType}} direkt und ohne den normalen Ablauf endgültig zu löschen — das wurde automatisch rückgängig gemacht.",
+      "unknownUser": "Jemand",
+      "itemTypeSong": "Song",
+      "itemTypeVoice": "Voice",
+      "itemTypeSetlist": "Setlist",
+      "dismiss": "Verstanden"
+    },
     "bandNameLabel": "Bandname",
     "rename": {
       "save": "Speichern",
@@ -604,6 +616,7 @@
     "openAria": "{{name}} öffnen",
     "previousMonth": "Vorheriger Monat",
     "nextMonth": "Nächster Monat",
+    "createMenuAria": "Erstellen",
     "createTitle": "Neuer Termin",
     "titlePlaceholder": "Termintitel",
     "type": "Art",

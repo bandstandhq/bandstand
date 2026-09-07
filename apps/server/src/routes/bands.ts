@@ -14,6 +14,7 @@ import { filesRoute } from './files';
 import { inviteManagementRoute } from './invites';
 import { membersRoute } from './members';
 import { nicknamesRoute } from './nicknames';
+import { permissionGuardWarningsRoute } from './permissionGuardWarnings';
 import { pollsRoute } from './polls';
 import { setlistsRoute } from './setlists';
 import { songsRoute } from './songs';
@@ -155,5 +156,6 @@ bandScoped.route('/files', filesRoute);
 bandScoped.route('/annotations', annotationsRoute);
 bandScoped.route('/events', eventsRoute);
 bandScoped.route('/polls', pollsRoute);
+bandScoped.route('/permission-guard-warnings', permissionGuardWarningsRoute);
 
 bandsRoute.route('/:bandId', bandScoped);

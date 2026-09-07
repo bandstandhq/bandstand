@@ -163,6 +163,17 @@ export function AccountSettings() {
         </div>
 
         <div className="mt-4 rounded-md border border-border p-4">
+          <h2 className="font-medium">{t('accountSettings.calendarTitle')}</h2>
+          <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
+            <Switch
+              checked={prefs.weekStartsMonday}
+              onCheckedChange={() => void update({ weekStartsMonday: !prefs.weekStartsMonday })}
+            />
+            {t('accountSettings.weekStartsMondayLabel')}
+          </label>
+        </div>
+
+        <div className="mt-4 rounded-md border border-border p-4">
           <h2 className="font-medium">{t('accountSettings.themeTitle')}</h2>
           <div className="mt-3 flex gap-2">
             {THEMES.map((option) => (

@@ -73,6 +73,11 @@ describe('userPrefsSchema', () => {
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: 'de' })).not.toThrow();
     expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, locale: 'fr' })).toThrow();
   });
+
+  it('defaults weekStartsMonday to true (ISO 8601)', () => {
+    expect(DEFAULT_USER_PREFS.weekStartsMonday).toBe(true);
+    expect(() => userPrefsSchema.parse({ ...DEFAULT_USER_PREFS, weekStartsMonday: false })).not.toThrow();
+  });
 });
 
 describe('updateUserPrefsInputSchema', () => {

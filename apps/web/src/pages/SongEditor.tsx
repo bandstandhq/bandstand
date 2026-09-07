@@ -185,6 +185,13 @@ export function SongEditor() {
 
   function applyTargetKey(newKey: string) {
     setError(null);
+    // A new song's refs below are never seeded by the load effect (issue #233) — do it here instead.
+    if (isNew && !initializedRef.current) {
+      const current = form.getValues();
+      originalKeyRef.current = normalizeKey(current.key);
+      originalBodyRef.current = current.body;
+      initializedRef.current = true;
+    }
     try {
       const transposed = transposeChordProToKey(parseChordPro(originalBodyRef.current), originalKeyRef.current, newKey);
       form.setValue('key', newKey, { shouldDirty: true });
@@ -204,6 +211,14 @@ export function SongEditor() {
   // comparison baseline to them in one call, replacing the separate
   // initialSnapshot state the pre-react-hook-form version needed.
   const initializedRef = useRef(false);
+  // Gates the unsaved-changes guard below — false for an existing song
+  // until its real data has actually landed in the form via reset().
+  // Before that, `form.formState.isDirty` compares live field values
+  // against the still-empty `SONG_EDITOR_DEFAULTS` baseline, which is
+  // meaningless (and, per issue #235, could spuriously read true for a
+  // moment during that load). A new song has nothing to load, so it's
+  // ready from the very first render.
+  const [formReady, setFormReady] = useState(isNew);
   useEffect(() => {
     if (initializedRef.current || isNew) return;
     // The ChordPro form below only applies to a chordpro-kind voice — a
@@ -224,9 +239,14 @@ export function SongEditor() {
     originalKeyRef.current = normalizedKey;
     originalBodyRef.current = existingVoice.body;
     initializedRef.current = true;
+    // Marks the one-time load as done, right after the reset() call above
+    // that it depends on — not derivable during render, since reset() is
+    // itself the side effect that has to happen first.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormReady(true);
   }, [isNew, existingSong, existingVoice, form]);
 
-  const unsavedGuard = useUnsavedChangesGuard(form.formState.isDirty);
+  const unsavedGuard = useUnsavedChangesGuard(formReady && form.formState.isDirty);
 
   if (!bandId) return null;
   if (docStatus === 'forbidden') return <BandAccessDenied />;
@@ -397,7 +417,13 @@ export function SongEditor() {
                 {t('songEditor.key')}
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <Select value={keyLetter} onValueChange={handleKeyLetterChange}>
+                <Select
+                  value={keyLetter}
+                  onValueChange={(value) => {
+                    // Radix fires a spurious onValueChange('') on mount (issue #235) — ignore it.
+                    if (value) handleKeyLetterChange(value);
+                  }}
+                >
                   <SelectTrigger id="song-key" className="w-auto">
                     <SelectValue />
                   </SelectTrigger>
@@ -411,7 +437,9 @@ export function SongEditor() {
                 </Select>
                 <Select
                   value={keyIsMinor ? 'minor' : 'major'}
-                  onValueChange={(value) => handleKeyModeChange(value === 'minor')}
+                  onValueChange={(value) => {
+                    if (value) handleKeyModeChange(value === 'minor');
+                  }}
                 >
                   <SelectTrigger aria-label={t('songEditor.keyMode')} className="w-auto">
                     <SelectValue />
@@ -522,7 +550,23 @@ export function SongEditor() {
                 name="status"
                 render={({ field }) => (
                   <FormItem className="contents">
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        // Radix's Select can fire onValueChange('') of its own
+                        // accord while it's still reconciling the controlled
+                        // `value` against its portal-mounted SelectItems
+                        // (observed right after this field is populated via
+                        // form.reset() for an existing song) — '' is never a
+                        // real SongStatus, only ever a genuine user pick of
+                        // one of the three items below, so it's safe to
+                        // ignore outright. Left unguarded, react-hook-form
+                        // marked the field dirty from this alone, spuriously
+                        // arming the unsaved-changes guard on a song nobody
+                        // had touched yet (issue #235).
+                        if (value) field.onChange(value);
+                      }}
+                    >
                       <SelectTrigger id="song-status" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
