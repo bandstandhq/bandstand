@@ -217,3 +217,5 @@ export function Dashboard() {
     </PageShell>
   );
 }
+
+export default Dashboard;

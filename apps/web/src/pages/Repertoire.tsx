@@ -491,3 +491,5 @@ function DeleteSongForeverDialog({
     </Dialog>
   );
 }
+
+export default Repertoire;

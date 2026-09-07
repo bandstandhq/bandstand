@@ -149,11 +149,17 @@ test.describe('switching bands updates every band-scoped page immediately', () =
     // name (issue #245) — the owner-only rename Input is the actual signal
     // for which band is showing.
     await expect(page.getByRole('heading', { name: 'Band settings' })).toBeVisible();
-    await expect(page.getByLabel('Band name')).toHaveValue(bandA.name);
+    // `.and(page.locator(':visible'))`: once band A's settings page has been visited, it
+    // stays resident (hidden, not unmounted — see PersistentRouteHost.tsx), so after
+    // switching bands there are two "Band name" inputs in the DOM at once — the hidden
+    // one for band A and the visible one for whichever band is current. A plain
+    // getByLabel would be a strict-mode violation (matches both); scoping to the visible
+    // one is what "currently showing" actually means here.
+    await expect(page.getByLabel('Band name').and(page.locator(':visible'))).toHaveValue(bandA.name);
 
     await switchBand(page, page.getByLabel('Active band'), bandB.name);
     await expect(page).toHaveURL(new RegExp(`/bands/${bandB.bandId}/settings$`));
-    await expect(page.getByLabel('Band name')).toHaveValue(bandB.name);
+    await expect(page.getByLabel('Band name').and(page.locator(':visible'))).toHaveValue(bandB.name);
   });
 
   test('Dashboard', async ({ page }) => {

@@ -26,7 +26,7 @@ import {
   SelectValue,
   Textarea,
 } from '@bandstand/ui';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
@@ -152,6 +152,12 @@ const SONG_EDITOR_DEFAULTS: SongEditorValues = {
 };
 
 export function SongEditor() {
+  // This page's own instance's field ids, not `t()`-translated strings — a
+  // literal "song-bpm" etc. was fine when only one page was ever mounted at
+  // a time, but PersistentRouteHost can now keep a hidden previous instance
+  // of this same page resident alongside a visible one, and duplicate DOM
+  // ids break label association (for screen readers, not just tests).
+  const uid = useId();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { bandId, songId } = useParams<{ bandId: string; songId?: string }>();
@@ -319,6 +325,14 @@ export function SongEditor() {
           bandNotes,
         });
         setSongStatus(doc, songId, status);
+        // Sync the form to what was actually persisted (trim/clamp can differ from
+        // what was typed) — this instance may stay resident and get revisited later
+        // without remounting (PersistentRouteHost), so it can't rely on a fresh
+        // mount's doc-reload effect to correct a stale, pre-sanitize display.
+        form.setValue('title', title.trim());
+        form.setValue('artist', artist.trim());
+        form.setValue('bpm', safeBpm);
+        form.setValue('durationSec', safeDurationSec);
         // `body` is only ever populated for a chordpro-kind default voice
         // (see the init effect above, which bails out for any other kind)
         // — calling this unconditionally for a `files` voice happened to be
@@ -385,12 +399,12 @@ export function SongEditor() {
                 name="title"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <label htmlFor="song-title" className="text-sm text-muted-foreground">
+                    <label htmlFor={`song-title-${uid}`} className="text-sm text-muted-foreground">
                       {t('songEditor.title')}
                       <RequiredMark t={t} />
                     </label>
                     <FormControl>
-                      <Input id="song-title" {...field} />
+                      <Input id={`song-title-${uid}`} {...field} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -400,12 +414,12 @@ export function SongEditor() {
                 name="artist"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <label htmlFor="song-artist" className="text-sm text-muted-foreground">
+                    <label htmlFor={`song-artist-${uid}`} className="text-sm text-muted-foreground">
                       {t('songEditor.artist')}
                       <RequiredMark t={t} />
                     </label>
                     <FormControl>
-                      <Input id="song-artist" {...field} />
+                      <Input id={`song-artist-${uid}`} {...field} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -413,7 +427,7 @@ export function SongEditor() {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="song-key" className="text-sm text-muted-foreground">
+              <label htmlFor={`song-key-${uid}`} className="text-sm text-muted-foreground">
                 {t('songEditor.key')}
               </label>
               <div className="flex flex-wrap items-center gap-2">
@@ -424,7 +438,7 @@ export function SongEditor() {
                     if (value) handleKeyLetterChange(value);
                   }}
                 >
-                  <SelectTrigger id="song-key" className="w-auto">
+                  <SelectTrigger id={`song-key-${uid}`} className="w-auto">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -473,7 +487,7 @@ export function SongEditor() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label htmlFor="song-bpm" className="text-sm text-muted-foreground">
+                <label htmlFor={`song-bpm-${uid}`} className="text-sm text-muted-foreground">
                   {t('songEditor.bpm')}
                 </label>
                 <div className="flex gap-2">
@@ -484,7 +498,7 @@ export function SongEditor() {
                       <FormItem className="contents">
                         <FormControl>
                           <Input
-                            id="song-bpm"
+                            id={`song-bpm-${uid}`}
                             type="number"
                             inputMode="numeric"
                             min={20}
@@ -542,7 +556,7 @@ export function SongEditor() {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="song-status" className="text-sm text-muted-foreground">
+              <label htmlFor={`song-status-${uid}`} className="text-sm text-muted-foreground">
                 {t('songEditor.status')}
               </label>
               <FormField
@@ -567,7 +581,7 @@ export function SongEditor() {
                         if (value) field.onChange(value);
                       }}
                     >
-                      <SelectTrigger id="song-status" className="w-full">
+                      <SelectTrigger id={`song-status-${uid}`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -586,11 +600,11 @@ export function SongEditor() {
               name="bandNotes"
               render={({ field }) => (
                 <FormItem className="space-y-1">
-                  <label htmlFor="song-notes" className="text-sm text-muted-foreground">
+                  <label htmlFor={`song-notes-${uid}`} className="text-sm text-muted-foreground">
                     {t('songEditor.bandNotes')}
                   </label>
                   <FormControl>
-                    <Textarea id="song-notes" rows={3} {...field} />
+                    <Textarea id={`song-notes-${uid}`} rows={3} {...field} />
                   </FormControl>
                 </FormItem>
               )}
@@ -601,11 +615,11 @@ export function SongEditor() {
               name="body"
               render={({ field }) => (
                 <FormItem className="space-y-1">
-                  <label htmlFor="song-body" className="text-sm text-muted-foreground">
+                  <label htmlFor={`song-body-${uid}`} className="text-sm text-muted-foreground">
                     {t('songEditor.chordProBody')}
                   </label>
                   <FormControl>
-                    <Textarea id="song-body" rows={16} className="font-mono" {...field} />
+                    <Textarea id={`song-body-${uid}`} rows={16} className="font-mono" {...field} />
                   </FormControl>
                 </FormItem>
               )}
@@ -628,3 +642,5 @@ export function SongEditor() {
     </PageShell>
   );
 }
+
+export default SongEditor;

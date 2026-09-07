@@ -120,7 +120,8 @@ export function BottomNav() {
         {tabs.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
           return (
-            <BottomNavItem key={to} asChild active={active}>
+            // `label`, not `to` — see AppSidebar.tsx's identical fix for why.
+            <BottomNavItem key={label} asChild active={active}>
               <Link to={to} prefetch="intent">
                 <Icon aria-hidden="true" />
                 {label}

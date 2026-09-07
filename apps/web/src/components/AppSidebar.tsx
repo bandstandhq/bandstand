@@ -74,7 +74,10 @@ export function AppSidebar() {
             const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
             return (
               <SidebarMenuButton
-                key={to}
+                // `label`, not `to` — `to` collides across all items while bandPath()'s
+                // bandId is still resolving, corrupting reconciliation now that this stays
+                // mounted across that transition instead of remounting (see AuthenticatedLayout.tsx).
+                key={label}
                 asChild
                 collapsed={collapsed}
                 active={active}

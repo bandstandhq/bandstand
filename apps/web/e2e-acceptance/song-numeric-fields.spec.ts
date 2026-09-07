@@ -32,21 +32,28 @@ test('BPM clamps to 20-400, and duration is entered as minutes and seconds', asy
     await page.getByLabel('Seconds').fill('45');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page).toHaveURL(/\/edit$/);
-    await expect(page.getByLabel('BPM')).toHaveValue('400');
-    await expect(page.getByLabel('Minutes')).toHaveValue('3');
-    await expect(page.getByLabel('Seconds')).toHaveValue('45');
+    // `.and(page.locator(':visible'))`: the songs/new form this song was created from
+    // stays resident (hidden, not unmounted — see PersistentRouteHost.tsx) once we
+    // navigate to its own /edit page, so a plain getByLabel is a strict-mode violation
+    // (matches both the hidden songs/new form and the visible edit one).
+    const visibleBpm = () => page.getByLabel('BPM').and(page.locator(':visible'));
+    const visibleMinutes = () => page.getByLabel('Minutes').and(page.locator(':visible'));
+    const visibleSeconds = () => page.getByLabel('Seconds').and(page.locator(':visible'));
+    await expect(visibleBpm()).toHaveValue('400');
+    await expect(visibleMinutes()).toHaveValue('3');
+    await expect(visibleSeconds()).toHaveValue('45');
 
     // A BPM below the floor clamps up instead of resetting to the default either.
-    await page.getByLabel('BPM').fill('1');
-    await page.getByLabel('Seconds').fill('5');
+    await visibleBpm().fill('1');
+    await visibleSeconds().fill('5');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page).toHaveURL(/\/repertoire$/);
 
     await page.getByRole('link', { name: /Edit Numeric Fields Song/i }).click();
     await page.waitForURL(/\/edit$/);
-    await expect(page.getByLabel('BPM')).toHaveValue('20');
-    await expect(page.getByLabel('Minutes')).toHaveValue('3');
-    await expect(page.getByLabel('Seconds')).toHaveValue('5');
+    await expect(visibleBpm()).toHaveValue('20');
+    await expect(visibleMinutes()).toHaveValue('3');
+    await expect(visibleSeconds()).toHaveValue('5');
   } finally {
     await deleteThrowawayBand(token, bandId);
   }
